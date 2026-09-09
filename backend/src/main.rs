@@ -1,87 +1,46 @@
+use std::process::exit;
+
+use actix_web::{
+    App, HttpServer,
+    middleware::{Logger, NormalizePath},
+    web::{ThinData, delete, get, patch, post, scope},
+};
+use sea_orm::Database;
+use tracing::error;
+
 mod models;
+mod routes;
 
-#[tokio::main]
-async fn main() {}
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    tracing_subscriber::fmt().init();
 
-#[cfg(test)]
-mod tests {
-    use sea_orm::{ActiveModelTrait, ActiveValue::Set, Database, EntityTrait};
-
-    use super::*;
-
-    #[tokio::test]
-    async fn test() {
-        let db = Database::connect("sqlite://./db.test.sqlite?mode=rwc")
-            .await
-            .unwrap();
-
-        // Cleanup
-        models::task::Entity::delete_many().exec(&db).await.unwrap();
-        models::board::Entity::delete_many()
-            .exec(&db)
-            .await
-            .unwrap();
-
-        let first_board = models::board::ActiveModel {
-            name: Set(String::from("First Board")),
-            ..Default::default()
-        }
-        .insert(&db)
+    let db = Database::connect("sqlite://./db.sqlite?mode=rwc")
         .await
-        .expect("Failed to save the first board");
+        .unwrap_or_else(|_| {
+            error!("Failed to connect to the database");
+            exit(1)
+        });
 
-        let second_board = models::board::ActiveModel {
-            name: Set(String::from("Second Board")),
-            ..Default::default()
-        }
-        .insert(&db)
-        .await
-        .expect("Failed to save the second board");
+    let db = ThinData(db);
 
-        models::task::ActiveModel {
-            title: Set(String::from("Some task")),
-            author: Set(String::from("You")),
-            board_id: Set(first_board.id),
-            ..Default::default()
-        }
-        .insert(&db)
-        .await
-        .expect("Failed to save the first task");
-
-        models::task::ActiveModel {
-            title: Set(String::from("Some task")),
-            author: Set(String::from("Me")),
-            board_id: Set(second_board.id),
-            ..Default::default()
-        }
-        .insert(&db)
-        .await
-        .expect("Failed to save the second task");
-
-        models::task::ActiveModel {
-            title: Set(String::from("Another Task")),
-            author: Set(String::from("You")),
-            board_id: Set(second_board.id),
-            ..Default::default()
-        }
-        .insert(&db)
-        .await
-        .expect("Failed to save the third task");
-
-        let boards_with_tasks = models::board::Entity::find()
-            .find_with_related(models::task::Entity)
-            .all(&db)
-            .await
-            .unwrap();
-
-        for (board, tasks) in boards_with_tasks {
-            println!("Board: {}", board.name);
-
-            for task in tasks {
-                println!("- : {} by {}", task.title, task.author);
-            }
-
-            println!();
-        }
-    }
+    HttpServer::new(move || {
+        App::new()
+            .app_data(db.clone())
+            .wrap(Logger::default())
+            .wrap(NormalizePath::new(
+                actix_web::middleware::TrailingSlash::Trim,
+            ))
+            .service(
+                scope("/boards")
+                    .route("", post().to(routes::boards::create_board))
+                    .route("{id}", get().to(routes::boards::get_board))
+                    .route("", get().to(routes::boards::get_boards))
+                    .route("{id}", patch().to(routes::boards::update_board))
+                    .route("{id}", delete().to(routes::boards::delete_board)),
+            )
+    })
+    .bind(("127.0.0.1", 8080))?
+    .run()
+    .await
 }
