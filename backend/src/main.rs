@@ -39,6 +39,14 @@ async fn main() -> std::io::Result<()> {
                     .route("{id}", patch().to(routes::boards::update_board))
                     .route("{id}", delete().to(routes::boards::delete_board)),
             )
+            .service(
+                scope("/tasks")
+                    .route("", post().to(routes::tasks::create_task))
+                    .route("", get().to(routes::tasks::get_tasks))
+                    .route("/{id}", get().to(routes::tasks::get_task))
+                    .route("/{id}", patch().to(routes::tasks::update_task))
+                    .route("/{id}", delete().to(routes::tasks::delete_task)),
+            )
     })
     .bind(("127.0.0.1", 8080))?
     .run()
