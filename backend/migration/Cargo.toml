@@ -16,5 +16,6 @@ tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
 features = [
     "runtime-tokio",
     "sqlx-sqlite",
+    "with-uuid"
 ]
 version = "2.0.0"

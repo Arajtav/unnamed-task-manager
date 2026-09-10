@@ -66,7 +66,7 @@ pub async fn get_board(db: ThinData<DatabaseConnection>, id: web::Path<i32>) -> 
         }),
         Ok(None) => HttpResponse::NotFound().finish(),
         Err(err) => {
-            error!("Failed to get a board: {err}");
+            error!("Failed to get board: {err}");
             HttpResponse::InternalServerError().finish()
         }
     }
@@ -170,7 +170,7 @@ pub async fn delete_board(db: ThinData<DatabaseConnection>, id: web::Path<i32>) 
     match board.delete(&*db).await {
         Ok(_) => HttpResponse::NoContent().finish(),
         Err(err) => {
-            error!("Failed to get board: {err}");
+            error!("Failed to delete board: {err}");
             HttpResponse::InternalServerError().finish()
         }
     }

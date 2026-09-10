@@ -81,7 +81,7 @@ pub async fn get_task(db: ThinData<DatabaseConnection>, id: web::Path<i32>) -> i
         }),
         Ok(None) => HttpResponse::NotFound().finish(),
         Err(err) => {
-            error!("Failed to get a task: {err}");
+            error!("Failed to get task: {err}");
             HttpResponse::InternalServerError().finish()
         }
     }
@@ -199,7 +199,7 @@ pub async fn delete_task(db: ThinData<DatabaseConnection>, id: web::Path<i32>) -
     match task.delete(&*db).await {
         Ok(_) => HttpResponse::NoContent().finish(),
         Err(err) => {
-            error!("Failed to get task: {err}");
+            error!("Failed to delete task: {err}");
             HttpResponse::InternalServerError().finish()
         }
     }
