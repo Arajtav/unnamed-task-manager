@@ -1,3 +1,4 @@
+pub mod auth;
 pub mod boards;
 pub mod tasks;
 pub mod user_emails;

@@ -12,8 +12,8 @@ use crate::models;
 
 #[derive(Serialize)]
 pub struct User {
-    id: Uuid,
-    created_at: DateTime<Utc>,
+    pub id: Uuid,
+    pub created_at: DateTime<Utc>,
 }
 
 pub async fn create_user(db: ThinData<DatabaseConnection>) -> impl Responder {
