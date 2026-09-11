@@ -6,9 +6,8 @@ use actix_web::{
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use serde::Deserialize;
 use tracing::error;
-use uuid::Uuid;
 
-use crate::{models, routes::users::User};
+use crate::{SessionUser, models, routes::users::User};
 
 #[derive(Deserialize)]
 pub struct LoginRequest {
@@ -49,15 +48,7 @@ pub async fn logout(session: Session) -> actix_web::Result<HttpResponse> {
     Ok(HttpResponse::NoContent().finish())
 }
 
-pub async fn me(session: Session, db: ThinData<DatabaseConnection>) -> impl Responder {
-    let Ok(Some(user_id)) = session.get::<Uuid>("user_id") else {
-        return HttpResponse::Unauthorized().finish();
-    };
-
-    let Ok(Some(user)) = models::user::Entity::find_by_id(user_id).one(&*db).await else {
-        return HttpResponse::Unauthorized().finish();
-    };
-
+pub async fn me(user: web::ReqData<SessionUser>) -> impl Responder {
     HttpResponse::Ok().json(User {
         id: user.id,
         created_at: user.created_at,

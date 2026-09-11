@@ -2,19 +2,21 @@ use std::process::exit;
 
 use actix_session::{SessionExt, SessionMiddleware, storage::CookieSessionStore};
 use actix_web::{
-    App, HttpResponse, HttpServer,
+    App, HttpMessage, HttpServer,
     body::BoxBody,
     cookie::Key,
     dev::{ServiceRequest, ServiceResponse},
     middleware::{self, Logger, Next, NormalizePath},
-    web::{ThinData, delete, get, patch, post, scope},
+    web::{ThinData, delete, get, patch, post, resource, scope},
 };
 use sea_orm::{Database, DatabaseConnection, EntityTrait};
-use tracing::error;
+use tracing::{debug, error};
 use uuid::Uuid;
 
 mod models;
 mod routes;
+
+pub type SessionUser = models::user::Model;
 
 async fn require_auth(
     req: ServiceRequest,
@@ -23,22 +25,25 @@ async fn require_auth(
     let session = req.get_session();
 
     let Ok(Some(user_id)) = session.get::<Uuid>("user_id") else {
-        return Ok(req.into_response(HttpResponse::Unauthorized().finish()));
+        return Err(actix_web::error::ErrorUnauthorized(""));
     };
 
     let db = req.app_data::<ThinData<DatabaseConnection>>().unwrap();
 
-    if models::user::Entity::find_by_id(user_id)
+    let user: Option<SessionUser> = models::user::Entity::find_by_id(user_id)
         .one(&**db)
         .await
         .map_err(|err| {
             error!("Failed to get user in auth!!!: {err}");
-            actix_web::error::ErrorInternalServerError(err)
-        })?
-        .is_none()
-    {
+            actix_web::error::ErrorInternalServerError("")
+        })?;
+
+    if let Some(user) = user {
+        debug!("{user:?}");
+        req.extensions_mut().insert(user);
+    } else {
         session.purge();
-        return Ok(req.into_response(HttpResponse::Unauthorized().finish()));
+        return Err(actix_web::error::ErrorUnauthorized(""));
     }
 
     next.call(req).await
@@ -46,7 +51,13 @@ async fn require_auth(
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    tracing_subscriber::fmt().init();
+    if cfg!(debug_assertions) {
+        tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::DEBUG)
+            .init();
+    } else {
+        tracing_subscriber::fmt().init();
+    }
 
     let db = Database::connect("sqlite://./db.sqlite?mode=rwc")
         .await
@@ -74,7 +85,11 @@ async fn main() -> std::io::Result<()> {
                 scope("/auth")
                     .route("/login", post().to(routes::auth::login))
                     .route("/logout", post().to(routes::auth::logout))
-                    .route("/me", get().to(routes::auth::me)),
+                    .service(
+                        resource("/me")
+                            .wrap(middleware::from_fn(require_auth))
+                            .route(get().to(routes::auth::me)),
+                    ),
             )
             .service(
                 scope("")
