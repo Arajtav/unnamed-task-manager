@@ -1,23 +1,25 @@
 use actix_web::{
-    HttpResponse, Responder,
-    web::{self, ThinData},
+    HttpResponse, Result, error,
+    http::StatusCode,
+    web::{self, Json, ThinData},
 };
 use chrono::{DateTime, Utc};
 use sea_orm::{
     ActiveModelTrait,
     ActiveValue::{NotSet, Set},
-    ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel, QueryFilter, SqlErr,
+    ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel, ModelTrait, QueryFilter, SqlErr,
 };
 use serde::{Deserialize, Serialize};
 use tracing::error;
 
-use crate::models;
+use crate::{SessionUser, models};
 
 #[derive(Deserialize)]
 pub struct CreateTask {
     board_id: i32,
     title: String,
     description: Option<String>,
+    author: String,
 }
 
 #[derive(Serialize)]
@@ -30,61 +32,80 @@ pub struct Task {
 }
 
 pub async fn create_task(
+    user: web::ReqData<SessionUser>,
     db: ThinData<DatabaseConnection>,
-    body: web::Json<CreateTask>,
-) -> impl Responder {
+    body: Json<CreateTask>,
+) -> Result<(Json<Task>, StatusCode)> {
     let body = body.into_inner();
+
+    let owns_email = models::email::Entity::find_by_id(&body.author)
+        .filter(models::email::Column::UserId.eq(user.id))
+        .one(&*db)
+        .await
+        .map_err(|err| {
+            error!("Failed to get email in create_task: {err}");
+            error::ErrorInternalServerError("")
+        })?
+        .is_some();
+
+    if !owns_email {
+        return Err(error::ErrorForbidden("AUTHOR"));
+    }
 
     let task = models::task::ActiveModel {
         title: Set(body.title),
         description: body.description.map_or(NotSet, Set),
-        author: Set(String::from("UNKNOWN")),
+        author: Set(body.author),
         board_id: Set(body.board_id),
         ..Default::default()
     };
 
-    let task = match task.save(&*db).await {
-        Ok(task) => task,
-        Err(err) => {
-            if let Some(SqlErr::UniqueConstraintViolation(_)) = err.sql_err() {
-                return HttpResponse::Conflict().body("TASK_TITLE_TAKEN");
-            }
-
-            if let Some(SqlErr::ForeignKeyConstraintViolation(_)) = err.sql_err() {
-                return HttpResponse::NotFound().finish();
-            }
-
-            error!("Failed to create a board: {err}");
-            return HttpResponse::InternalServerError().finish();
+    let task = task.save(&*db).await.map_err(|err| {
+        if let Some(SqlErr::UniqueConstraintViolation(_)) = err.sql_err() {
+            return error::ErrorConflict("TITLE");
         }
-    };
 
-    HttpResponse::Created().json(Task {
-        id: task.id.unwrap(),
-        title: task.title.unwrap(),
-        description: task.description.unwrap(),
-        created_at: task.created_at.unwrap(),
-        author: task.author.unwrap(),
-    })
+        if let Some(SqlErr::ForeignKeyConstraintViolation(_)) = err.sql_err() {
+            return error::ErrorNotFound("");
+        }
+
+        error!("Failed to create a board: {err}");
+        error::ErrorInternalServerError("")
+    })?;
+
+    Ok((
+        Json(Task {
+            id: task.id.unwrap(),
+            title: task.title.unwrap(),
+            description: task.description.unwrap(),
+            created_at: task.created_at.unwrap(),
+            author: task.author.unwrap(),
+        }),
+        StatusCode::CREATED,
+    ))
 }
 
-pub async fn get_task(db: ThinData<DatabaseConnection>, id: web::Path<i32>) -> impl Responder {
-    let task = models::task::Entity::find_by_id(*id).one(&*db).await;
+pub async fn get_task(
+    db: ThinData<DatabaseConnection>,
+    id: web::Path<i32>,
+) -> Result<Option<Json<Task>>> {
+    let task = models::task::Entity::find_by_id(*id)
+        .one(&*db)
+        .await
+        .map_err(|err| {
+            error!("Failed to get task: {err}");
+            error::ErrorInternalServerError("")
+        })?;
 
-    match task {
-        Ok(Some(task)) => HttpResponse::Ok().json(Task {
+    Ok(task.map(|task| {
+        Json(Task {
             id: task.id,
             title: task.title,
             description: task.description,
             created_at: task.created_at,
             author: task.author,
-        }),
-        Ok(None) => HttpResponse::NotFound().finish(),
-        Err(err) => {
-            error!("Failed to get task: {err}");
-            HttpResponse::InternalServerError().finish()
-        }
-    }
+        })
+    }))
 }
 
 #[derive(Deserialize)]
@@ -96,7 +117,7 @@ pub struct TaskQuery {
 pub async fn get_tasks(
     db: ThinData<DatabaseConnection>,
     params: web::Query<TaskQuery>,
-) -> impl Responder {
+) -> Result<Json<Vec<Task>>> {
     let params = params.into_inner();
 
     let mut query = models::task::Entity::find();
@@ -109,26 +130,23 @@ pub async fn get_tasks(
         query = query.filter(models::task::Column::BoardId.eq(board));
     }
 
-    let tasks = query.all(&*db).await;
+    let tasks = query.all(&*db).await.map_err(|err| {
+        error!("Failed to get tasks: {err}");
+        error::ErrorInternalServerError("")
+    })?;
 
-    match tasks {
-        Ok(tasks) => HttpResponse::Ok().json(
-            tasks
-                .into_iter()
-                .map(|task| Task {
-                    id: task.id,
-                    title: task.title,
-                    description: task.description,
-                    created_at: task.created_at,
-                    author: task.author,
-                })
-                .collect::<Vec<_>>(),
-        ),
-        Err(err) => {
-            error!("Failed to get tasks: {err}");
-            HttpResponse::InternalServerError().finish()
-        }
-    }
+    Ok(Json(
+        tasks
+            .into_iter()
+            .map(|task| Task {
+                id: task.id,
+                title: task.title,
+                description: task.description,
+                created_at: task.created_at,
+                author: task.author,
+            })
+            .collect(),
+    ))
 }
 
 #[derive(Deserialize)]
@@ -140,20 +158,23 @@ pub struct UpdateTask {
 pub async fn update_task(
     db: ThinData<DatabaseConnection>,
     id: web::Path<i32>,
-    body: web::Json<UpdateTask>,
-) -> impl Responder {
+    body: Json<UpdateTask>,
+) -> Result<Option<Json<Task>>> {
     let body = body.into_inner();
 
-    let task = models::task::Entity::find_by_id(*id).one(&*db).await;
-
-    let mut task = match task {
-        Ok(Some(task)) => task.into_active_model(),
-        Ok(None) => return HttpResponse::NotFound().finish(),
-        Err(err) => {
+    let task = models::task::Entity::find_by_id(*id)
+        .one(&*db)
+        .await
+        .map_err(|err| {
             error!("Failed to get task: {err}");
-            return HttpResponse::InternalServerError().finish();
-        }
+            error::ErrorInternalServerError("")
+        })?;
+
+    let Some(task) = task else {
+        return Ok(None);
     };
+
+    let mut task = task.into_active_model();
 
     if let Some(title) = body.title {
         task.title = Set(title);
@@ -163,44 +184,44 @@ pub async fn update_task(
         task.description = Set(description);
     }
 
-    let task = match task.update(&*db).await {
-        Ok(task) => task,
-        Err(err) => {
-            if let Some(SqlErr::UniqueConstraintViolation(_)) = err.sql_err() {
-                return HttpResponse::Conflict().body("TASK_TITLE_TAKEN");
-            }
-
-            error!("Failed to update title: {err}");
-            return HttpResponse::InternalServerError().finish();
+    let task = task.update(&*db).await.map_err(|err| {
+        if let Some(SqlErr::UniqueConstraintViolation(_)) = err.sql_err() {
+            return error::ErrorConflict("TITLE");
         }
-    };
 
-    HttpResponse::Ok().json(Task {
+        error!("Failed to update title: {err}");
+        error::ErrorInternalServerError("")
+    })?;
+
+    Ok(Some(Json(Task {
         id: task.id,
         title: task.title,
         description: task.description,
         created_at: task.created_at,
         author: task.author,
-    })
+    })))
 }
 
-pub async fn delete_task(db: ThinData<DatabaseConnection>, id: web::Path<i32>) -> impl Responder {
-    let task = models::task::Entity::find_by_id(*id).one(&*db).await;
-
-    let task = match task {
-        Ok(Some(task)) => task.into_active_model(),
-        Ok(None) => return HttpResponse::NotFound().finish(),
-        Err(err) => {
+pub async fn delete_task(
+    db: ThinData<DatabaseConnection>,
+    id: web::Path<i32>,
+) -> Result<Option<HttpResponse>> {
+    let task = models::task::Entity::find_by_id(*id)
+        .one(&*db)
+        .await
+        .map_err(|err| {
             error!("Failed to get task: {err}");
-            return HttpResponse::InternalServerError().finish();
-        }
+            error::ErrorInternalServerError("")
+        })?;
+
+    let Some(task) = task else {
+        return Ok(None);
     };
 
-    match task.delete(&*db).await {
-        Ok(_) => HttpResponse::NoContent().finish(),
-        Err(err) => {
-            error!("Failed to delete task: {err}");
-            HttpResponse::InternalServerError().finish()
-        }
-    }
+    task.delete(&*db).await.map_err(|err| {
+        error!("Failed to delete task: {err}");
+        error::ErrorInternalServerError("")
+    })?;
+
+    Ok(Some(HttpResponse::NoContent().finish()))
 }

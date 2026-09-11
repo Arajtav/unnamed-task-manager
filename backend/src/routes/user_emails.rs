@@ -1,10 +1,11 @@
 use actix_web::{
-    HttpResponse, Responder,
-    web::{self, ThinData},
+    HttpResponse, Result, error,
+    http::StatusCode,
+    web::{self, Json, ThinData},
 };
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, DbErr, EntityTrait,
-    IntoActiveModel, ModelTrait, QueryFilter, SqlErr,
+    ModelTrait, QueryFilter, SqlErr,
 };
 use serde::{Deserialize, Serialize};
 use tracing::error;
@@ -20,103 +21,111 @@ pub struct Email {
 pub async fn create_email(
     db: ThinData<DatabaseConnection>,
     id: web::Path<Uuid>,
-    body: web::Json<Email>,
-) -> impl Responder {
+    body: Json<Email>,
+) -> Result<Option<(Json<Email>, StatusCode)>> {
     let body = body.into_inner();
+
     let email = models::email::ActiveModel {
         email: Set(body.email.clone()),
         user_id: Set(*id),
     };
 
-    let email = match email.insert(&*db).await {
-        Ok(email) => email,
+    match email.insert(&*db).await {
+        Ok(email) => Ok(Some((
+            Json(Email { email: email.email }),
+            StatusCode::CREATED,
+        ))),
         Err(err) => {
             // TODO: it's probably fine but i'd rather have do nothing and 200 when the email object already exists for the specified user.
             if let Some(SqlErr::UniqueConstraintViolation(_)) = err.sql_err() {
-                return HttpResponse::Conflict().body("EMAIL_IN_USE");
+                return Err(error::ErrorConflict(""));
             }
 
             if let DbErr::Custom(msg) = &err
                 && msg == "invalid RFC 5322 email address"
             {
-                return HttpResponse::BadRequest().body("INVALID_EMAIL");
+                return Err(error::ErrorBadRequest("EMAIL"));
             }
 
             if let Some(SqlErr::ForeignKeyConstraintViolation(_)) = err.sql_err() {
-                return HttpResponse::NotFound().finish();
+                return Ok(None);
             }
 
             error!("Failed to create email: {err}");
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
-
-    HttpResponse::Created().json(Email { email: email.email })
-}
-
-pub async fn get_emails(db: ThinData<DatabaseConnection>, id: web::Path<Uuid>) -> impl Responder {
-    let user = models::user::Entity::find_by_id(*id).one(&*db).await;
-
-    let user = match user {
-        Ok(Some(user)) => user,
-        Ok(None) => return HttpResponse::NotFound().finish(),
-        Err(err) => {
-            error!("Failed to get user: {err}");
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
-
-    let emails = user.find_related(models::email::Entity).all(&*db).await;
-
-    match emails {
-        Ok(emails) => HttpResponse::Ok().json(
-            emails
-                .into_iter()
-                .map(|email| Email { email: email.email })
-                .collect::<Vec<_>>(),
-        ),
-        Err(err) => {
-            error!("Failed to get email: {err}");
-            HttpResponse::InternalServerError().finish()
+            Err(error::ErrorInternalServerError(""))
         }
     }
+}
+
+pub async fn get_emails(
+    db: ThinData<DatabaseConnection>,
+    id: web::Path<Uuid>,
+) -> Result<Option<Json<Vec<Email>>>> {
+    let user = models::user::Entity::find_by_id(*id)
+        .one(&*db)
+        .await
+        .map_err(|err| {
+            error!("Failed to get user: {err}");
+            error::ErrorInternalServerError("")
+        })?;
+
+    let Some(user) = user else {
+        return Ok(None);
+    };
+
+    let emails = user
+        .find_related(models::email::Entity)
+        .all(&*db)
+        .await
+        .map_err(|err| {
+            error!("Failed to get email: {err}");
+            error::ErrorInternalServerError("")
+        })?;
+
+    Ok(Some(Json(
+        emails
+            .into_iter()
+            .map(|email| Email { email: email.email })
+            .collect(),
+    )))
 }
 
 pub async fn delete_email(
     db: ThinData<DatabaseConnection>,
     path: web::Path<(Uuid, String)>,
-) -> impl Responder {
+) -> Result<Option<HttpResponse>> {
     let (id, email_address) = path.into_inner();
 
-    let user = match models::user::Entity::find_by_id(id).one(&*db).await {
-        Ok(Some(user)) => user,
-        Ok(None) => return HttpResponse::NotFound().finish(),
-        Err(err) => {
+    let user = models::user::Entity::find_by_id(id)
+        .one(&*db)
+        .await
+        .map_err(|err| {
             error!("Failed to get user: {err}");
-            return HttpResponse::InternalServerError().finish();
-        }
+            error::ErrorInternalServerError("")
+        })?;
+
+    let Some(user) = user else {
+        return Ok(None);
     };
 
     let email = user
         .find_related(models::email::Entity)
         .filter(models::email::Column::Email.eq(email_address))
         .one(&*db)
-        .await;
-
-    let email = match email {
-        Ok(Some(email)) => email.into_active_model(),
-        Ok(None) => return HttpResponse::NotFound().finish(),
-        Err(err) => {
+        .await
+        .map_err(|err| {
             error!("Failed to get email: {err}");
-            return HttpResponse::InternalServerError().finish();
-        }
+            error::ErrorInternalServerError("")
+        })?;
+
+    let Some(email) = email else {
+        return Ok(None);
     };
 
-    match email.delete(&*db).await {
-        Ok(_) => HttpResponse::NoContent().finish(),
-        Err(err) => {
-            error!("Failed to get email: {err}");
-            HttpResponse::InternalServerError().finish()
-        }
-    }
+    email.delete(&*db).await.map_err(|err| {
+        error!("Failed to delete email: {err}");
+        error::ErrorInternalServerError("")
+    })?;
+
+    Ok(Some(HttpResponse::NoContent().finish()))
 }

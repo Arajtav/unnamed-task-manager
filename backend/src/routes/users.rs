@@ -1,9 +1,10 @@
 use actix_web::{
-    HttpResponse, Responder,
-    web::{self, ThinData},
+    HttpResponse, Result, error,
+    http::StatusCode,
+    web::{self, Json, ThinData},
 };
 use chrono::{DateTime, Utc};
-use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait, IntoActiveModel};
+use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait, ModelTrait};
 use serde::Serialize;
 use tracing::error;
 use uuid::Uuid;
@@ -16,78 +17,86 @@ pub struct User {
     pub created_at: DateTime<Utc>,
 }
 
-pub async fn create_user(db: ThinData<DatabaseConnection>) -> impl Responder {
+pub async fn create_user(db: ThinData<DatabaseConnection>) -> Result<(Json<User>, StatusCode)> {
     let user = models::user::ActiveModel {
         ..Default::default()
     };
 
-    let user = match user.save(&*db).await {
-        Ok(user) => user,
+    match user.save(&*db).await {
+        Ok(user) => Ok((
+            Json(User {
+                id: user.id.unwrap(),
+                created_at: user.created_at.unwrap(),
+            }),
+            StatusCode::CREATED,
+        )),
         Err(err) => {
             error!("Failed to create user: {err}");
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
-
-    HttpResponse::Created().json(User {
-        id: user.id.unwrap(),
-        created_at: user.created_at.unwrap(),
-    })
-}
-
-pub async fn get_users(db: ThinData<DatabaseConnection>) -> impl Responder {
-    let users = models::user::Entity::find().all(&*db).await;
-
-    match users {
-        Ok(users) => HttpResponse::Ok().json(
-            users
-                .into_iter()
-                .map(|user| User {
-                    id: user.id,
-                    created_at: user.created_at,
-                })
-                .collect::<Vec<_>>(),
-        ),
-        Err(err) => {
-            error!("Failed to get user: {err}");
-            HttpResponse::InternalServerError().finish()
+            Err(error::ErrorInternalServerError(""))
         }
     }
 }
 
-pub async fn get_user(db: ThinData<DatabaseConnection>, id: web::Path<Uuid>) -> impl Responder {
-    let user = models::user::Entity::find_by_id(*id).one(&*db).await;
+pub async fn get_users(db: ThinData<DatabaseConnection>) -> Result<Json<Vec<User>>> {
+    let users = models::user::Entity::find()
+        .all(&*db)
+        .await
+        .map_err(|err| {
+            error!("Failed to get user: {err}");
+            error::ErrorInternalServerError("")
+        })?;
 
-    match user {
-        Ok(Some(user)) => HttpResponse::Ok().json(User {
+    Ok(Json(
+        users
+            .into_iter()
+            .map(|user| User {
+                id: user.id,
+                created_at: user.created_at,
+            })
+            .collect(),
+    ))
+}
+
+pub async fn get_user(
+    db: ThinData<DatabaseConnection>,
+    id: web::Path<Uuid>,
+) -> Result<Option<Json<User>>> {
+    let user = models::user::Entity::find_by_id(*id)
+        .one(&*db)
+        .await
+        .map_err(|err| {
+            error!("Failed to get user: {err}");
+            error::ErrorInternalServerError("")
+        })?;
+
+    Ok(user.map(|user| {
+        Json(User {
             id: user.id,
             created_at: user.created_at,
-        }),
-        Ok(None) => HttpResponse::NotFound().finish(),
-        Err(err) => {
-            error!("Failed to get user: {err}");
-            HttpResponse::InternalServerError().finish()
-        }
-    }
+        })
+    }))
 }
 
-pub async fn delete_user(db: ThinData<DatabaseConnection>, id: web::Path<Uuid>) -> impl Responder {
-    let user = models::user::Entity::find_by_id(*id).one(&*db).await;
-
-    let user = match user {
-        Ok(Some(user)) => user.into_active_model(),
-        Ok(None) => return HttpResponse::NotFound().finish(),
-        Err(err) => {
+pub async fn delete_user(
+    db: ThinData<DatabaseConnection>,
+    id: web::Path<Uuid>,
+) -> Result<Option<HttpResponse>> {
+    let user = models::user::Entity::find_by_id(*id)
+        .one(&*db)
+        .await
+        .map_err(|err| {
             error!("Failed to get user: {err}");
-            return HttpResponse::InternalServerError().finish();
-        }
+            error::ErrorInternalServerError("")
+        })?;
+
+    let Some(user) = user else {
+        return Ok(None);
     };
 
-    match user.delete(&*db).await {
-        Ok(_) => HttpResponse::NoContent().finish(),
-        Err(err) => {
-            error!("Failed to get user: {err}");
-            HttpResponse::InternalServerError().finish()
-        }
-    }
+    user.delete(&*db).await.map_err(|err| {
+        error!("Failed to delete user: {err}");
+        error::ErrorInternalServerError("")
+    })?;
+
+    Ok(Some(HttpResponse::NoContent().finish()))
 }

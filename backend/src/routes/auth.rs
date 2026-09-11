@@ -1,7 +1,7 @@
 use actix_session::Session;
 use actix_web::{
-    HttpResponse, Responder,
-    web::{self, ThinData},
+    HttpResponse, Result, error,
+    web::{self, Json, ThinData},
 };
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use serde::Deserialize;
@@ -17,39 +17,35 @@ pub struct LoginRequest {
 pub async fn login(
     session: Session,
     db: ThinData<DatabaseConnection>,
-    body: web::Json<LoginRequest>,
-) -> impl Responder {
+    body: Json<LoginRequest>,
+) -> Result<Json<User>> {
     let user = models::user::Entity::find()
         .inner_join(models::email::Entity)
         .filter(models::email::Column::Email.eq(&body.email))
         .one(&*db)
-        .await;
-
-    let user = match user {
-        Ok(Some(user)) => user,
-        Ok(None) => return HttpResponse::Unauthorized().body("WRONG_ACCOUNT"),
-        Err(err) => {
+        .await
+        .map_err(|err| {
             error!("Failed to get user: {err}");
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
+            error::ErrorInternalServerError("")
+        })?
+        .ok_or(error::ErrorUnauthorized("WRONG_ACCOUNT"))?;
 
     session.insert("user_id", user.id).unwrap();
 
-    HttpResponse::Ok().json(User {
+    Ok(Json(User {
         id: user.id,
         created_at: user.created_at,
-    })
+    }))
 }
 
-pub async fn logout(session: Session) -> actix_web::Result<HttpResponse> {
+pub async fn logout(session: Session) -> HttpResponse {
     session.purge();
 
-    Ok(HttpResponse::NoContent().finish())
+    HttpResponse::NoContent().finish()
 }
 
-pub async fn me(user: web::ReqData<SessionUser>) -> impl Responder {
-    HttpResponse::Ok().json(User {
+pub async fn me(user: web::ReqData<SessionUser>) -> Json<User> {
+    Json(User {
         id: user.id,
         created_at: user.created_at,
     })

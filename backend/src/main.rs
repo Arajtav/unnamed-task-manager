@@ -2,7 +2,7 @@ use std::process::exit;
 
 use actix_session::{SessionExt, SessionMiddleware, storage::CookieSessionStore};
 use actix_web::{
-    App, HttpMessage, HttpServer,
+    App, HttpMessage, HttpServer, Result,
     body::BoxBody,
     cookie::Key,
     dev::{ServiceRequest, ServiceResponse},
@@ -21,7 +21,7 @@ pub type SessionUser = models::user::Model;
 async fn require_auth(
     req: ServiceRequest,
     next: Next<BoxBody>,
-) -> Result<ServiceResponse<BoxBody>, actix_web::Error> {
+) -> Result<ServiceResponse<BoxBody>> {
     let session = req.get_session();
 
     let Ok(Some(user_id)) = session.get::<Uuid>("user_id") else {
