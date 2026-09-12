@@ -3,6 +3,7 @@ export const ME_QUERY = `
         me {
             id
             createdAt
+            isAdmin
         }
     }
 `;
@@ -22,6 +23,7 @@ export const USERS_QUERY = `
         users {
             id
             createdAt
+            isAdmin
         }
     }
 `;
@@ -31,6 +33,7 @@ export const USER_QUERY = `
         user(id: $id) {
             id
             createdAt
+            isAdmin
         }
     }
 `;

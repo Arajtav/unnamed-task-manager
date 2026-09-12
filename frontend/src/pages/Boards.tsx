@@ -1,7 +1,7 @@
 import { createResource, For, Show } from "solid-js";
 import { A } from "@solidjs/router";
 import { handleAuthError } from "../auth";
-import { boardsQuery } from "../graphql/client";
+import { boardsQuery, meQuery } from "../graphql/client";
 import BoardForm from "../components/BoardForm";
 
 export default function Boards() {
@@ -11,6 +11,14 @@ export default function Boards() {
         if (handleAuthError(result.error)) return undefined;
 
         return result.data?.boards ?? [];
+    });
+
+    const [me] = createResource(async () => {
+        const result = await meQuery();
+
+        if (handleAuthError(result.error)) return undefined;
+
+        return result.data?.me ?? null;
     });
 
     return (
@@ -25,7 +33,9 @@ export default function Boards() {
 
             <Show when={!boards.loading && boards()}>
                 <div class="flex flex-col gap-8">
-                    <BoardForm onCreated={refetch} />
+                    <Show when={!me.loading && me()?.isAdmin}>
+                        <BoardForm onCreated={refetch} />
+                    </Show>
 
                     <div class="border p-2">
                         <div class="flex flex-col gap-4">

@@ -1,6 +1,7 @@
 export type GqlUser = {
     id: string;
     createdAt: string;
+    isAdmin: boolean;
 };
 
 export type GqlBoard = {

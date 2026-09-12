@@ -29,6 +29,7 @@ export default function Home() {
                             <p class="text-center font-bold">User</p>
                             <p>Id: {user().id}</p>
                             <p>Created at: {new Date(user().createdAt).toISOString()}</p>
+                            <p>Is admin: {user().isAdmin ? "yes" : "no"}</p>
                         </div>
                         <A class="button" href="/boards">
                             Boards

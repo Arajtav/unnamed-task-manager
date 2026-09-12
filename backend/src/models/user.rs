@@ -12,6 +12,8 @@ pub struct Model {
 
     #[sea_orm(has_many)]
     pub emails: HasMany<super::email::Entity>,
+
+    pub is_admin: bool,
 }
 
 #[async_trait::async_trait]

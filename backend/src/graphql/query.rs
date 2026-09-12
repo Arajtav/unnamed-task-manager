@@ -82,6 +82,7 @@ impl QueryRoot {
 pub struct User {
     pub id: Uuid,
     pub created_at: DateTime<Utc>,
+    pub is_admin: bool,
 }
 
 impl From<models::user::Model> for User {
@@ -89,6 +90,7 @@ impl From<models::user::Model> for User {
         Self {
             id: user.id,
             created_at: user.created_at,
+            is_admin: user.is_admin,
         }
     }
 }
@@ -101,6 +103,10 @@ impl User {
 
     async fn created_at(&self) -> DateTime<Utc> {
         self.created_at
+    }
+
+    async fn is_admin(&self) -> bool {
+        self.is_admin
     }
 
     async fn emails(&self, ctx: &Context<'_>) -> Result<Vec<Email>> {

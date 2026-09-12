@@ -9,7 +9,7 @@ use sea_orm::{
 use uuid::Uuid;
 
 use crate::{
-    AuthUser,
+    AuthUser, auth_perms,
     graphql::query::{Board, Email, Task},
     models,
 };
@@ -23,6 +23,8 @@ pub struct MutationRoot;
 impl MutationRoot {
     async fn create_user(&self, ctx: &Context<'_>, emails: Vec<String>) -> Result<User> {
         let db = &ctx.data::<ThinData<DatabaseConnection>>()?.0;
+
+        auth_perms!(ctx);
 
         let tx = db.begin().await?;
 
@@ -68,6 +70,8 @@ impl MutationRoot {
     ) -> Result<Email> {
         let db = &ctx.data::<ThinData<DatabaseConnection>>()?.0;
 
+        auth_perms!(ctx, id, user_id);
+
         let email_model = models::email::ActiveModel {
             user_id: sea_orm::Set(user_id),
             email: sea_orm::Set(email.clone()),
@@ -99,6 +103,8 @@ impl MutationRoot {
     ) -> Result<bool> {
         let db = &ctx.data::<ThinData<DatabaseConnection>>()?.0;
 
+        auth_perms!(ctx, id, user_id);
+
         let Some(email_model) = models::email::Entity::find()
             .filter(models::email::Column::UserId.eq(user_id))
             .filter(models::email::Column::Email.eq(&email))
@@ -116,6 +122,8 @@ impl MutationRoot {
     async fn delete_user(&self, ctx: &Context<'_>, id: Uuid) -> Result<bool> {
         let db = &ctx.data::<ThinData<DatabaseConnection>>()?.0;
 
+        auth_perms!(ctx, id, id);
+
         let Some(user) = models::user::Entity::find_by_id(id).one(db).await? else {
             return Ok(false);
         };
@@ -127,6 +135,8 @@ impl MutationRoot {
 
     async fn create_board(&self, ctx: &Context<'_>, name: String) -> Result<Board> {
         let db = &ctx.data::<ThinData<DatabaseConnection>>()?.0;
+
+        auth_perms!(ctx);
 
         let board = models::board::ActiveModel {
             name: sea_orm::Set(name.clone()),
@@ -155,6 +165,8 @@ impl MutationRoot {
     ) -> Result<Option<Board>> {
         let db = &ctx.data::<ThinData<DatabaseConnection>>()?.0;
 
+        auth_perms!(ctx);
+
         let Some(board) = models::board::Entity::find_by_id(id).one(db).await? else {
             return Ok(None);
         };
@@ -178,6 +190,8 @@ impl MutationRoot {
 
     async fn delete_board(&self, ctx: &Context<'_>, id: i32) -> Result<bool> {
         let db = &ctx.data::<ThinData<DatabaseConnection>>()?.0;
+
+        auth_perms!(ctx);
 
         let Some(board) = models::board::Entity::find_by_id(id).one(db).await? else {
             return Ok(false);
