@@ -1,4 +1,4 @@
-use std::process::exit;
+use std::{env, process::exit};
 
 use actix_cors::Cors;
 use actix_session::{SessionExt, SessionMiddleware, storage::CookieSessionStore};
@@ -12,8 +12,10 @@ use actix_web::{
 };
 use async_graphql::{EmptySubscription, Schema};
 use async_graphql_actix_web::{GraphQLRequest, GraphQLResponse};
+use base64::Engine;
+use dotenv::dotenv;
 use sea_orm::{Database, DatabaseConnection, EntityTrait};
-use tracing::error;
+use tracing::{debug, error, warn};
 use uuid::Uuid;
 
 use crate::graphql::AppSchema;
@@ -89,24 +91,38 @@ async fn graphql(
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    if cfg!(debug_assertions) {
+    dotenv().expect("env missing");
+
+    let debug = env::var("DEBUG").is_ok_and(|e| e == "true");
+
+    if debug {
         tracing_subscriber::fmt()
             .with_max_level(tracing::Level::DEBUG)
             .init();
+        debug!("running with DEBUG");
     } else {
         tracing_subscriber::fmt().init();
     }
 
-    let db = Database::connect("sqlite://./db.sqlite?mode=rwc")
-        .await
-        .unwrap_or_else(|_| {
-            error!("Failed to connect to the database");
-            exit(1)
-        });
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL missing");
+    let session_key = env::var("SESSION_KEY").map_or_else(
+        |_| {
+            warn!("SESSION_KEY not provided, generating a temporary one");
+            Key::generate()
+        },
+        |key| {
+            Key::from(
+                &base64::engine::general_purpose::STANDARD
+                    .decode(key)
+                    .expect("wrong SESSION_KEY"),
+            )
+        },
+    );
 
-    let db = ThinData(db);
-
-    let session_key = Key::generate();
+    let db = ThinData(Database::connect(database_url).await.unwrap_or_else(|err| {
+        error!("Failed to connect to the database: {err}");
+        exit(1)
+    }));
 
     let schema = Schema::build(graphql::QueryRoot, graphql::MutationRoot, EmptySubscription)
         .data(db.clone())
