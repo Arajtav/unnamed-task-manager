@@ -21,15 +21,19 @@ export default function Board() {
     return (
         <div class="w-screen h-screen flex items-center justify-center">
             <Show when={board.loading}>
-                <p>Loading...</p>
-            </Show>
-
-            <Show when={!board.loading && board() === undefined}>
-                <p>Something went wrong</p>
+                <span class="loading loading-spinner loading-lg" />
             </Show>
 
             <Show when={!board.loading && board() === null}>
-                <p>Board not found</p>
+                <div role="alert" class="alert alert-warning">
+                    <span>Board not found</span>
+                </div>
+            </Show>
+
+            <Show when={!board.loading && board() === undefined}>
+                <div role="alert" class="alert alert-error">
+                    <span>Something went wrong</span>
+                </div>
             </Show>
 
             <Show when={!board.loading && board()}>
@@ -40,18 +44,20 @@ export default function Board() {
                         <TaskForm boardId={b().id} onCreated={refetch} />
 
                         <Show when={b().tasks.length > 0}>
-                            <div class="flex flex-col gap-4 border p-2">
+                            <ul class="list bg-base-100 rounded-box">
                                 <For each={b().tasks}>
                                     {(task) => (
-                                        <div class="border-b">
-                                            <p class="font-bold">{task.title}</p>
-                                            <p>{task.description}</p>
-                                            <p>Author: {task.author}</p>
-                                            <p>Created at: {new Date(task.createdAt).toISOString()}</p>
-                                        </div>
+                                        <li class="list-row flex flex-col">
+                                            <div>
+                                                <p class="font-bold">{task.title}</p>
+                                                <p>{task.description}</p>
+                                                <p>Author: {task.author}</p>
+                                                <p>Created at: {new Date(task.createdAt).toISOString()}</p>
+                                            </div>
+                                        </li>
                                     )}
                                 </For>
-                            </div>
+                            </ul>
                         </Show>
                     </div>
                 )}

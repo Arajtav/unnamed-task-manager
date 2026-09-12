@@ -15,31 +15,39 @@ export default function Home() {
     return (
         <div class="w-screen h-screen flex items-center justify-center">
             <Show when={me.loading}>
-                <p>Loading...</p>
+                <span class="loading loading-spinner loading-lg" />
             </Show>
 
             <Show when={!me.loading && me() === null}>
-                <p>Not authenticated</p>
+                <div role="alert" class="alert alert-warning">
+                    <span>Not authenticated</span>
+                </div>
+            </Show>
+
+            <Show when={!me.loading && me() === undefined}>
+                <div role="alert" class="alert alert-error">
+                    <span>Something went wrong</span>
+                </div>
             </Show>
 
             <Show when={!me.loading && me()}>
                 {(user) => (
-                    <div class="flex flex-col gap-2 items-center">
-                        <div class="border p-2">
-                            <p class="text-center font-bold">User</p>
+                    <div class="card card-border card-xl bg-base-100">
+                        <div class="card-body">
+                            <div class="card-title">
+                                <div class="avatar avatar-placeholder">
+                                    <div class="bg-neutral text-neutral-content w-8 rounded-full">
+                                        <span class="text-xs">U</span>
+                                    </div>
+                                </div>
+                                <h2>User</h2>
+                            </div>
                             <p>Id: {user().id}</p>
                             <p>Created at: {new Date(user().createdAt).toISOString()}</p>
                             <p>Is admin: {user().isAdmin ? "yes" : "no"}</p>
                         </div>
-                        <A class="button" href="/boards">
-                            Boards
-                        </A>
                     </div>
                 )}
-            </Show>
-
-            <Show when={!me.loading && me() === undefined}>
-                <p>Something went wrong</p>
             </Show>
         </div>
     );

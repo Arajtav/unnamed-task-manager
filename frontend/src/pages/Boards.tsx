@@ -24,11 +24,13 @@ export default function Boards() {
     return (
         <div class="w-screen h-screen flex items-center justify-center">
             <Show when={boards.loading}>
-                <p>Loading...</p>
+                <span class="loading loading-spinner loading-lg" />
             </Show>
 
             <Show when={!boards.loading && boards() === undefined}>
-                <p>Something went wrong</p>
+                <div role="alert" class="alert alert-error">
+                    <span>Something went wrong</span>
+                </div>
             </Show>
 
             <Show when={!boards.loading && boards()}>
@@ -37,18 +39,18 @@ export default function Boards() {
                         <BoardForm onCreated={refetch} />
                     </Show>
 
-                    <div class="border p-2">
-                        <div class="flex flex-col gap-4">
-                            <For each={boards()}>
-                                {(board) => (
-                                    <A href={`/boards/${board.id}`} class="border-b">
+                    <ul class="list bg-base-100 rounded-box">
+                        <For each={boards()}>
+                            {(board) => (
+                                <li class="list-row">
+                                    <A href={`/boards/${board.id}`} class="flex flex-col">
                                         <p class="font-bold">{board.name}</p>
                                         <p>Created at: {new Date(board.createdAt).toISOString()}</p>
                                     </A>
-                                )}
-                            </For>
-                        </div>
-                    </div>
+                                </li>
+                            )}
+                        </For>
+                    </ul>
                 </div>
             </Show>
         </div>

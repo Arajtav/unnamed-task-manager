@@ -28,20 +28,35 @@ export default function Login() {
     }
 
     return (
-        <div class="w-screen h-screen flex items-center justify-center">
-            <form class="flex flex-col gap-2 items-center" onSubmit={submit}>
-                <input
-                    class="border px-2"
-                    placeholder="Email"
-                    type="text"
-                    value={email()}
-                    onInput={(e) => setEmail(e.currentTarget.value)}
-                    required
-                />
-                <button class="button" type="submit">
-                    Log in
-                </button>
-            </form>
+        <div class="hero bg-base-200 min-h-screen">
+            <div class="hero-content flex-col lg:flex-row-reverse">
+                <div class="text-center lg:text-left">
+                    <h1 class="text-5xl font-bold">Welcome!</h1>
+                    <p class="py-6">Feel free to try out our task manager :3</p>
+                </div>
+                <div class="card bg-base-100 w-full max-w-sm shrink-0 shadow-2xl">
+                    <div class="card-body">
+                        <form onSubmit={submit}>
+                            <fieldset class="fieldset">
+                                <label class="label">Email</label>
+                                <input
+                                    class="input"
+                                    type="email"
+                                    placeholder="Email"
+                                    value={email()}
+                                    onInput={(e) => setEmail(e.currentTarget.value)}
+                                    required
+                                />
+                            </fieldset>
+                            <div class="card-actions">
+                                <button class="btn btn-primary mt-4" type="submit">
+                                    Login
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }

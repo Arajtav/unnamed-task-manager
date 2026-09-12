@@ -1,5 +1,2 @@
 @import "tailwindcss";
-
-.button {
-    @apply border-y px-4;
-}
+@plugin "daisyui";
