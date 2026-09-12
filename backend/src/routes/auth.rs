@@ -1,13 +1,13 @@
 use actix_session::Session;
 use actix_web::{
     HttpResponse, Result, error,
-    web::{self, Json, ThinData},
+    web::{Json, ThinData},
 };
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use serde::Deserialize;
 use tracing::error;
 
-use crate::{SessionUser, models, routes::users::User};
+use crate::models;
 
 #[derive(Deserialize)]
 pub struct LoginRequest {
@@ -18,7 +18,7 @@ pub async fn login(
     session: Session,
     db: ThinData<DatabaseConnection>,
     body: Json<LoginRequest>,
-) -> Result<Json<User>> {
+) -> Result<HttpResponse> {
     let user = models::user::Entity::find()
         .inner_join(models::email::Entity)
         .filter(models::email::Column::Email.eq(&body.email))
@@ -32,21 +32,11 @@ pub async fn login(
 
     session.insert("user_id", user.id).unwrap();
 
-    Ok(Json(User {
-        id: user.id,
-        created_at: user.created_at,
-    }))
+    Ok(HttpResponse::NoContent().finish())
 }
 
 pub async fn logout(session: Session) -> HttpResponse {
     session.purge();
 
     HttpResponse::NoContent().finish()
-}
-
-pub async fn me(user: web::ReqData<SessionUser>) -> Json<User> {
-    Json(User {
-        id: user.id,
-        created_at: user.created_at,
-    })
 }

@@ -8,16 +8,24 @@ use actix_web::{
     cookie::Key,
     dev::{ServiceRequest, ServiceResponse},
     middleware::{self, Logger, Next, NormalizePath},
-    web::{ThinData, delete, get, patch, post, resource, scope},
+    web::{ThinData, post, scope},
 };
+use async_graphql::{EmptySubscription, Schema};
+use async_graphql_actix_web::{GraphQLRequest, GraphQLResponse};
 use sea_orm::{Database, DatabaseConnection, EntityTrait};
-use tracing::{debug, error};
+use tracing::error;
 use uuid::Uuid;
 
+use crate::graphql::AppSchema;
+
+mod graphql;
 mod models;
 mod routes;
 
 pub type SessionUser = models::user::Model;
+
+#[derive(Clone)]
+pub struct AuthUser(models::user::Model);
 
 async fn require_auth(
     req: ServiceRequest,
@@ -25,13 +33,17 @@ async fn require_auth(
 ) -> Result<ServiceResponse<BoxBody>> {
     let session = req.get_session();
 
-    let Ok(Some(user_id)) = session.get::<Uuid>("user_id") else {
+    let Some(user_id) = session.get::<Uuid>("user_id").map_err(|err| {
+        error!("Failed to get user_id from session: {err}");
+        actix_web::error::ErrorInternalServerError("")
+    })?
+    else {
         return Err(actix_web::error::ErrorUnauthorized(""));
     };
 
     let db = req.app_data::<ThinData<DatabaseConnection>>().unwrap();
 
-    let user: Option<SessionUser> = models::user::Entity::find_by_id(user_id)
+    let user = models::user::Entity::find_by_id(user_id)
         .one(&**db)
         .await
         .map_err(|err| {
@@ -39,15 +51,30 @@ async fn require_auth(
             actix_web::error::ErrorInternalServerError("")
         })?;
 
-    if let Some(user) = user {
-        debug!("{user:?}");
-        req.extensions_mut().insert(user);
-    } else {
+    let Some(user) = user else {
         session.purge();
         return Err(actix_web::error::ErrorUnauthorized(""));
-    }
+    };
+
+    req.extensions_mut().insert(AuthUser(user));
 
     next.call(req).await
+}
+
+async fn graphql(
+    schema: actix_web::web::Data<AppSchema>,
+    req: actix_web::HttpRequest,
+    gql_req: GraphQLRequest,
+) -> GraphQLResponse {
+    let auth_user = req.extensions().get::<AuthUser>().cloned();
+
+    let mut request = gql_req.into_inner();
+
+    if let Some(user) = auth_user {
+        request = request.data(user);
+    }
+
+    schema.execute(request).await.into()
 }
 
 #[actix_web::main]
@@ -71,9 +98,14 @@ async fn main() -> std::io::Result<()> {
 
     let session_key = Key::generate();
 
+    let schema = Schema::build(graphql::QueryRoot, graphql::MutationRoot, EmptySubscription)
+        .data(db.clone())
+        .finish();
+
     HttpServer::new(move || {
         App::new()
             .app_data(db.clone())
+            .app_data(actix_web::web::Data::new(schema.clone()))
             .wrap(Cors::permissive())
             .wrap(Logger::default())
             .wrap(NormalizePath::new(
@@ -86,48 +118,12 @@ async fn main() -> std::io::Result<()> {
             .service(
                 scope("/auth")
                     .route("/login", post().to(routes::auth::login))
-                    .route("/logout", post().to(routes::auth::logout))
-                    .service(
-                        resource("/me")
-                            .wrap(middleware::from_fn(require_auth))
-                            .route(get().to(routes::auth::me)),
-                    ),
+                    .route("/logout", post().to(routes::auth::logout)),
             )
             .service(
-                scope("")
+                actix_web::web::resource("/graphql")
                     .wrap(middleware::from_fn(require_auth))
-                    .service(
-                        scope("/boards")
-                            .route("", post().to(routes::boards::create_board))
-                            .route("{id}", get().to(routes::boards::get_board))
-                            .route("", get().to(routes::boards::get_boards))
-                            .route("{id}", patch().to(routes::boards::update_board))
-                            .route("{id}", delete().to(routes::boards::delete_board)),
-                    )
-                    .service(
-                        scope("/tasks")
-                            .route("", post().to(routes::tasks::create_task))
-                            .route("", get().to(routes::tasks::get_tasks))
-                            .route("/{id}", get().to(routes::tasks::get_task))
-                            .route("/{id}", patch().to(routes::tasks::update_task))
-                            .route("/{id}", delete().to(routes::tasks::delete_task)),
-                    )
-                    .service(
-                        scope("/users")
-                            .route("", post().to(routes::users::create_user))
-                            .route("", get().to(routes::users::get_users))
-                            .route("/{id}", get().to(routes::users::get_user))
-                            .route("/{id}", delete().to(routes::users::delete_user))
-                            .service(
-                                scope("/{id}/emails")
-                                    .route("", post().to(routes::user_emails::create_email))
-                                    .route("", get().to(routes::user_emails::get_emails))
-                                    .route(
-                                        "/{email}",
-                                        delete().to(routes::user_emails::delete_email),
-                                    ),
-                            ),
-                    ),
+                    .to(graphql),
             )
     })
     .bind(("127.0.0.1", 8080))?
