@@ -3,7 +3,7 @@ use sea_orm_migration::prelude::*;
 pub struct Migration;
 
 impl MigrationName for Migration {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "m20260910_170655_create_user_and_email"
     }
 }
@@ -40,12 +40,11 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(Email::UserId).uuid().not_null())
                     .foreign_key(
-                        &mut ForeignKey::create()
+                        ForeignKey::create()
                             .name("fk-email-user")
                             .from(Email::Table, Email::UserId)
                             .to(User::Table, User::Id)
-                            .on_delete(ForeignKeyAction::Cascade)
-                            .to_owned(),
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),
             )
@@ -75,6 +74,7 @@ enum User {
 }
 
 #[derive(DeriveIden)]
+#[allow(clippy::enum_variant_names)]
 enum Email {
     Table,
     Email,

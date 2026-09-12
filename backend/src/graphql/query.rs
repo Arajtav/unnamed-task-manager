@@ -1,7 +1,7 @@
 use actix_web::web::ThinData;
-use async_graphql::{Context, Object, Result};
+use async_graphql::{Context, Error, Object, Result};
 use chrono::{DateTime, Utc};
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QuerySelect, QueryTrait};
 use uuid::Uuid;
 
 use crate::{AuthUser, models};
@@ -37,6 +37,16 @@ impl QueryRoot {
 
     async fn board(&self, ctx: &Context<'_>, id: i32) -> Result<Option<Board>> {
         let db = &ctx.data::<ThinData<DatabaseConnection>>()?.0;
+        let user = ctx.data::<AuthUser>()?;
+
+        let has_board_access = models::board_access::Entity::find_by_id((id, user.0.id))
+            .one(db)
+            .await?
+            .is_some();
+
+        if !user.0.is_admin && !has_board_access {
+            return Err(Error::new("FORBIDDEN"));
+        }
 
         let board = models::board::Entity::find_by_id(id).one(db).await?;
 
@@ -45,8 +55,21 @@ impl QueryRoot {
 
     async fn boards(&self, ctx: &Context<'_>, name: Option<String>) -> Result<Vec<Board>> {
         let db = &ctx.data::<ThinData<DatabaseConnection>>()?.0;
+        let user = ctx.data::<AuthUser>()?;
 
         let mut query = models::board::Entity::find();
+
+        if !user.0.is_admin {
+            query = query.filter(
+                models::board::Column::Id.in_subquery(
+                    models::board_access::Entity::find()
+                        .select_only()
+                        .column(models::board_access::Column::BoardId)
+                        .filter(models::board_access::Column::UserId.eq(user.0.id))
+                        .into_query(),
+                ),
+            );
+        }
 
         if let Some(name) = name {
             query = query.filter(models::board::Column::Name.contains(name));
@@ -56,18 +79,40 @@ impl QueryRoot {
 
         Ok(boards.into_iter().map(Board::from).collect())
     }
+
     async fn task(&self, ctx: &Context<'_>, id: i32) -> Result<Option<Task>> {
         let db = &ctx.data::<ThinData<DatabaseConnection>>()?.0;
+        let user = ctx.data::<AuthUser>()?;
 
-        let task = models::task::Entity::find_by_id(id).one(db).await?;
+        let Some(task) = models::task::Entity::find_by_id(id).one(db).await? else {
+            return Ok(None);
+        };
 
-        Ok(task.map(Task::from))
+        let has_board_access = models::board_access::Entity::find_by_id((task.board_id, user.0.id))
+            .one(db)
+            .await?
+            .is_some();
+
+        if !user.0.is_admin && !has_board_access {
+            return Err(Error::new("FORBIDDEN"));
+        }
+
+        Ok(Some(Task::from(task)))
     }
 
     async fn tasks(&self, ctx: &Context<'_>, title: Option<String>) -> Result<Vec<Task>> {
         let db = &ctx.data::<ThinData<DatabaseConnection>>()?.0;
+        let user = ctx.data::<AuthUser>()?;
 
-        let mut query = models::task::Entity::find();
+        let mut query = models::task::Entity::find().filter(
+            models::task::Column::BoardId.in_subquery(
+                models::board_access::Entity::find()
+                    .select_only()
+                    .column(models::board_access::Column::BoardId)
+                    .filter(models::board_access::Column::UserId.eq(user.0.id))
+                    .into_query(),
+            ),
+        );
 
         if let Some(title) = title {
             query = query.filter(models::task::Column::Title.contains(title));
@@ -171,6 +216,32 @@ impl Board {
             .await?;
 
         Ok(tasks.into_iter().map(Task::from).collect())
+    }
+
+    async fn access(&self, ctx: &Context<'_>) -> Result<Vec<Access>> {
+        let db = &ctx.data::<ThinData<DatabaseConnection>>()?.0;
+
+        let access = models::board_access::Entity::find()
+            .filter(models::board_access::Column::BoardId.eq(self.id))
+            .all(db)
+            .await?;
+
+        Ok(access.into_iter().map(Access::from).collect())
+    }
+}
+
+#[derive(async_graphql::SimpleObject)]
+pub struct Access {
+    user_id: Uuid,
+    is_moderator: bool,
+}
+
+impl From<models::board_access::Model> for Access {
+    fn from(access: models::board_access::Model) -> Self {
+        Self {
+            user_id: access.user_id,
+            is_moderator: access.is_moderator,
+        }
     }
 }
 

@@ -3,14 +3,15 @@ use async_graphql::{Context, Error, Object, Result};
 use sea_orm::{
     ActiveModelTrait,
     ActiveValue::{NotSet, Set},
-    ColumnTrait, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel, ModelTrait, QueryFilter,
-    SqlErr, TransactionTrait,
+    ColumnTrait, DatabaseConnection, DbErr, EntityTrait, ExprTrait, IntoActiveModel, ModelTrait,
+    QueryFilter, SqlErr, TransactionTrait,
+    sea_query::{Expr, OnConflict},
 };
 use uuid::Uuid;
 
 use crate::{
     AuthUser, auth_perms,
-    graphql::query::{Board, Email, Task},
+    graphql::query::{Access, Board, Email, Task},
     models,
 };
 
@@ -135,6 +136,7 @@ impl MutationRoot {
 
     async fn create_board(&self, ctx: &Context<'_>, name: String) -> Result<Board> {
         let db = &ctx.data::<ThinData<DatabaseConnection>>()?.0;
+        let user = ctx.data::<AuthUser>()?;
 
         auth_perms!(ctx);
 
@@ -154,6 +156,17 @@ impl MutationRoot {
             }
         };
 
+        let access = models::board_access::ActiveModel {
+            board_id: sea_orm::Set(board.id),
+            user_id: sea_orm::Set(user.0.id),
+            is_moderator: sea_orm::Set(true),
+        };
+
+        access
+            .insert(db)
+            .await
+            .map_err(|_| Error::new("Failed to grant board access"))?;
+
         Ok(Board::from(board))
     }
 
@@ -164,8 +177,15 @@ impl MutationRoot {
         name: Option<String>,
     ) -> Result<Option<Board>> {
         let db = &ctx.data::<ThinData<DatabaseConnection>>()?.0;
+        let user = ctx.data::<AuthUser>()?;
 
-        auth_perms!(ctx);
+        let access = models::board_access::Entity::find_by_id((id, user.0.id))
+            .one(db)
+            .await?;
+
+        if !user.0.is_admin && !access.is_some_and(|access| access.is_moderator) {
+            return Err(Error::new("FORBIDDEN"));
+        }
 
         let Some(board) = models::board::Entity::find_by_id(id).one(db).await? else {
             return Ok(None);
@@ -190,8 +210,15 @@ impl MutationRoot {
 
     async fn delete_board(&self, ctx: &Context<'_>, id: i32) -> Result<bool> {
         let db = &ctx.data::<ThinData<DatabaseConnection>>()?.0;
+        let user = ctx.data::<AuthUser>()?;
 
-        auth_perms!(ctx);
+        let access = models::board_access::Entity::find_by_id((id, user.0.id))
+            .one(db)
+            .await?;
+
+        if !user.0.is_admin && !access.is_some_and(|access| access.is_moderator) {
+            return Err(Error::new("FORBIDDEN"));
+        }
 
         let Some(board) = models::board::Entity::find_by_id(id).one(db).await? else {
             return Ok(false);
@@ -212,6 +239,15 @@ impl MutationRoot {
     ) -> Result<Task> {
         let db = &ctx.data::<ThinData<DatabaseConnection>>()?.0;
         let user = ctx.data::<AuthUser>()?;
+
+        let has_board_access = models::board_access::Entity::find_by_id((board_id, user.0.id))
+            .one(db)
+            .await?
+            .is_some();
+
+        if !user.0.is_admin && !has_board_access {
+            return Err(Error::new("FORBIDDEN"));
+        }
 
         let owns_email = models::email::Entity::find_by_id(&author)
             .filter(models::email::Column::UserId.eq(user.0.id))
@@ -254,10 +290,20 @@ impl MutationRoot {
         description: Option<String>,
     ) -> Result<Option<Task>> {
         let db = &ctx.data::<ThinData<DatabaseConnection>>()?.0;
+        let user = ctx.data::<AuthUser>()?;
 
         let Some(task) = models::task::Entity::find_by_id(id).one(db).await? else {
             return Ok(None);
         };
+
+        let has_board_access = models::board_access::Entity::find_by_id((task.board_id, user.0.id))
+            .one(db)
+            .await?
+            .is_some();
+
+        if !user.0.is_admin && !has_board_access {
+            return Err(Error::new("FORBIDDEN"));
+        }
 
         let mut task = task.into_active_model();
 
@@ -282,12 +328,102 @@ impl MutationRoot {
 
     async fn delete_task(&self, ctx: &Context<'_>, id: i32) -> Result<bool> {
         let db = &ctx.data::<ThinData<DatabaseConnection>>()?.0;
+        let user = ctx.data::<AuthUser>()?;
 
         let Some(task) = models::task::Entity::find_by_id(id).one(db).await? else {
-            return Ok(false);
+            return Err(Error::new("NOT_FOUND"));
         };
 
+        let has_board_access = models::board_access::Entity::find_by_id((task.board_id, user.0.id))
+            .one(db)
+            .await?
+            .is_some();
+
+        if !user.0.is_admin && !has_board_access {
+            return Err(Error::new("FORBIDDEN"));
+        }
+
         task.delete(db).await?;
+
+        Ok(true)
+    }
+
+    async fn add_access(
+        &self,
+        ctx: &Context<'_>,
+        board_id: i32,
+        user_id: Uuid,
+        is_moderator: bool,
+    ) -> Result<Access> {
+        let db = &ctx.data::<ThinData<DatabaseConnection>>()?.0;
+        let user = ctx.data::<AuthUser>()?;
+
+        let auth_is_admin = user.0.is_admin;
+        let auth_is_moderator = models::board_access::Entity::find()
+            .filter(models::board_access::Column::BoardId.eq(board_id))
+            .filter(models::board_access::Column::UserId.eq(user.0.id))
+            .filter(models::board_access::Column::IsModerator.eq(true))
+            .one(db)
+            .await?
+            .is_some();
+
+        if !auth_is_admin && !auth_is_moderator {
+            return Err(Error::new("FORBIDDEN"));
+        }
+
+        let access = models::board_access::ActiveModel {
+            board_id: Set(board_id),
+            user_id: Set(user_id),
+            is_moderator: Set(is_moderator),
+        };
+
+        let access = models::board_access::Entity::insert(access)
+            .on_conflict(
+                OnConflict::columns([
+                    models::board_access::Column::BoardId,
+                    models::board_access::Column::UserId,
+                ])
+                .value(
+                    models::board_access::Column::IsModerator,
+                    if auth_is_admin {
+                        Expr::val(is_moderator)
+                    } else {
+                        Expr::col((
+                            models::board_access::Entity,
+                            models::board_access::Column::IsModerator,
+                        ))
+                        .or(Expr::val(is_moderator))
+                    },
+                )
+                .to_owned(),
+            )
+            .exec_with_returning(db)
+            .await?;
+
+        Ok(Access::from(access))
+    }
+
+    async fn remove_access(&self, ctx: &Context<'_>, board_id: i32, user_id: Uuid) -> Result<bool> {
+        let db = &ctx.data::<ThinData<DatabaseConnection>>()?.0;
+        let user = ctx.data::<AuthUser>()?;
+
+        let access = models::board_access::Entity::find_by_id((board_id, user.0.id))
+            .one(db)
+            .await?;
+
+        let target = models::board_access::Entity::find_by_id((board_id, user_id))
+            .one(db)
+            .await?;
+
+        let (Some(access), Some(target)) = (access, target) else {
+            return Err(Error::new("NOT_FOUND"));
+        };
+
+        if !user.0.is_admin && (!access.is_moderator || target.is_moderator) {
+            return Err(Error::new("FORBIDDEN"));
+        }
+
+        target.delete(db).await?;
 
         Ok(true)
     }

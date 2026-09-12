@@ -3,7 +3,7 @@ use sea_orm_migration::prelude::*;
 pub struct Migration;
 
 impl MigrationName for Migration {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "m20260912_195059_add_user_is_admin"
     }
 }
