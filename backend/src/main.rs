@@ -1,5 +1,6 @@
 use std::process::exit;
 
+use actix_cors::Cors;
 use actix_session::{SessionExt, SessionMiddleware, storage::CookieSessionStore};
 use actix_web::{
     App, HttpMessage, HttpServer, Result,
@@ -73,6 +74,7 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(db.clone())
+            .wrap(Cors::permissive())
             .wrap(Logger::default())
             .wrap(NormalizePath::new(
                 actix_web::middleware::TrailingSlash::Trim,
