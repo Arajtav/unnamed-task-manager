@@ -3,7 +3,7 @@ use std::process::exit;
 use actix_cors::Cors;
 use actix_session::{SessionExt, SessionMiddleware, storage::CookieSessionStore};
 use actix_web::{
-    App, HttpMessage, HttpServer, Result,
+    App, HttpMessage, HttpResponse, HttpServer, Result,
     body::BoxBody,
     cookie::Key,
     dev::{ServiceRequest, ServiceResponse},
@@ -59,6 +59,16 @@ async fn require_auth(
     req.extensions_mut().insert(AuthUser(user));
 
     next.call(req).await
+}
+
+async fn graphql_panel() -> HttpResponse {
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(
+            async_graphql::http::GraphiQLSource::build()
+                .endpoint("/graphql")
+                .finish(),
+        )
 }
 
 async fn graphql(
@@ -123,7 +133,8 @@ async fn main() -> std::io::Result<()> {
             .service(
                 actix_web::web::resource("/graphql")
                     .wrap(middleware::from_fn(require_auth))
-                    .to(graphql),
+                    .route(actix_web::web::get().to(graphql_panel))
+                    .route(actix_web::web::post().to(graphql)),
             )
     })
     .bind(("127.0.0.1", 8080))?
