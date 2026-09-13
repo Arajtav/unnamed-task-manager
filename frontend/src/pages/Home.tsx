@@ -1,5 +1,4 @@
 import { createResource, Show } from "solid-js";
-import { A } from "@solidjs/router";
 import { handleAuthError } from "../auth";
 import { meQuery } from "../graphql/client";
 
@@ -13,7 +12,7 @@ export default function Home() {
     });
 
     return (
-        <div class="w-screen h-screen flex items-center justify-center">
+        <div class="w-full h-full flex items-center justify-center">
             <Show when={me.loading}>
                 <span class="loading loading-spinner loading-lg" />
             </Show>

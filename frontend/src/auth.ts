@@ -38,7 +38,7 @@ export const client = initClient(contract, {
 export function handleAuthError(error: CombinedError | undefined): boolean {
     if (!error) return false;
 
-    if (error.response?.status === 401) {
+    if (error.response?.status == 401) {
         const location = window.location;
         const url = location.pathname + location.search;
 

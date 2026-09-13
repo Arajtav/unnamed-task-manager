@@ -19,7 +19,7 @@ export default function Board() {
     );
 
     return (
-        <div class="w-screen h-screen flex items-center justify-center">
+        <div class="flex items-start justify-center pt-8">
             <Show when={board.loading}>
                 <span class="loading loading-spinner loading-lg" />
             </Show>

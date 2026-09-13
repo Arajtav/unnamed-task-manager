@@ -1,4 +1,5 @@
 import { Client, cacheExchange, fetchExchange } from "@urql/core";
+import { createSignal } from "solid-js";
 import type { GqlBoard, GqlTask, GqlUser } from "./types";
 import {
     ME_QUERY,
@@ -22,6 +23,8 @@ export const gqlClient = new Client({
     },
 });
 
+// Users
+
 export function meQuery() {
     return gqlClient.query<{ me: GqlUser }>(ME_QUERY, {}).toPromise();
 }
@@ -37,19 +40,29 @@ export function userQuery(id: string) {
     return gqlClient.query<{ user: GqlUser | null }>(USER_QUERY, { id }).toPromise();
 }
 
+// Boards
+
+export const [boardsRefreshTick, setBoardsRefreshTick] = createSignal(0);
+
 export function boardsQuery(name?: string) {
     return gqlClient.query<{ boards: GqlBoard[] }>(BOARDS_QUERY, { name }).toPromise();
 }
 
 export function boardQuery(id: number) {
-    return gqlClient
-        .query<{ board: (GqlBoard & { tasks: GqlTask[] }) | null }>(BOARD_QUERY, { id })
-        .toPromise();
+    return gqlClient.query<{ board: (GqlBoard & { tasks: GqlTask[] }) | null }>(BOARD_QUERY, { id }).toPromise();
 }
 
-export function createBoard(name: string) {
-    return gqlClient.mutation<{ createBoard: GqlBoard }>(CREATE_BOARD_MUTATION, { name }).toPromise();
+export async function createBoard(name: string) {
+    const result = await gqlClient.mutation<{ createBoard: GqlBoard }>(CREATE_BOARD_MUTATION, { name }).toPromise();
+
+    if (!result.error) {
+        setBoardsRefreshTick((v) => v + 1);
+    }
+
+    return result;
 }
+
+// Tasks
 
 export function tasksQuery(title?: string) {
     return gqlClient.query<{ tasks: GqlTask[] }>(TASKS_QUERY, { title }).toPromise();

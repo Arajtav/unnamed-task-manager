@@ -1,13 +1,18 @@
+import { createResource, Show } from "solid-js";
 import { RouteSectionProps } from "@solidjs/router";
-import Breadcrumbs from "./Breadcrumbs";
-import Dock from "./Dock";
+import { meQuery } from "../graphql/client";
+import Navbar from "./Navbar";
 
 export default function Layout(props: RouteSectionProps) {
+    const [me] = createResource(async () => {
+        const result = await meQuery();
+        return result.data?.me ?? null;
+    });
+
     return (
-        <div class="bg-neutral">
-            <Breadcrumbs />
-            {props.children}
-            <Dock />
+        <div class="bg-neutral flex flex-col h-screen">
+            <Show when={me()}>{(user) => <Navbar me={user()} />}</Show>
+            <div class="flex-1 overflow-auto">{props.children}</div>
         </div>
     );
 }

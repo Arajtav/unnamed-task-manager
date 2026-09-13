@@ -19,12 +19,11 @@ export default function Breadcrumbs() {
         const path = location.pathname;
         const items: Crumb[] = [{ label: "Home", href: "/" }];
 
-        if (path === "/login") {
+        if (path == "/login") {
             items.push({ label: "Login", href: "/login" });
-        } else if (path === "/boards") {
-            items.push({ label: "Boards", href: "/boards" });
+        } else if (path == "/boards/create") {
+            items.push({ label: "Create Board", href: "boards/create" });
         } else if (boardId()) {
-            items.push({ label: "Boards", href: "/boards" });
             items.push({ label: board()?.name ?? boardId()!, href: path });
         }
 
@@ -32,14 +31,12 @@ export default function Breadcrumbs() {
     });
 
     return (
-        <div class="breadcrumbs text-sm px-2">
+        <div class="breadcrumbs">
             <ul>
                 <For each={crumbs()}>
                     {(crumb) => (
                         <li>
-                            <A href={crumb.href} end>
-                                {crumb.label}
-                            </A>
+                            <A href={crumb.href}>{crumb.label}</A>
                         </li>
                     )}
                 </For>
