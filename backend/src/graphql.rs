@@ -1,3 +1,5 @@
+use actix_web::web::ThinData;
+use async_graphql::Context;
 use async_graphql::EmptySubscription;
 use async_graphql::Schema;
 
@@ -6,19 +8,21 @@ mod query;
 
 pub use mutation::MutationRoot;
 pub use query::QueryRoot;
+use sea_orm::DatabaseConnection;
+
+use crate::AuthUser;
+use crate::models;
 
 pub type AppSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 
-// The user has to be an admin or at least one property has to match to pass.
-#[macro_export]
-macro_rules! auth_perms {
-    ($ctx:expr $(, $property:ident, $variable:expr)*) => {{
-        let auth_user = $ctx.data::<AuthUser>()?;
+pub fn get_user<'a>(ctx: &'a Context<'_>) -> &'a models::user::Model {
+    &ctx.data_unchecked::<AuthUser>().0
+}
 
-        if !auth_user.0.is_admin
-            $(&& auth_user.0.$property != $variable)*
-        {
-            return Err(Error::new("FORBIDDEN"));
-        }
-    }};
+pub fn get_db<'a>(ctx: &'a Context<'_>) -> &'a DatabaseConnection {
+    &ctx.data_unchecked::<ThinData<DatabaseConnection>>().0
+}
+
+pub fn vec_map<T, U: From<T>>(a: Vec<T>) -> Vec<U> {
+    a.into_iter().map(U::from).collect()
 }
