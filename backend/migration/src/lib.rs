@@ -4,6 +4,7 @@ mod m20260908_181849_create_board_and_task;
 mod m20260910_170655_create_user_and_email;
 mod m20260912_195059_add_user_is_admin;
 mod m20260912_204825_board_access;
+mod m20260913_210311_add_user_passkey_and_invite;
 
 pub struct Migrator;
 
@@ -15,6 +16,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260910_170655_create_user_and_email::Migration),
             Box::new(m20260912_195059_add_user_is_admin::Migration),
             Box::new(m20260912_204825_board_access::Migration),
+            Box::new(m20260913_210311_add_user_passkey_and_invite::Migration),
         ]
     }
 }

@@ -8,7 +8,7 @@ use actix_web::{
     cookie::Key,
     dev::{ServiceRequest, ServiceResponse},
     middleware::{self, Logger, Next, NormalizePath},
-    web::{ThinData, post, scope},
+    web::{Data, ThinData, post, scope},
 };
 use async_graphql::{EmptySubscription, Schema};
 use async_graphql_actix_web::{GraphQLRequest, GraphQLResponse};
@@ -17,6 +17,7 @@ use dotenv::dotenv;
 use sea_orm::{Database, DatabaseConnection, EntityTrait};
 use tracing::{debug, error, warn};
 use uuid::Uuid;
+use webauthn_rs::WebauthnBuilder;
 
 use crate::graphql::AppSchema;
 
@@ -119,6 +120,17 @@ async fn main() -> std::io::Result<()> {
         },
     );
 
+    let rp_id = env::var("RP_ID").expect("RP_ID missing");
+    let origin = env::var("ORIGIN").expect("ORIGIN");
+    let origin = webauthn_rs::prelude::Url::parse(&origin).unwrap();
+
+    let webauthn = Data::new(
+        WebauthnBuilder::new(&rp_id, &origin)
+            .unwrap()
+            .build()
+            .unwrap(),
+    );
+
     let db = ThinData(Database::connect(database_url).await.unwrap_or_else(|err| {
         error!("Failed to connect to the database: {err}");
         exit(1)
@@ -132,6 +144,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(db.clone())
             .app_data(actix_web::web::Data::new(schema.clone()))
+            .app_data(webauthn.clone())
             .wrap(Cors::permissive())
             .wrap(Logger::default())
             .wrap(NormalizePath::new(
@@ -143,8 +156,11 @@ async fn main() -> std::io::Result<()> {
             )
             .service(
                 scope("/auth")
-                    .route("/login", post().to(routes::auth::login))
-                    .route("/logout", post().to(routes::auth::logout)),
+                    .route("/login/start", post().to(routes::auth::login_start))
+                    .route("/login/finish", post().to(routes::auth::login_finish))
+                    .route("/logout", post().to(routes::auth::logout))
+                    .route("/register/start", post().to(routes::auth::register_start))
+                    .route("/register/finish", post().to(routes::auth::register_finish)),
             )
             .service(
                 actix_web::web::resource("/graphql")
