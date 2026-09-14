@@ -17,6 +17,7 @@ graphql query:
 - `users` and `user` returns data for all users, since the intended usage is one hosted backend per organization it is fine.
 - `boards` and `board` returns only boards user has access to or every board if user is an admin.
 - `tasks` and `task` returns only the tasks on boards user has access to or all tasks if user is an admin.
+- `user { invite }` can only be accessed by admins or the user themself.
 
 graphql mutation:
 
@@ -28,5 +29,8 @@ graphql mutation:
 - `updateTask` and `deleteTask` can be run by all users with access to the board or admins.
 - `addAccess` can be run by board moderators or admins. This mutation can also change access level if the target has access already; board moderators can only change access level up while no such restriction exists for admins.
 - `removeAccess` can be run by board moderators, but only by admins when the target is a board moderator too.
+- `addInvite` and `removeInvite` can by run by the user or by admins.
+
+Invites may only be used once.
 
 The frontend doesn't really store any data therefore can by default be loaded by everyone.

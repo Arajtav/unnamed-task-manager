@@ -11,7 +11,7 @@ use uuid::Uuid;
 use crate::{
     graphql::{
         get_db, get_user,
-        query::{Access, Board, Email, Task},
+        query::{Access, Board, Email, Invite, Task},
     },
     models,
 };
@@ -449,6 +449,58 @@ impl MutationRoot {
                 return Err(Error::new("FORBIDDEN"));
             }
         }
+
+        let result = target.delete(db).await?;
+
+        Ok(result.rows_affected > 0)
+    }
+
+    async fn add_invite(&self, ctx: &Context<'_>, user_id: Uuid) -> Result<Invite> {
+        let db = get_db(ctx);
+        let user = get_user(ctx);
+
+        if !(user.is_admin || user.id == user_id) {
+            return Err(Error::new("FORBIDDEN"));
+        }
+
+        let invite = models::invite::Entity::find()
+            .filter(models::invite::Column::UserId.eq(user_id))
+            .one(db)
+            .await?;
+
+        let invite = models::invite::ActiveModel {
+            code: invite.map_or_default(|invite| Set(invite.code)),
+            user_id: Set(user_id),
+        };
+
+        let invite = models::invite::Entity::insert(invite)
+            .on_conflict(
+                OnConflict::column(models::invite::Column::UserId)
+                    .update_column(models::invite::Column::Code)
+                    .to_owned(),
+            )
+            .exec_with_returning(db)
+            .await?;
+
+        Ok(Invite::from(invite))
+    }
+
+    async fn remove_invite(&self, ctx: &Context<'_>, user_id: Uuid) -> Result<bool> {
+        let db = get_db(ctx);
+        let user = get_user(ctx);
+
+        if !(user.is_admin || user.id == user_id) {
+            return Err(Error::new("FORBIDDEN"));
+        }
+
+        let target = models::invite::Entity::find()
+            .filter(models::invite::Column::UserId.eq(user_id))
+            .one(db)
+            .await?;
+
+        let Some(target) = target else {
+            return Err(Error::new("NOT_FOUND"));
+        };
 
         let result = target.delete(db).await?;
 

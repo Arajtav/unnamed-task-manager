@@ -146,6 +146,17 @@ impl From<models::user::Model> for User {
     }
 }
 
+#[derive(async_graphql::SimpleObject)]
+pub struct Invite {
+    pub code: String,
+}
+
+impl From<models::invite::Model> for Invite {
+    fn from(invite: models::invite::Model) -> Self {
+        Self { code: invite.code }
+    }
+}
+
 #[Object]
 impl User {
     async fn id(&self) -> Uuid {
@@ -169,6 +180,22 @@ impl User {
             .await?;
 
         Ok(vec_map(emails))
+    }
+
+    async fn invite(&self, ctx: &Context<'_>) -> Result<Option<Invite>> {
+        let db = get_db(ctx);
+        let user = get_user(ctx);
+
+        if !(user.is_admin || user.id == self.id) {
+            return Err(Error::new("FORBIDDEN"));
+        }
+
+        let invite = models::invite::Entity::find()
+            .filter(models::invite::Column::UserId.eq(self.id))
+            .one(db)
+            .await?;
+
+        Ok(invite.map(Invite::from))
     }
 }
 

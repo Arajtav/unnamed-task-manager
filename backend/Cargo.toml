@@ -14,6 +14,7 @@ base64 = "0.23.1"
 chrono = "0.4.45"
 dotenv = "0.15.0"
 email-validator-rfc5322 = "0.1.0"
+random-string = "1.1.0"
 sea-orm = { version = "2.0.2", features = [ "sqlx-sqlite", "runtime-tokio", "macros" ] }
 serde = { version = "1.0.229", features = ["derive"] }
 tokio = { version = "1.53.1", features = ["full"] }
