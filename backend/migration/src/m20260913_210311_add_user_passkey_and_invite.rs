@@ -16,13 +16,7 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Passkey::Table)
                     .if_not_exists()
-                    .col(
-                        ColumnDef::new(Passkey::Id)
-                            .integer()
-                            .not_null()
-                            .auto_increment()
-                            .primary_key(),
-                    )
+                    .col(ColumnDef::new(Passkey::Id).blob().not_null().primary_key())
                     .col(ColumnDef::new(Passkey::Passkey).json().not_null())
                     .col(ColumnDef::new(Passkey::UserId).uuid().not_null())
                     .foreign_key(
@@ -47,7 +41,12 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(Invite::UserId).uuid().not_null().unique_key())
+                    .col(
+                        ColumnDef::new(Invite::UserId)
+                            .uuid()
+                            .not_null()
+                            .unique_key(),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-passkey-user")

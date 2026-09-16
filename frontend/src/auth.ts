@@ -1,39 +1,54 @@
-import { initClient, initContract } from "@ts-rest/core";
 import type { CombinedError } from "@urql/core";
-import z from "zod";
 
-const c = initContract();
+async function request<T>(path: string, options: RequestInit = {}) {
+    const response = await fetch(`http://localhost:8080${path}`, {
+        credentials: "include",
+        ...options,
+        headers: { "Content-Type": "application/json", ...options.headers },
+    });
 
-const LoginRequest = z.object({
-    email: z.string(),
-});
+    if (response.status == 404) {
+        throw new Error("404");
+    }
 
-export const contract = c.router({
-    login: {
-        method: "POST",
-        path: "/auth/login",
-        body: LoginRequest,
-        responses: {
-            204: z.void(),
-            401: z.literal("WRONG_ACCOUNT"),
-        },
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    if (response.status == 204) {
+        return null as T;
+    }
+
+    return (await response.json()) as T;
+}
+
+export const client = {
+    loginStart(): Promise<PublicKeyCredentialRequestOptionsJSON> {
+        return request("/auth/login/start", { method: "POST" });
     },
-    logout: {
-        method: "POST",
-        path: "/auth/logout",
-        body: z.void(),
-        responses: {
-            204: z.void(),
-        },
-    },
-});
 
-export const client = initClient(contract, {
-    baseUrl: "http://localhost:8080",
-    throwOnUnknownStatus: true,
-    validateResponse: true,
-    credentials: "include",
-});
+    loginFinish(credential: PublicKeyCredentialJSON): Promise<void> {
+        return request("/auth/login/finish", { method: "POST", body: JSON.stringify(credential) });
+    },
+
+    logout(): Promise<void> {
+        return request("/auth/logout", { method: "POST" });
+    },
+
+    registerStart(invite: string, name: string): Promise<PublicKeyCredentialCreationOptionsJSON> {
+        return request("/auth/register/start", {
+            method: "POST",
+            body: JSON.stringify({ invite, name }),
+        });
+    },
+
+    registerFinish(credential: PublicKeyCredentialJSON) {
+        return request("/auth/register/finish", {
+            method: "POST",
+            body: JSON.stringify(credential),
+        });
+    },
+};
 
 export function handleAuthError(error: CombinedError | undefined): boolean {
     if (!error) return false;

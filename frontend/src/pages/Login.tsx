@@ -1,29 +1,92 @@
 import { createSignal } from "solid-js";
-import { useLocation } from "@solidjs/router";
 import { client } from "../auth";
 
 export default function Login() {
-    const location = useLocation();
-    const [email, setEmail] = createSignal("");
+    const [invite, setInvite] = createSignal("");
+    const [name, setName] = createSignal("");
 
-    async function submit(e: SubmitEvent) {
+    async function register(e: SubmitEvent) {
         e.preventDefault();
-
+        let rr;
         try {
-            const response = await client.login({
-                body: { email: email() },
-            });
-
-            if (response.status == 401) {
-                console.error("Wrong login");
+            rr = await client.registerStart(invite(), name());
+        } catch (error) {
+            // it doesn't actually handle it heh
+            if (error == new Error("404")) {
+                console.error("Wrong invite");
                 return;
             }
+            console.error(error);
+            return;
+        }
+        console.debug(rr);
 
-            if (response.status == 204) {
-                window.location.assign(decodeURIComponent(new URLSearchParams(location.search).get("back") ?? "/"));
+        const options = PublicKeyCredential.parseCreationOptionsFromJSON(rr);
+        console.debug(options);
+        const credential = await navigator.credentials.create({
+            publicKey: options,
+        });
+
+        if (!credential) {
+            console.error("No credentials created?");
+            return;
+        }
+
+        if (!(credential instanceof PublicKeyCredential)) {
+            console.error("Expected a PublicKeyCredential how did it even get that wrong");
+            return;
+        }
+
+        try {
+            let cred = credential.toJSON();
+            console.debug(cred);
+
+            if ((await client.registerFinish(cred)) !== null) {
+                console.warn("seems wrong");
             }
         } catch (error) {
             console.error(error);
+            return;
+        }
+    }
+
+    async function login() {
+        let cr;
+        try {
+            cr = await client.loginStart();
+        } catch (error) {
+            console.error(error);
+            return;
+        }
+        console.debug(cr);
+
+        const options = PublicKeyCredential.parseRequestOptionsFromJSON(cr);
+
+        const credential = await navigator.credentials.get({
+            publicKey: options,
+            mediation: "required",
+        });
+
+        if (!credential) {
+            console.error("No credentials returned");
+            return;
+        }
+
+        if (!(credential instanceof PublicKeyCredential)) {
+            console.error("Expected a PublicKeyCredential");
+            return;
+        }
+
+        try {
+            let cred = credential.toJSON();
+            console.debug(cred);
+            await client.loginFinish(cred);
+            window.location.assign(
+                decodeURIComponent(new URLSearchParams(location.search).get("back") ?? "/")
+            );
+        } catch (error) {
+            console.error(error);
+            return;
         }
     }
 
@@ -36,24 +99,37 @@ export default function Login() {
                 </div>
                 <div class="card bg-base-100 w-full max-w-sm shrink-0 shadow-2xl">
                     <div class="card-body">
-                        <form onSubmit={submit}>
+                        <form onSubmit={register}>
                             <fieldset class="fieldset">
-                                <label class="label">Email</label>
+                                <label class="label">Invite code</label>
                                 <input
                                     class="input"
-                                    type="email"
-                                    placeholder="Email"
-                                    value={email()}
-                                    onInput={(e) => setEmail(e.currentTarget.value)}
+                                    type="text"
+                                    placeholder="XXXX-XXXX-XXXX"
+                                    value={invite()}
+                                    pattern="[a-zA-z]{4}-[a-zA-z]{4}-[a-zA-z]{4}"
+                                    onInput={e => setInvite(e.currentTarget.value.toUpperCase())}
+                                    required
+                                />
+                                <label class="label">Display name</label>
+                                <input
+                                    class="input"
+                                    type="text"
+                                    placeholder="Me"
+                                    value={name()}
+                                    onInput={e => setName(e.currentTarget.value)}
                                     required
                                 />
                             </fieldset>
                             <div class="card-actions">
                                 <button class="btn btn-primary mt-4" type="submit">
-                                    Login
+                                    register
                                 </button>
                             </div>
                         </form>
+                        <button class="btn btn-primary" type="submit" onClick={login}>
+                            login
+                        </button>
                     </div>
                 </div>
             </div>

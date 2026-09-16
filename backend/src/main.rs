@@ -1,4 +1,4 @@
-use std::{env, process::exit};
+use std::{collections::HashMap, env, process::exit};
 
 use actix_cors::Cors;
 use actix_session::{SessionExt, SessionMiddleware, storage::CookieSessionStore};
@@ -15,15 +15,15 @@ use async_graphql_actix_web::{GraphQLRequest, GraphQLResponse};
 use base64::Engine;
 use dotenv::dotenv;
 use sea_orm::{Database, DatabaseConnection, EntityTrait};
+use tokio::sync::Mutex;
 use tracing::{debug, error, warn};
 use uuid::Uuid;
-use webauthn_rs::WebauthnBuilder;
 
 use crate::graphql::AppSchema;
 
+mod auth;
 mod graphql;
 mod models;
-mod routes;
 
 pub type SessionUser = models::user::Model;
 
@@ -90,6 +90,8 @@ async fn graphql(
     schema.execute(request).await.into()
 }
 
+pub struct Origin(String);
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv().expect("env missing");
@@ -120,16 +122,22 @@ async fn main() -> std::io::Result<()> {
         },
     );
 
-    let rp_id = env::var("RP_ID").expect("RP_ID missing");
-    let origin = env::var("ORIGIN").expect("ORIGIN");
-    let origin = webauthn_rs::prelude::Url::parse(&origin).unwrap();
+    let origin = Data::new(Origin(env::var("ORIGIN").expect("ORIGIN")));
 
-    let webauthn = Data::new(
-        WebauthnBuilder::new(&rp_id, &origin)
-            .unwrap()
-            .build()
-            .unwrap(),
-    );
+    let rp = Data::new(simple_webauthn::registration::Rp {
+        name: env::var("RP_ID").expect("RP_ID missing"),
+        id: env::var("RP_ID").expect("RP_ID missing"),
+    });
+
+    let auth = Data::new(Mutex::new(HashMap::<
+        Uuid,
+        simple_webauthn::authentication::AuthenticationState,
+    >::new()));
+
+    let reg = Data::new(Mutex::new(HashMap::<
+        Uuid,
+        simple_webauthn::registration::RegistrationState,
+    >::new()));
 
     let db = ThinData(Database::connect(database_url).await.unwrap_or_else(|err| {
         error!("Failed to connect to the database: {err}");
@@ -144,7 +152,10 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(db.clone())
             .app_data(actix_web::web::Data::new(schema.clone()))
-            .app_data(webauthn.clone())
+            .app_data(rp.clone())
+            .app_data(origin.clone())
+            .app_data(auth.clone())
+            .app_data(reg.clone())
             .wrap(Cors::permissive())
             .wrap(Logger::default())
             .wrap(NormalizePath::new(
@@ -156,11 +167,11 @@ async fn main() -> std::io::Result<()> {
             )
             .service(
                 scope("/auth")
-                    .route("/login/start", post().to(routes::auth::login_start))
-                    .route("/login/finish", post().to(routes::auth::login_finish))
-                    .route("/logout", post().to(routes::auth::logout))
-                    .route("/register/start", post().to(routes::auth::register_start))
-                    .route("/register/finish", post().to(routes::auth::register_finish)),
+                    .route("/login/start", post().to(auth::login_start))
+                    .route("/login/finish", post().to(auth::login_finish))
+                    .route("/logout", post().to(auth::logout))
+                    .route("/register/start", post().to(auth::register_start))
+                    .route("/register/finish", post().to(auth::register_finish)),
             )
             .service(
                 actix_web::web::resource("/graphql")
