@@ -1,138 +1,114 @@
-import { createSignal } from "solid-js";
+import { createEffect, createSignal, Match, Switch } from "solid-js";
 import { client } from "../auth";
+import { A } from "@solidjs/router";
 
 export default function Login() {
-    const [invite, setInvite] = createSignal("");
-    const [name, setName] = createSignal("");
+    let [status, setStatus] = createSignal<
+        "loading" | "server_error" | "no_credentials" | "error" | "user"
+    >("loading");
 
-    async function register(e: SubmitEvent) {
-        e.preventDefault();
-        let rr;
+    createEffect(async () => {
+        let options;
         try {
-            rr = await client.registerStart(invite(), name());
+            const cr = await client.loginStart();
+            options = PublicKeyCredential.parseRequestOptionsFromJSON(cr);
         } catch (error) {
-            // it doesn't actually handle it heh
-            if (error == new Error("404")) {
-                console.error("Wrong invite");
-                return;
-            }
             console.error(error);
+
+            if (error instanceof Error && error.message.startsWith("HTTP 500")) {
+                setStatus("server_error");
+            } else {
+                setStatus("error");
+            }
+
             return;
         }
-        console.debug(rr);
 
-        const options = PublicKeyCredential.parseCreationOptionsFromJSON(rr);
-        console.debug(options);
-        const credential = await navigator.credentials.create({
-            publicKey: options,
-        });
+        let credential;
+        try {
+            credential = await navigator.credentials.get({
+                publicKey: options,
+                mediation: "required",
+            });
+        } catch (error) {
+            if (error instanceof Error && error.name === "NotAllowedError") {
+                setStatus("user");
+            } else {
+                setStatus("error");
+            }
+            return;
+        }
 
         if (!credential) {
-            console.error("No credentials created?");
+            setStatus("no_credentials");
             return;
         }
 
-        if (!(credential instanceof PublicKeyCredential)) {
-            console.error("Expected a PublicKeyCredential how did it even get that wrong");
-            return;
-        }
+        let cred = (credential as PublicKeyCredential).toJSON();
 
         try {
-            let cred = credential.toJSON();
-            console.debug(cred);
-
-            if ((await client.registerFinish(cred)) !== null) {
-                console.warn("seems wrong");
-            }
-        } catch (error) {
-            console.error(error);
-            return;
-        }
-    }
-
-    async function login() {
-        let cr;
-        try {
-            cr = await client.loginStart();
-        } catch (error) {
-            console.error(error);
-            return;
-        }
-        console.debug(cr);
-
-        const options = PublicKeyCredential.parseRequestOptionsFromJSON(cr);
-
-        const credential = await navigator.credentials.get({
-            publicKey: options,
-            mediation: "required",
-        });
-
-        if (!credential) {
-            console.error("No credentials returned");
-            return;
-        }
-
-        if (!(credential instanceof PublicKeyCredential)) {
-            console.error("Expected a PublicKeyCredential");
-            return;
-        }
-
-        try {
-            let cred = credential.toJSON();
-            console.debug(cred);
             await client.loginFinish(cred);
-            window.location.assign(
-                decodeURIComponent(new URLSearchParams(location.search).get("back") ?? "/")
-            );
         } catch (error) {
             console.error(error);
+            setStatus("server_error");
             return;
         }
-    }
+
+        window.location.assign(
+            decodeURIComponent(new URLSearchParams(location.search).get("back") ?? "/")
+        );
+    });
 
     return (
-        <div class="hero bg-base-200 h-full">
-            <div class="hero-content flex-col lg:flex-row-reverse">
-                <div class="text-center lg:text-left">
-                    <h1 class="text-5xl font-bold">Welcome!</h1>
-                    <p class="py-6">Feel free to try out our task manager :3</p>
-                </div>
-                <div class="card bg-base-100 w-full max-w-sm shrink-0 shadow-2xl">
-                    <div class="card-body">
-                        <form onSubmit={register}>
-                            <fieldset class="fieldset">
-                                <label class="label">Invite code</label>
-                                <input
-                                    class="input"
-                                    type="text"
-                                    placeholder="XXXX-XXXX-XXXX"
-                                    value={invite()}
-                                    pattern="[a-zA-z]{4}-[a-zA-z]{4}-[a-zA-z]{4}"
-                                    onInput={e => setInvite(e.currentTarget.value.toUpperCase())}
-                                    required
-                                />
-                                <label class="label">Display name</label>
-                                <input
-                                    class="input"
-                                    type="text"
-                                    placeholder="Me"
-                                    value={name()}
-                                    onInput={e => setName(e.currentTarget.value)}
-                                    required
-                                />
-                            </fieldset>
-                            <div class="card-actions">
-                                <button class="btn btn-primary mt-4" type="submit">
-                                    register
-                                </button>
-                            </div>
-                        </form>
-                        <button class="btn btn-primary" type="submit" onClick={login}>
-                            login
-                        </button>
+        <main class="h-full flex items-center justify-center">
+            <div class="card w-full max-w-md bg-base-200">
+                <div class="card-body items-center text-center">
+                    <h1 class="card-title text-2xl">Sign in</h1>
+
+                    <div class="mt-4 w-full">
+                        <Switch>
+                            <Match when={status() == "loading"}>
+                                <div class="flex flex-col items-center gap-3">
+                                    <span class="loading loading-spinner loading-lg" />
+                                    <span>Waiting for your passkey...</span>
+                                </div>
+                            </Match>
+
+                            <Match when={status() == "server_error"}>
+                                <div class="alert alert-error">
+                                    <span>Server error. This shouldn't have happened.</span>
+                                </div>
+                            </Match>
+
+                            <Match when={status() == "no_credentials"}>
+                                <div class="alert alert-warning">
+                                    <span>No passkeys were found.</span>
+                                </div>
+                            </Match>
+
+                            <Match when={status() == "user"}>
+                                <div class="alert alert-info">
+                                    <span>
+                                        Unable to get any passkeys. Check your authenticator.
+                                    </span>
+                                </div>
+                            </Match>
+
+                            <Match when={status() == "error"}>
+                                <div class="alert alert-error">
+                                    <span>Something went wrong.</span>
+                                </div>
+                            </Match>
+                        </Switch>
                     </div>
+
+                    <div class="divider">OR</div>
+
+                    <A href="/join" class="btn btn-primary w-full">
+                        Join
+                    </A>
                 </div>
             </div>
-        </div>
+        </main>
     );
 }

@@ -7,10 +7,6 @@ async function request<T>(path: string, options: RequestInit = {}) {
         headers: { "Content-Type": "application/json", ...options.headers },
     });
 
-    if (response.status == 404) {
-        throw new Error("404");
-    }
-
     if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }

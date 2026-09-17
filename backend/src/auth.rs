@@ -190,5 +190,9 @@ pub async fn register_finish(
         .await
         .map_err(|_| error::ErrorInternalServerError(""))?;
 
+    session
+        .insert("user_id", user_id)
+        .map_err(|_| error::ErrorInternalServerError(""))?;
+
     Ok(HttpResponse::NoContent().finish())
 }
