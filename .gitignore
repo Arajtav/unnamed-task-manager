@@ -1,3 +1,5 @@
 *.sqlite
 target
 .env
+.env.*
+!.env.example

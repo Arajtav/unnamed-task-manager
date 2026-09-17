@@ -1,7 +1,7 @@
 import type { CombinedError } from "@urql/core";
 
 async function request<T>(path: string, options: RequestInit = {}) {
-    const response = await fetch(`http://localhost:8080${path}`, {
+    const response = await fetch(`${import.meta.env.VITE_BACKEND}${path}`, {
         credentials: "include",
         ...options,
         headers: { "Content-Type": "application/json", ...options.headers },

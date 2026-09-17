@@ -15,7 +15,7 @@ import {
 } from "./queries";
 
 export const gqlClient = new Client({
-    url: "http://localhost:8080/graphql",
+    url: `${import.meta.env.VITE_BACKEND}/graphql`,
     exchanges: [cacheExchange, fetchExchange],
     preferGetMethod: false,
     fetchOptions: {
