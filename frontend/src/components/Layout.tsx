@@ -11,7 +11,7 @@ export default function Layout(props: RouteSectionProps) {
     });
 
     return (
-        <div class="bg-neutral flex flex-col h-screen w-screen">
+        <div class="flex flex-col h-screen w-screen">
             <Show when={me()}>{user => <Navbar me={user()} />}</Show>
             <div class="flex-1 overflow-auto">{props.children}</div>
         </div>

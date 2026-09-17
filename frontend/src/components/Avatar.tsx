@@ -1,13 +1,13 @@
 import { GqlUser } from "../graphql/types";
 import { client } from "../auth";
 
-export default function Avatar(props: { me: GqlUser }) {
-    let me = props.me;
-
+export default function Avatar({ me }: { me: GqlUser }) {
     async function logout() {
         try {
-            await client.logout({ body: undefined });
-            window.location.assign(decodeURIComponent(new URLSearchParams(location.search).get("back") ?? "/"));
+            await client.logout();
+            window.location.assign(
+                decodeURIComponent(new URLSearchParams(location.search).get("back") ?? "/")
+            );
         } catch (error) {
             console.error(error);
         }
@@ -20,16 +20,11 @@ export default function Avatar(props: { me: GqlUser }) {
                 popovertarget="popover-1"
                 style="anchor-name:--anchor-1"
             >
-                <span>
-                    {
-                        // me.name[0].toUpperCase()
-                        "L"
-                    }
-                </span>
+                <span>{me.id[0].toUpperCase()}</span>
             </button>
 
             <ul
-                class="dropdown menu w-52 rounded-box bg-base-100 shadow-sm"
+                class="dropdown menu w-52 rounded-box bg-base-100"
                 popover
                 id="popover-1"
                 style="position-anchor:--anchor-1"

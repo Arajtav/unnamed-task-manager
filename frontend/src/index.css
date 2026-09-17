@@ -1,2 +1,58 @@
+@import url("https://fonts.googleapis.com/css2?family=Cantarell:wght@400;700&family=Noto+Sans:wght@400;500;600;700&display=swap");
+
 @import "tailwindcss";
-@plugin "daisyui";
+@plugin "daisyui" {
+    themes: custom;
+}
+
+@plugin "daisyui" {
+    themes: custom;
+}
+
+@plugin "daisyui/theme" {
+    name: "custom";
+    default: false;
+    prefersdark: true;
+    color-scheme: "dark";
+    --color-base-100: oklch(16.46% 0.014 149.57);
+    --color-base-200: oklch(22.4% 0.014 149.57);
+    --color-base-300: oklch(29.1% 0.014 149.57);
+    --color-base-content: oklch(96.48% 0.007 164.94);
+    --color-primary: oklch(78.7% 0.142 208.98);
+    --color-primary-content: oklch(38% 0.063 188.416);
+    --color-secondary: oklch(66.92% 0.072 195.58);
+    --color-secondary-content: oklch(28.4% 0.102 195.58);
+    --color-accent: oklch(66.26% 0.105 155.4);
+    --color-accent-content: oklch(25.3% 0.113 155.4);
+    --color-neutral: oklch(16.46% 0.014 149.57);
+    --color-neutral-content: oklch(64.4% 0 149.57);
+    --color-info: oklch(74% 0.16 232.661);
+    --color-info-content: oklch(29% 0.066 243.157);
+    --color-success: oklch(76% 0.233 130.85);
+    --color-success-content: oklch(27% 0.072 132.109);
+    --color-warning: oklch(79% 0.184 86.047);
+    --color-warning-content: oklch(28% 0.066 53.813);
+    --color-error: oklch(66.3% 0.245 27.325);
+    --color-error-content: oklch(23.1% 0.099 26.042);
+    --radius-selector: 0.25rem;
+    --radius-field: 0.25rem;
+    --radius-box: 1rem;
+    --size-selector: 0.25rem;
+    --size-field: 0.3125rem;
+    --border: 1px;
+    --depth: 0;
+    --noise: 0;
+}
+
+@theme {
+    --text-sm: 0.8rem;
+    --text-base: 1rem;
+    --text-xl: 1.25rem;
+    --text-2xl: 1.563rem;
+    --text-3xl: 1.954rem;
+    --text-4xl: 2.442rem;
+    --text-5xl: 3.053rem;
+
+    --font-heading: "Cantarell", sans-serif;
+    --font-body: "Noto Sans", sans-serif;
+}

@@ -1,13 +1,16 @@
-import { createEffect, createSignal, Match, Switch } from "solid-js";
+import { createEffect, createSignal, Match, Show, Switch } from "solid-js";
 import { client } from "../auth";
 import { A } from "@solidjs/router";
 
 export default function Login() {
+    // TODO: would be nice to debounce loading by a few ms.
     let [status, setStatus] = createSignal<
-        "loading" | "server_error" | "no_credentials" | "error" | "user"
-    >("loading");
+        null | "loading" | "server_error" | "no_credentials" | "error" | "user"
+    >(null);
 
-    createEffect(async () => {
+    async function login() {
+        setStatus("loading");
+
         let options;
         try {
             const cr = await client.loginStart();
@@ -57,15 +60,17 @@ export default function Login() {
         window.location.assign(
             decodeURIComponent(new URLSearchParams(location.search).get("back") ?? "/")
         );
-    });
+    }
+
+    createEffect(login);
 
     return (
         <main class="h-full flex items-center justify-center">
             <div class="card w-full max-w-md bg-base-200">
                 <div class="card-body items-center text-center">
-                    <h1 class="card-title text-2xl">Sign in</h1>
+                    <h1 class="card-title text-2xl mb-4">Sign in</h1>
 
-                    <div class="mt-4 w-full">
+                    <div class="w-full">
                         <Switch>
                             <Match when={status() == "loading"}>
                                 <div class="flex flex-col items-center gap-3">
@@ -75,36 +80,50 @@ export default function Login() {
                             </Match>
 
                             <Match when={status() == "server_error"}>
-                                <div class="alert alert-error">
-                                    <span>Server error. This shouldn't have happened.</span>
+                                <div class="toast">
+                                    <div class="alert alert-error">
+                                        <span>Server error. This shouldn't have happened.</span>
+                                    </div>
                                 </div>
                             </Match>
 
                             <Match when={status() == "no_credentials"}>
-                                <div class="alert alert-warning">
-                                    <span>No passkeys were found.</span>
+                                <div class="toast">
+                                    <div class="alert alert-info">
+                                        <span>No passkeys were found.</span>
+                                    </div>
                                 </div>
                             </Match>
 
                             <Match when={status() == "user"}>
-                                <div class="alert alert-info">
-                                    <span>
-                                        Unable to get any passkeys. Check your authenticator.
-                                    </span>
+                                <div class="toast">
+                                    <div class="alert alert-error">
+                                        <span>
+                                            Unable to get any passkeys. Check your authenticator.
+                                        </span>
+                                    </div>
                                 </div>
                             </Match>
 
                             <Match when={status() == "error"}>
-                                <div class="alert alert-error">
-                                    <span>Something went wrong.</span>
+                                <div class="toast">
+                                    <div class="alert alert-error">
+                                        <span>Something went wrong.</span>
+                                    </div>
                                 </div>
                             </Match>
                         </Switch>
+
+                        <Show when={status() != "loading"}>
+                            <button class="btn btn-primary w-full" onclick={login}>
+                                Sign in
+                            </button>
+                        </Show>
                     </div>
 
                     <div class="divider">OR</div>
 
-                    <A href="/join" class="btn btn-primary w-full">
+                    <A href="/join" class="btn btn-ghost w-full">
                         Join
                     </A>
                 </div>
