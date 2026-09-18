@@ -3,9 +3,9 @@ import { RouteSectionProps, useLocation } from "@solidjs/router";
 import { meQuery } from "../graphql/client";
 import Navbar from "./Navbar";
 import { handleAuthError } from "../auth";
-import { GqlUser } from "../graphql/types";
+import { GqlMe } from "../graphql/types";
 
-const MeContext = createContext<Resource<GqlUser | null | undefined>>();
+const MeContext = createContext<Resource<GqlMe | null | undefined>>();
 
 export function useMe() {
     const context = useContext(MeContext);
@@ -31,7 +31,7 @@ export default function Layout(props: RouteSectionProps) {
 
         if (handleAuthError(result.error)) return undefined;
 
-        return result.data?.me ?? null;
+        return result.data?.me ?? undefined;
     });
 
     return (

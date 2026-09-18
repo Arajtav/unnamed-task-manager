@@ -5,6 +5,7 @@ import Login from "./pages/Login";
 import Board from "./pages/Board";
 import BoardForm from "./pages/BoardForm";
 import Join from "./pages/Join";
+import Settings from "./pages/Settings";
 
 export default function App() {
     return (
@@ -14,6 +15,7 @@ export default function App() {
             <Route path="/join" component={Join} />
             <Route path="/boards/:id" component={Board} />
             <Route path="/boards/create" component={BoardForm} />
+            <Route path="/settings" component={Settings} />
         </Router>
     );
 }

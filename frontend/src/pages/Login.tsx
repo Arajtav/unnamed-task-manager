@@ -75,7 +75,7 @@ export default function Login() {
 
     return (
         <main class="h-full flex items-center justify-center">
-            <div class="card w-full max-w-md bg-base-100 border border-primary/50">
+            <div class="card w-full max-w-md bg-base-100 border border-base-200">
                 <div class="card-body items-center text-center">
                     <h1 class="card-title text-2xl mb-4">Sign in</h1>
 

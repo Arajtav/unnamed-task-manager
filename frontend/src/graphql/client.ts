@@ -1,9 +1,8 @@
 import { Client, cacheExchange, fetchExchange } from "@urql/core";
 import { createSignal } from "solid-js";
-import type { GqlBoard, GqlTask, GqlUser } from "./types";
+import type { GqlBoard, GqlMe, GqlTask, GqlUser } from "./types";
 import {
     ME_QUERY,
-    MY_EMAILS_QUERY,
     USERS_QUERY,
     USER_QUERY,
     BOARDS_QUERY,
@@ -26,12 +25,9 @@ export const gqlClient = new Client({
 // Users
 
 export function meQuery() {
-    return gqlClient.query<{ me: GqlUser }>(ME_QUERY, {}).toPromise();
+    return gqlClient.query<{ me: GqlMe }>(ME_QUERY, {}).toPromise();
 }
 
-export function myEmailsQuery() {
-    return gqlClient.query<{ me: { emails: { email: string }[] } }>(MY_EMAILS_QUERY, {}).toPromise();
-}
 export function usersQuery() {
     return gqlClient.query<{ users: GqlUser[] }>(USERS_QUERY, {}).toPromise();
 }

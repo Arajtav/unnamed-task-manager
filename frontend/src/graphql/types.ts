@@ -1,7 +1,18 @@
+export type GqlMe = {
+    id: string;
+    createdAt: string;
+    isAdmin: boolean;
+    emails: GqlEmail[];
+};
+
 export type GqlUser = {
     id: string;
     createdAt: string;
     isAdmin: boolean;
+};
+
+export type GqlEmail = {
+    email: string;
 };
 
 export type GqlBoard = {

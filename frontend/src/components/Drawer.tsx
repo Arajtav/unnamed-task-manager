@@ -22,7 +22,7 @@ export default function Drawer() {
         <div class="drawer w-fit items-center mx-2">
             <input ref={drawerToggle} id="board-drawer" type="checkbox" class="drawer-toggle" />
             <div class="drawer-content">
-                <label for="board-drawer" class="btn bg-gray-700 h-7">
+                <label for="board-drawer" class="btn btn-primary h-lh box-content">
                     Boards
                 </label>
             </div>

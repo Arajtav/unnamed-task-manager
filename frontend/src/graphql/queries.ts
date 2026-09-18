@@ -4,16 +4,7 @@ export const ME_QUERY = `
             id
             createdAt
             isAdmin
-        }
-    }
-`;
-
-export const MY_EMAILS_QUERY = `
-    query MyEmails {
-        me {
-            emails {
-                email
-            }
+            emails { email }
         }
     }
 `;

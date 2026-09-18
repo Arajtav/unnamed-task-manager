@@ -1,15 +1,24 @@
-import { createResource, createSignal, For } from "solid-js";
-import { createTask, myEmailsQuery } from "../graphql/client";
+import { createSignal, For } from "solid-js";
+import { createTask } from "../graphql/client";
+import { useMe } from "./Layout";
+import { GqlMe } from "../graphql/types";
 
 export default function TaskForm(props: { boardId: number; onCreated: () => void }) {
     const [title, setTitle] = createSignal("");
     const [description, setDescription] = createSignal("");
     const [author, setAuthor] = createSignal("");
 
-    const [myEmails] = createResource(async () => {
-        const result = await myEmailsQuery();
-        return result.data?.me.emails ?? [];
-    });
+    const me = useMe()();
+
+    if (me == undefined) {
+        return (
+            <div class="toast">
+                <span class="alert alert-error">
+                    Something went wrong. Please try again.
+                </span>
+            </div>
+        );
+    }
 
     async function submit(e: SubmitEvent) {
         e.preventDefault();
@@ -28,7 +37,7 @@ export default function TaskForm(props: { boardId: number; onCreated: () => void
     }
 
     return (
-        <div class="card bg-base-100 border border-primary/50 w-full max-w-sm shrink-0">
+        <div class="card bg-base-100 border border-base-200 w-full max-w-sm shrink-0">
             <div class="card-body">
                 <h2 class="card-title">Create Task</h2>
                 <form onSubmit={submit}>
@@ -60,7 +69,7 @@ export default function TaskForm(props: { boardId: number; onCreated: () => void
                             required
                         />
                         <datalist id="task-form-author-emails">
-                            <For each={myEmails()}>{(email) => <option value={email.email} />}</For>
+                            <For each={me.emails}>{(email) => <option value={email.email} />}</For>
                         </datalist>
                     </fieldset>
 
