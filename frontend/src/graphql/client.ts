@@ -1,6 +1,6 @@
 import { Client, cacheExchange, fetchExchange } from "@urql/core";
 import { createSignal } from "solid-js";
-import type { GqlBoard, GqlMe, GqlTask, GqlUser } from "./types";
+import type { GqlBoard, GqlEmail, GqlMe, GqlTask, GqlUser } from "./types";
 import {
     ME_QUERY,
     USERS_QUERY,
@@ -11,6 +11,8 @@ import {
     TASKS_QUERY,
     TASK_QUERY,
     CREATE_TASK_MUTATION,
+    ADD_USER_EMAIL,
+    DELETE_USER_EMAIL,
 } from "./queries";
 
 export const gqlClient = new Client({
@@ -45,14 +47,18 @@ export function boardsQuery(name?: string) {
 }
 
 export function boardQuery(id: number) {
-    return gqlClient.query<{ board: (GqlBoard & { tasks: GqlTask[] }) | null }>(BOARD_QUERY, { id }).toPromise();
+    return gqlClient
+        .query<{ board: (GqlBoard & { tasks: GqlTask[] }) | null }>(BOARD_QUERY, { id })
+        .toPromise();
 }
 
 export async function createBoard(name: string) {
-    const result = await gqlClient.mutation<{ createBoard: GqlBoard }>(CREATE_BOARD_MUTATION, { name }).toPromise();
+    const result = await gqlClient
+        .mutation<{ createBoard: GqlBoard }>(CREATE_BOARD_MUTATION, { name })
+        .toPromise();
 
     if (!result.error) {
-        setBoardsRefreshTick((v) => v + 1);
+        setBoardsRefreshTick(v => v + 1);
     }
 
     return result;
@@ -70,6 +76,25 @@ export function taskQuery(id: number) {
 
 export function createTask(boardId: number, title: string, author: string, description?: string) {
     return gqlClient
-        .mutation<{ createTask: GqlTask }>(CREATE_TASK_MUTATION, { boardId, title, description, author })
+        .mutation<{ createTask: GqlTask }>(CREATE_TASK_MUTATION, {
+            boardId,
+            title,
+            description,
+            author,
+        })
+        .toPromise();
+}
+
+// Emails
+
+export function addUserEmail(userId: string, email: string) {
+    return gqlClient
+        .mutation<{ addUserEmail: GqlEmail }>(ADD_USER_EMAIL, { userId, email })
+        .toPromise();
+}
+
+export function deleteUserEmail(userId: string, email: string) {
+    return gqlClient
+        .mutation<{ deleteUserEmail: boolean }>(DELETE_USER_EMAIL, { userId, email })
         .toPromise();
 }

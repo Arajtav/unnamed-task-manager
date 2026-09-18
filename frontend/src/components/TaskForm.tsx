@@ -1,21 +1,18 @@
 import { createSignal, For } from "solid-js";
 import { createTask } from "../graphql/client";
 import { useMe } from "./Layout";
-import { GqlMe } from "../graphql/types";
 
 export default function TaskForm(props: { boardId: number; onCreated: () => void }) {
     const [title, setTitle] = createSignal("");
     const [description, setDescription] = createSignal("");
     const [author, setAuthor] = createSignal("");
 
-    const me = useMe()();
+    const me = useMe().me();
 
     if (me == undefined) {
         return (
             <div class="toast">
-                <span class="alert alert-error">
-                    Something went wrong. Please try again.
-                </span>
+                <span class="alert alert-error">Something went wrong. Please try again.</span>
             </div>
         );
     }
@@ -23,7 +20,12 @@ export default function TaskForm(props: { boardId: number; onCreated: () => void
     async function submit(e: SubmitEvent) {
         e.preventDefault();
 
-        const result = await createTask(props.boardId, title(), author(), description() || undefined);
+        const result = await createTask(
+            props.boardId,
+            title(),
+            author(),
+            description() || undefined
+        );
 
         if (result.error) {
             console.error(result.error);
@@ -48,7 +50,7 @@ export default function TaskForm(props: { boardId: number; onCreated: () => void
                             type="text"
                             placeholder="Title"
                             value={title()}
-                            onInput={(e) => setTitle(e.currentTarget.value)}
+                            onInput={e => setTitle(e.currentTarget.value)}
                             required
                         />
                         <label class="label">Description</label>
@@ -56,7 +58,7 @@ export default function TaskForm(props: { boardId: number; onCreated: () => void
                             class="textarea"
                             placeholder="Description"
                             value={description()}
-                            onInput={(e) => setDescription(e.currentTarget.value)}
+                            onInput={e => setDescription(e.currentTarget.value)}
                         />
                         <label class="label">Author email</label>
                         <input
@@ -65,11 +67,11 @@ export default function TaskForm(props: { boardId: number; onCreated: () => void
                             placeholder="Author email"
                             list="task-form-author-emails"
                             value={author()}
-                            onInput={(e) => setAuthor(e.currentTarget.value)}
+                            onInput={e => setAuthor(e.currentTarget.value)}
                             required
                         />
                         <datalist id="task-form-author-emails">
-                            <For each={me.emails}>{(email) => <option value={email.email} />}</For>
+                            <For each={me.emails}>{email => <option value={email.email} />}</For>
                         </datalist>
                     </fieldset>
 

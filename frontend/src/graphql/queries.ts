@@ -39,7 +39,6 @@ export const BOARDS_QUERY = `
     }
 `;
 
-
 export const BOARD_QUERY = `
     query Board($id: Int!) {
         board(id: $id) {
@@ -100,5 +99,19 @@ export const CREATE_TASK_MUTATION = `
             createdAt
             author
         }
+    }
+`;
+
+export const ADD_USER_EMAIL = `
+    mutation AddUserEmail($userId: UUID!, $email: String!) {
+        addUserEmail(userId: $userId, email: $email) {
+            email
+        }
+    }
+`;
+
+export const DELETE_USER_EMAIL = `
+    mutation DeleteUserEmail($userId: UUID!, $email: String!) {
+        deleteUserEmail(userId: $userId, email: $email)
     }
 `;

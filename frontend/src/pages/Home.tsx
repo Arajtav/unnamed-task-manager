@@ -2,7 +2,7 @@ import { Show } from "solid-js";
 import { useMe } from "../components/Layout";
 
 export default function Home() {
-    const me = useMe();
+    const { me } = useMe();
 
     return (
         <div class="w-full h-full flex items-center justify-center">

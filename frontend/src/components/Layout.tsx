@@ -5,7 +5,11 @@ import Navbar from "./Navbar";
 import { handleAuthError } from "../auth";
 import { GqlMe } from "../graphql/types";
 
-const MeContext = createContext<Resource<GqlMe | null | undefined>>();
+// TODO: createStore or something. It's not like anything can render before user is loaded anyway. And it does not refetch ever.
+const MeContext = createContext<{
+    me: Resource<GqlMe | null | undefined>;
+    setMe: (me: GqlMe | null | undefined) => void;
+}>();
 
 export function useMe() {
     const context = useContext(MeContext);
@@ -22,7 +26,7 @@ export default function Layout(props: RouteSectionProps) {
 
     const isAuthPage = () => location.pathname == "/login" || location.pathname == "/join";
 
-    const [me] = createResource(async () => {
+    const [me, { mutate }] = createResource(async () => {
         if (isAuthPage()) {
             return null;
         }
@@ -34,6 +38,11 @@ export default function Layout(props: RouteSectionProps) {
         return result.data?.me ?? undefined;
     });
 
+    const context = {
+        me,
+        setMe: mutate,
+    };
+
     return (
         <div class="flex flex-col h-screen w-screen">
             <Show when={me.loading}>
@@ -43,7 +52,7 @@ export default function Layout(props: RouteSectionProps) {
             </Show>
             <Show when={!me.loading}>
                 <Show when={!isAuthPage() && me()}>{user => <Navbar me={user()} />}</Show>
-                <MeContext.Provider value={me}>
+                <MeContext.Provider value={context}>
                     <div class="flex-1 overflow-auto">{props.children}</div>
                 </MeContext.Provider>
             </Show>
