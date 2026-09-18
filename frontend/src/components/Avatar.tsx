@@ -1,13 +1,12 @@
 import { GqlUser } from "../graphql/types";
 import { client } from "../auth";
+import { A } from "@solidjs/router";
 
 export default function Avatar({ me }: { me: GqlUser }) {
     async function logout() {
         try {
             await client.logout();
-            window.location.assign(
-                decodeURIComponent(new URLSearchParams(location.search).get("back") ?? "/")
-            );
+            window.location.assign("/login");
         } catch (error) {
             console.error(error);
         }

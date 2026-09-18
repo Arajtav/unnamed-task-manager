@@ -1,4 +1,4 @@
-import { createEffect, createSignal, Match, Show, Switch } from "solid-js";
+import { createSignal, Match, onMount, Show, Switch } from "solid-js";
 import { client } from "../auth";
 import { A } from "@solidjs/router";
 
@@ -62,7 +62,16 @@ export default function Login() {
         );
     }
 
-    createEffect(login);
+    onMount(async () => {
+        const url = new URL(window.location.href);
+        const auto = url.searchParams.get("auto") == "1";
+
+        if (!auto) return;
+
+        url.searchParams.delete("auto");
+        window.history.replaceState({}, "", url);
+        await login();
+    });
 
     return (
         <main class="h-full flex items-center justify-center">
@@ -123,7 +132,7 @@ export default function Login() {
 
                     <div class="divider">OR</div>
 
-                    <A href="/join" class="btn btn-ghost w-full">
+                    <A href={`/join${location.search}`} class="btn btn-ghost w-full">
                         Join
                     </A>
                 </div>

@@ -53,7 +53,7 @@ export function handleAuthError(error: CombinedError | undefined): boolean {
         const location = window.location;
         const url = location.pathname + location.search;
 
-        location.assign(`/login?back=${encodeURIComponent(url)}`);
+        location.assign(`/login?auto=1&back=${encodeURIComponent(url)}`);
     }
 
     return true;

@@ -1,15 +1,8 @@
-import { createResource, Show } from "solid-js";
-import { handleAuthError } from "../auth";
-import { meQuery } from "../graphql/client";
+import { Show } from "solid-js";
+import { useMe } from "../components/Layout";
 
 export default function Home() {
-    const [me] = createResource(async () => {
-        const result = await meQuery();
-
-        if (handleAuthError(result.error)) return undefined;
-
-        return result.data?.me ?? null;
-    });
+    const me = useMe();
 
     return (
         <div class="w-full h-full flex items-center justify-center">
@@ -17,20 +10,16 @@ export default function Home() {
                 <span class="loading loading-spinner loading-lg" />
             </Show>
 
-            <Show when={!me.loading && me() === null}>
-                <div role="alert" class="alert alert-warning">
-                    <span>Not authenticated</span>
-                </div>
-            </Show>
-
             <Show when={!me.loading && me() === undefined}>
-                <div role="alert" class="alert alert-error">
-                    <span>Something went wrong</span>
+                <div class="toast">
+                    <div class="alert alert-error">
+                        <span>Something went wrong</span>
+                    </div>
                 </div>
             </Show>
 
             <Show when={!me.loading && me()}>
-                {(user) => (
+                {user => (
                     <div class="card card-border card-xl bg-base-100">
                         <div class="card-body">
                             <div class="card-title">

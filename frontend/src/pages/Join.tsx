@@ -58,7 +58,9 @@ export default function Join() {
             return;
         }
 
-        window.location.assign("/login");
+        window.location.assign(
+            decodeURIComponent(new URLSearchParams(location.search).get("back") ?? "/")
+        );
     }
 
     return (
@@ -164,7 +166,7 @@ export default function Join() {
 
                     <div class="divider">OR</div>
 
-                    <A href="/" class="btn btn-ghost w-full">
+                    <A href={`/login${location.search}`} class="btn btn-ghost w-full">
                         Go back to login
                     </A>
                 </div>
