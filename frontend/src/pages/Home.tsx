@@ -20,7 +20,7 @@ export default function Home() {
 
             <Show when={!me.loading && me()}>
                 {user => (
-                    <div class="card card-border card-xl bg-base-100">
+                    <div class="card card-border card-xl bg-base-100 border border-primary/50">
                         <div class="card-body">
                             <div class="card-title">
                                 <div class="avatar avatar-placeholder">

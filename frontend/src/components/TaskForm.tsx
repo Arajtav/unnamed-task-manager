@@ -28,7 +28,7 @@ export default function TaskForm(props: { boardId: number; onCreated: () => void
     }
 
     return (
-        <div class="card bg-base-100 w-full max-w-sm shrink-0">
+        <div class="card bg-base-100 border border-primary/50 w-full max-w-sm shrink-0">
             <div class="card-body">
                 <h2 class="card-title">Create Task</h2>
                 <form onSubmit={submit}>

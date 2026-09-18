@@ -65,7 +65,7 @@ export default function Join() {
 
     return (
         <main class="h-full flex items-center justify-center">
-            <div class="card w-full max-w-md bg-base-200">
+            <div class="card w-full max-w-md bg-base-100 border border-primary/50">
                 <div class="card-body items-center text-center">
                     <h1 class="card-title text-2xl">Join</h1>
 

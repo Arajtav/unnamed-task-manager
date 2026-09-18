@@ -5,7 +5,7 @@ import Avatar from "./Avatar";
 
 export default function Navbar(props: { me: GqlUser }) {
     return (
-        <div class="flex flex-row justify-between h-10 bg-base-300">
+        <div class="navbar flex flex-row justify-between h-10 bg-base-100">
             <div class="flex flex-row gap-4">
                 <Drawer />
                 <Breadcrumbs />

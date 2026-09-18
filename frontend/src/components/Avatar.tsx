@@ -23,7 +23,7 @@ export default function Avatar({ me }: { me: GqlUser }) {
             </button>
 
             <ul
-                class="dropdown menu w-52 rounded-box bg-base-100"
+                class="dropdown menu w-52 rounded-box bg-base-200"
                 popover
                 id="popover-1"
                 style="position-anchor:--anchor-1"

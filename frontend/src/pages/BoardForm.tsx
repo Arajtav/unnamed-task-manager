@@ -21,7 +21,7 @@ export default function BoardForm() {
 
     return (
         <div class="flex w-full h-full items-center justify-center">
-            <div class="card card-border bg-base-100">
+            <div class="card card-border bg-base-100 border border-primary/50">
                 <div class="card-body">
                     <h2 class="card-title">Create Board</h2>
                     <form onSubmit={submit}>
