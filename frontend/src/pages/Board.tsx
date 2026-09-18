@@ -9,19 +9,21 @@ export default function Board() {
 
     const [board, { refetch }] = createResource(
         () => params.id,
-        async (id) => {
+        async id => {
             const result = await boardQuery(Number(id));
 
             if (handleAuthError(result.error)) return undefined;
 
             return result.data?.board ?? null;
-        },
+        }
     );
 
     return (
-        <div class="flex items-start justify-center pt-8">
+        <div class="flex items-start justify-center pt-8 w-full h-full">
             <Show when={board.loading}>
-                <span class="loading loading-spinner loading-lg" />
+                <div class="w-full h-full items-center justify-center flex">
+                    <span class="loading loading-spinner loading-lg" />
+                </div>
             </Show>
 
             <Show when={!board.loading && board() === null}>
@@ -37,7 +39,7 @@ export default function Board() {
             </Show>
 
             <Show when={!board.loading && board()}>
-                {(b) => (
+                {b => (
                     <div class="flex flex-col gap-8">
                         <p class="text-center font-bold">{b().name}</p>
 
@@ -46,13 +48,16 @@ export default function Board() {
                         <Show when={b().tasks.length > 0}>
                             <ul class="list bg-base-100 rounded-box">
                                 <For each={b().tasks}>
-                                    {(task) => (
+                                    {task => (
                                         <li class="list-row flex flex-col">
                                             <div>
                                                 <p class="font-bold">{task.title}</p>
                                                 <p>{task.description}</p>
                                                 <p>Author: {task.author}</p>
-                                                <p>Created at: {new Date(task.createdAt).toISOString()}</p>
+                                                <p>
+                                                    Created at:{" "}
+                                                    {new Date(task.createdAt).toISOString()}
+                                                </p>
                                             </div>
                                         </li>
                                     )}

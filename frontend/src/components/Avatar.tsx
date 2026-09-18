@@ -1,8 +1,10 @@
-import { GqlUser } from "../graphql/types";
 import { client } from "../auth";
 import { A } from "@solidjs/router";
+import { useMe } from "./Layout";
 
-export default function Avatar({ me }: { me: GqlUser }) {
+export default function Avatar() {
+    let [me] = useMe();
+
     async function logout() {
         try {
             await client.logout();

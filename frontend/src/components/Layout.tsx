@@ -1,15 +1,12 @@
-import { createContext, createResource, Resource, Show, useContext } from "solid-js";
+import { createContext, createSignal, onMount, Show, useContext } from "solid-js";
+import { createStore } from "solid-js/store";
 import { RouteSectionProps, useLocation } from "@solidjs/router";
 import { meQuery } from "../graphql/client";
-import Navbar from "./Navbar";
 import { handleAuthError } from "../auth";
 import { GqlMe } from "../graphql/types";
+import Navbar from "./Navbar";
 
-// TODO: createStore or something. It's not like anything can render before user is loaded anyway. And it does not refetch ever.
-const MeContext = createContext<{
-    me: Resource<GqlMe | null | undefined>;
-    setMe: (me: GqlMe | null | undefined) => void;
-}>();
+const MeContext = createContext<ReturnType<typeof createStore<GqlMe>>>();
 
 export function useMe() {
     const context = useContext(MeContext);
@@ -23,38 +20,46 @@ export function useMe() {
 
 export default function Layout(props: RouteSectionProps) {
     const location = useLocation();
+    const [loading, setLoading] = createSignal(true);
 
     const isAuthPage = () => location.pathname == "/login" || location.pathname == "/join";
 
-    const [me, { mutate }] = createResource(async () => {
-        if (isAuthPage()) {
-            return null;
-        }
+    const store = createStore<GqlMe>({} as GqlMe);
+
+    onMount(async () => {
+        if (isAuthPage()) return;
 
         const result = await meQuery();
 
-        if (handleAuthError(result.error)) return undefined;
+        if (handleAuthError(result.error)) return;
 
-        return result.data?.me ?? undefined;
+        if (!result.data?.me) {
+            throw new Error("Expected authenticated user");
+        }
+
+        store[1](result.data.me);
+        setLoading(false);
     });
-
-    const context = {
-        me,
-        setMe: mutate,
-    };
 
     return (
         <div class="flex flex-col h-screen w-screen">
-            <Show when={me.loading}>
-                <div id="layout_spinner" class="flex items-center justify-center w-full h-full">
-                    <span class="loading loading-spinner loading-lg" />
-                </div>
-            </Show>
-            <Show when={!me.loading}>
-                <Show when={!isAuthPage() && me()}>{user => <Navbar me={user()} />}</Show>
-                <MeContext.Provider value={context}>
-                    <div class="flex-1 overflow-auto">{props.children}</div>
-                </MeContext.Provider>
+            <Show
+                when={isAuthPage() || !loading()}
+                fallback={
+                    <div id="layout_spinner" class="flex items-center justify-center w-full h-full">
+                        <span class="loading loading-spinner loading-lg" />
+                    </div>
+                }
+            >
+                <Show
+                    when={!isAuthPage()}
+                    fallback={<div class="flex-1 overflow-auto">{props.children}</div>}
+                >
+                    <MeContext.Provider value={store}>
+                        <Navbar></Navbar>
+                        <div class="flex-1 overflow-auto">{props.children}</div>
+                    </MeContext.Provider>
+                </Show>
             </Show>
         </div>
     );
