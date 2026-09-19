@@ -261,6 +261,28 @@ impl Board {
 
         Ok(vec_map(access))
     }
+
+    async fn invites(&self, ctx: &Context<'_>) -> Result<Vec<BoardInvite>> {
+        let db = get_db(ctx);
+        let user = get_user(ctx);
+
+        if !user.is_admin {
+            let access = models::board_access::Entity::find_by_id((self.id, user.id))
+                .one(db)
+                .await?;
+
+            if !access.is_some_and(|access| access.is_moderator) {
+                return Err(Error::new("FORBIDDEN"));
+            }
+        }
+
+        let invites = models::board_invite::Entity::find()
+            .filter(models::board_invite::Column::BoardId.eq(self.id))
+            .all(db)
+            .await?;
+
+        Ok(vec_map(invites))
+    }
 }
 
 #[derive(async_graphql::SimpleObject)]
@@ -274,6 +296,21 @@ impl From<models::board_access::Model> for Access {
         Self {
             user_id: access.user_id,
             is_moderator: access.is_moderator,
+        }
+    }
+}
+
+#[derive(async_graphql::SimpleObject)]
+pub struct BoardInvite {
+    board_id: i32,
+    user_id: Uuid,
+}
+
+impl From<models::board_invite::Model> for BoardInvite {
+    fn from(invite: models::board_invite::Model) -> Self {
+        Self {
+            board_id: invite.board_id,
+            user_id: invite.user_id,
         }
     }
 }

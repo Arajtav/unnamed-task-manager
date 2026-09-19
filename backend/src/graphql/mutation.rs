@@ -11,7 +11,7 @@ use uuid::Uuid;
 use crate::{
     graphql::{
         get_db, get_user,
-        query::{Access, Board, Email, Invite, Task},
+        query::{Access, Board, BoardInvite, Email, Invite, Task},
     },
     models,
 };
@@ -505,5 +505,14 @@ impl MutationRoot {
         let result = target.delete(db).await?;
 
         Ok(result.rows_affected > 0)
+    }
+
+    async fn add_board_invite(
+        &self,
+        ctx: &Context<'_>,
+        board_id: i32,
+        user_id: Uuid,
+    ) -> Result<BoardInvite> {
+
     }
 }
