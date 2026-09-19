@@ -21,7 +21,7 @@ use simple_webauthn::{
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-use crate::{Origin, models};
+use crate::{Origin, internal_server_error, models};
 
 pub async fn login_start(
     session: Session,
@@ -35,7 +35,7 @@ pub async fn login_start(
 
     session
         .insert("webauthn_auth_state", random)
-        .map_err(|_| error::ErrorInternalServerError(""))?;
+        .map_err(internal_server_error)?;
 
     auth.lock().await.insert(random, state);
 
@@ -60,12 +60,12 @@ pub async fn login_finish(
     let passkey = models::passkey::Entity::find_by_id(cred_id)
         .one(&*db)
         .await
-        .map_err(|_| error::ErrorInternalServerError(""))?
+        .map_err(internal_server_error)?
         .ok_or(error::ErrorUnauthorized(""))?;
 
     let cred = serde_json::from_value::<Credential>(passkey.passkey)
         .map(SimpleCredential::from)
-        .map_err(|_| error::ErrorInternalServerError(""))?;
+        .map_err(internal_server_error)?;
 
     let state = auth
         .lock()
@@ -80,7 +80,7 @@ pub async fn login_finish(
 
     session
         .insert("user_id", passkey.user_id)
-        .map_err(|_| error::ErrorInternalServerError(""))?;
+        .map_err(internal_server_error)?;
 
     Ok(HttpResponse::NoContent().finish())
 }
@@ -111,7 +111,7 @@ pub async fn register_start(
     let invite = models::invite::Entity::find_by_id(&body.invite)
         .one(&*db)
         .await
-        .map_err(|_| error::ErrorInternalServerError(""))?;
+        .map_err(internal_server_error)?;
 
     let Some(invite) = invite else {
         return Err(error::ErrorNotFound(""));
@@ -129,7 +129,7 @@ pub async fn register_start(
 
     session
         .insert("webauthn_reg_state", &(random, body.invite, invite.user_id))
-        .map_err(|_| error::ErrorInternalServerError(""))?;
+        .map_err(internal_server_error)?;
 
     reg.lock().await.insert(random, state);
 
@@ -161,38 +161,28 @@ pub async fn register_finish(
     let passkey = models::passkey::ActiveModel {
         id: Set(credential.id().to_vec()),
         user_id: Set(user_id),
-        passkey: Set(
-            serde_json::to_value(credential).map_err(|_| error::ErrorInternalServerError(""))?
-        ),
+        passkey: Set(serde_json::to_value(credential).map_err(internal_server_error)?),
     };
 
-    let tx = db
-        .begin()
-        .await
-        .map_err(|_| error::ErrorInternalServerError(""))?;
+    let tx = db.begin().await.map_err(internal_server_error)?;
 
-    passkey
-        .insert(&tx)
-        .await
-        .map_err(|_| error::ErrorInternalServerError(""))?;
+    passkey.insert(&tx).await.map_err(internal_server_error)?;
 
     let result = models::invite::Entity::delete_by_id(invite)
         .exec(&tx)
         .await
-        .map_err(|_| error::ErrorInternalServerError(""))?;
+        .map_err(internal_server_error)?;
 
     if result.rows_affected == 0 {
         // The invite does not exist.
         return Err(error::ErrorForbidden(""));
     }
 
-    tx.commit()
-        .await
-        .map_err(|_| error::ErrorInternalServerError(""))?;
+    tx.commit().await.map_err(internal_server_error)?;
 
     session
         .insert("user_id", user_id)
-        .map_err(|_| error::ErrorInternalServerError(""))?;
+        .map_err(internal_server_error)?;
 
     Ok(HttpResponse::NoContent().finish())
 }

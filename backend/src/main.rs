@@ -36,10 +36,9 @@ async fn require_auth(
 ) -> Result<ServiceResponse<BoxBody>> {
     let session = req.get_session();
 
-    let Some(user_id) = session.get::<Uuid>("user_id").map_err(|err| {
-        error!("Failed to get user_id from session: {err}");
-        actix_web::error::ErrorInternalServerError("")
-    })?
+    let Some(user_id) = session
+        .get::<Uuid>("user_id")
+        .map_err(internal_server_error)?
     else {
         return Err(actix_web::error::ErrorUnauthorized(""));
     };
@@ -49,10 +48,7 @@ async fn require_auth(
     let user = models::user::Entity::find_by_id(user_id)
         .one(&**db)
         .await
-        .map_err(|err| {
-            error!("Failed to get user in auth!!!: {err}");
-            actix_web::error::ErrorInternalServerError("")
-        })?;
+        .map_err(internal_server_error)?;
 
     let Some(user) = user else {
         session.purge();
@@ -183,4 +179,9 @@ async fn main() -> std::io::Result<()> {
     .bind(("127.0.0.1", 8080))?
     .run()
     .await
+}
+
+pub fn internal_server_error<T: std::error::Error>(err: T) -> actix_web::Error {
+    tracing::error!("{err}");
+    actix_web::error::ErrorInternalServerError("")
 }
