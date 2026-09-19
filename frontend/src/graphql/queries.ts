@@ -5,6 +5,7 @@ export const ME_QUERY = `
             createdAt
             isAdmin
             emails { email }
+            handle
         }
     }
 `;
@@ -113,5 +114,19 @@ export const ADD_USER_EMAIL = `
 export const DELETE_USER_EMAIL = `
     mutation DeleteUserEmail($userId: UUID!, $email: String!) {
         deleteUserEmail(userId: $userId, email: $email)
+    }
+`;
+
+export const SET_USER_HANDLE = `
+    mutation SetUserHandle($userId: UUID!, $handle: String) {
+        setUserHandle(userId: $userId, handle: $handle) {
+            id
+            createdAt
+            isAdmin
+            emails {
+                email
+            }
+            handle
+        }
     }
 `;

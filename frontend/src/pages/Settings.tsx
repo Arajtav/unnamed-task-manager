@@ -1,6 +1,6 @@
-import { createSignal } from "solid-js";
+import { createMemo, createSignal } from "solid-js";
 import { useAlert, useMe } from "../components/Layout";
-import { addUserEmail, deleteUserEmail } from "../graphql/client";
+import { addUserEmail, deleteUserEmail, setUserHandle } from "../graphql/client";
 import { parseOneAddress } from "email-addresses";
 
 export default function Settings() {
@@ -11,6 +11,13 @@ export default function Settings() {
     const [adding, setAdding] = createSignal(false);
     const [emailValid, setEmailValid] = createSignal(false);
     const [emailDelete, setEmailDelete] = createSignal("");
+    const [handle, setHandle] = createSignal(me.handle ?? "");
+    const [saving, setSaving] = createSignal(false);
+
+    const handleValid = createMemo(() => {
+        let v = handle();
+        return !v || /^[a-z][a-z0-9-]{2,18}$/.test(v);
+    });
 
     async function addEmail() {
         setAdding(true);
@@ -29,6 +36,29 @@ export default function Settings() {
         }
 
         setAdding(false);
+    }
+
+    async function saveHandle() {
+        setSaving(true);
+
+        try {
+            const result = await setUserHandle(me.id, handle());
+
+            if (result.error) {
+                throw result.error;
+            }
+
+            if (!result.data) {
+                throw "what";
+            }
+
+            setMe(result.data.setUserHandle);
+            setHandle("");
+        } catch (err) {
+            addAlert(err instanceof Error ? err.message : "Failed to add email.", "error");
+        }
+
+        setSaving(false);
     }
 
     async function deleteEmail() {
@@ -128,7 +158,6 @@ export default function Settings() {
                                     );
                                     setEmailValid(is_valid);
                                 }}
-                                id="email-in"
                                 disabled={adding()}
                             />
 
@@ -138,6 +167,38 @@ export default function Settings() {
                                 disabled={adding() || !emailValid()}
                             >
                                 {adding() ? "Adding..." : "Add"}
+                            </button>
+                        </div>
+                    </fieldset>
+                </div>
+                <div class="flex-1 p-6">
+                    <fieldset class="fieldset bg-base-200 border-base-300 w-xs border p-4">
+                        <legend class="fieldset-legend">You handle</legend>
+                        <div class="join">
+                            <input
+                                type="text"
+                                class="input join-item validator"
+                                placeholder={me.handle ?? ""}
+                                value={handle()}
+                                minLength={3}
+                                maxLength={19}
+                                onInput={e => {
+                                    setHandle(e.currentTarget.value);
+                                    e.currentTarget.setCustomValidity(
+                                        handleValid()
+                                            ? ""
+                                            : 'Invalid handle (must be at least 3 characters long, start with a letter and contain only lowercase letters and numbers (and "-"))'
+                                    );
+                                }}
+                                disabled={saving()}
+                            />
+
+                            <button
+                                class="btn btn-primary join-item"
+                                onClick={saveHandle}
+                                disabled={saving() || !handleValid()}
+                            >
+                                {saving() ? "Saving..." : "Save"}
                             </button>
                         </div>
                     </fieldset>

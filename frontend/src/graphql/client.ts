@@ -13,6 +13,7 @@ import {
     CREATE_TASK_MUTATION,
     ADD_USER_EMAIL,
     DELETE_USER_EMAIL,
+    SET_USER_HANDLE,
 } from "./queries";
 
 export const gqlClient = new Client({
@@ -36,6 +37,15 @@ export function usersQuery() {
 
 export function userQuery(id: string) {
     return gqlClient.query<{ user: GqlUser | null }>(USER_QUERY, { id }).toPromise();
+}
+
+export function setUserHandle(userId: string, handle: string | null) {
+    return gqlClient
+        .mutation<{ setUserHandle: GqlMe }>(SET_USER_HANDLE, {
+            userId,
+            handle,
+        })
+        .toPromise();
 }
 
 // Boards

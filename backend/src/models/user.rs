@@ -10,6 +10,8 @@ pub struct Model {
 
     pub created_at: DateTime<Utc>,
 
+    pub handle: Option<String>,
+
     #[sea_orm(has_many)]
     pub emails: HasMany<super::email::Entity>,
 

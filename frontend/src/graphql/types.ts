@@ -3,6 +3,7 @@ export type GqlMe = {
     createdAt: string;
     isAdmin: boolean;
     emails: GqlEmail[];
+    handle: string | null;
 };
 
 export type GqlUser = {

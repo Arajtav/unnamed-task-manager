@@ -23,7 +23,12 @@ pub struct MutationRoot;
 
 #[Object]
 impl MutationRoot {
-    async fn create_user(&self, ctx: &Context<'_>, emails: Vec<String>) -> Result<User> {
+    async fn create_user(
+        &self,
+        ctx: &Context<'_>,
+        emails: Vec<String>,
+        handle: Option<String>,
+    ) -> Result<User> {
         let db = get_db(ctx);
         let user = get_user(ctx);
 
@@ -34,10 +39,19 @@ impl MutationRoot {
         let tx = db.begin().await?;
 
         let user = models::user::ActiveModel {
+            handle: handle.map_or(NotSet, |h| Set(Some(h))),
             ..Default::default()
         };
 
-        let user = user.insert(&tx).await?;
+        let user = match user.insert(&tx).await {
+            Ok(user) => user,
+            Err(err) => {
+                if let Some(SqlErr::UniqueConstraintViolation(_)) = err.sql_err() {
+                    return Err(Error::new("Handle already taken"));
+                }
+                return Err(Error::new("Failed to create user"));
+            }
+        };
 
         let email_models = emails
             .into_iter()
@@ -78,6 +92,41 @@ impl MutationRoot {
         }
 
         tx.commit().await?;
+
+        Ok(User::from(user))
+    }
+
+    async fn set_user_handle(
+        &self,
+        ctx: &Context<'_>,
+        user_id: Uuid,
+        handle: Option<String>,
+    ) -> Result<User> {
+        let db = get_db(ctx);
+        let user = get_user(ctx);
+
+        if !(user.is_admin || user.id == user_id) {
+            return Err(Error::new("FORBIDDEN"));
+        }
+
+        let user = models::user::Entity::find_by_id(user_id)
+            .one(db)
+            .await?
+            .ok_or_else(|| Error::new("User not found"))?;
+
+        let mut user: models::user::ActiveModel = user.into();
+        user.handle = Set(handle.map(|h| h.to_lowercase()));
+
+        let user = match user.update(db).await {
+            Ok(user) => user,
+            Err(err) => {
+                if let Some(SqlErr::UniqueConstraintViolation(_)) = err.sql_err() {
+                    return Err(Error::new("Handle already taken"));
+                }
+
+                return Err(Error::new("Failed to update user"));
+            }
+        };
 
         Ok(User::from(user))
     }

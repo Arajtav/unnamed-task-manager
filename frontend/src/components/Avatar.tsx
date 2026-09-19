@@ -21,7 +21,7 @@ export default function Avatar() {
                 popovertarget="popover-1"
                 style="anchor-name:--anchor-1"
             >
-                <span>{me.id[0].toUpperCase()}</span>
+                <span>{(me.handle || me.id)[0].toUpperCase()}</span>
             </button>
 
             {/* m-2 doesn't really work it needs to be shifted a bit form the right page border as well */}
