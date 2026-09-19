@@ -1,9 +1,11 @@
-import { createResource, For, Show } from "solid-js";
-import { A } from "@solidjs/router";
+import { createMemo, createResource, For, Show } from "solid-js";
+import { A, useLocation } from "@solidjs/router";
 import { boardsQuery, boardsRefreshTick } from "../graphql/client";
 import { handleAuthError } from "../auth";
 
 export default function Drawer() {
+    const location = useLocation();
+
     let drawerToggle: HTMLInputElement | undefined;
 
     function closeDrawer() {
@@ -16,6 +18,17 @@ export default function Drawer() {
         if (handleAuthError(result.error)) return undefined;
 
         return result.data?.boards ?? [];
+    });
+
+    let currentBoard = createMemo(() => {
+        if (!location.pathname.startsWith("/boards/")) return null;
+        let after = location.pathname.slice("/boards".length + 1);
+        let i = after.indexOf("/");
+        if (i >= 0) {
+            return after.slice(0, i);
+        } else {
+            return after;
+        }
     });
 
     return (
@@ -43,9 +56,18 @@ export default function Drawer() {
                     <Show when={!boards.loading && boards()}>
                         <div>
                             <For each={boards()}>
-                                {(board) => (
+                                {board => (
                                     <li class="list-row">
-                                        <A class="font-bold" href={`/boards/${board.id}`} onClick={closeDrawer}>
+                                        <A
+                                            class={
+                                                "font-bold" +
+                                                (board.id.toString() == currentBoard()
+                                                    ? " menu-active"
+                                                    : "")
+                                            }
+                                            href={`/boards/${board.id}`}
+                                            onClick={closeDrawer}
+                                        >
                                             {board.name}
                                         </A>
                                     </li>
