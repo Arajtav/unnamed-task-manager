@@ -1,4 +1,4 @@
-import { createSignal, Match, Show, Switch } from "solid-js";
+import { createSignal, Show } from "solid-js";
 import { client } from "../auth";
 import { A } from "@solidjs/router";
 import { useAlert } from "../components/Layout";
@@ -25,9 +25,9 @@ export default function Join() {
             console.error(error);
 
             if (error instanceof Error && error.message.startsWith("HTTP 404")) {
-                addAlert("Invalid or expired invite code.", "error");
+                addAlert(t("en", "invalidOrExpiredInvite"), "error");
             } else {
-                addAlert("Something went wrong. Please try again.", "error");
+                addAlert(t("en", "errorTryAgain"), "error");
             }
 
             setLoading(false);
@@ -39,7 +39,7 @@ export default function Join() {
         });
 
         if (!credential) {
-            addAlert("Failed to create a passkey. Please try again.", "warning");
+            addAlert(t("en", "passkeyCreationFailed"), "warning");
             setLoading(false);
             return;
         }
@@ -52,9 +52,9 @@ export default function Join() {
             console.error(error);
 
             if (error instanceof Error && error.message.startsWith("HTTP 404")) {
-                addAlert("The code expired while you were creating the passkey.", "error");
+                addAlert(t("en", "invalidOrExpiredInvite"), "error");
             } else {
-                addAlert("Something went wrong. Please try again.", "error");
+                addAlert(t("en", "errorTryAgain"), "error");
             }
 
             setLoading(false);
@@ -70,20 +70,20 @@ export default function Join() {
         <main class="h-full flex items-center justify-center">
             <div class="card w-full max-w-md bg-base-100 border border-base-200">
                 <div class="card-body items-center text-center">
-                    <h1 class="card-title text-2xl">Join</h1>
+                    <h1 class="card-title text-2xl">{t("en", "joinTitle")}</h1>
 
                     <div class="w-full">
                         <Show when={loading()}>
                             <div class="flex flex-col items-center gap-3">
                                 <span class="loading loading-spinner loading-lg" />
-                                <span>Waiting for your passkey...</span>
+                                <span>{t("en", "waitingForPasskey")}</span>
                             </div>
                         </Show>
                     </div>
 
                     <form class="mt-4 w-full" onSubmit={register}>
                         <fieldset class="fieldset">
-                            <label class="fieldset-label">Invite code</label>
+                            <label class="fieldset-label">{t("en", "inviteCodeInput")}</label>
 
                             <input
                                 class="input w-full validator"
@@ -123,28 +123,25 @@ export default function Join() {
                                 required
                             />
 
-                            <label class="fieldset-label mt-3">Display name</label>
+                            <label class="fieldset-label mt-3">{t("en", "displayNameInput")}</label>
                             <input
                                 class="input w-full validator"
                                 type="text"
-                                placeholder="Me"
+                                placeholder={t("en", "displayNamePlaceholder")}
                                 value={name()}
                                 onInput={e => setName(e.currentTarget.value)}
                                 required
                             />
-                            <button
-                                class="btn btn-primary mt-4 w-full"
-                                disabled={loading()}
-                            >
-                                Join
+                            <button class="btn btn-primary mt-4 w-full" disabled={loading()}>
+                                {t("en", "joinButton")}
                             </button>
                         </fieldset>
                     </form>
 
-                    <div class="divider">OR</div>
+                    <div class="divider">{t("en", "altSeparatorText")}</div>
 
                     <A href={`/login${location.search}`} class="btn btn-ghost w-full">
-                        Go back to login
+                        {t("en", "backToLogin")}
                     </A>
                 </div>
             </div>

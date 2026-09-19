@@ -20,9 +20,9 @@ export default function Login() {
             console.error(error);
 
             if (error instanceof Error && error.message.startsWith("HTTP 500")) {
-                addAlert("Server error. This shouldn't have happened.", "error");
+                addAlert(t("en", "serverError"), "error");
             } else {
-                addAlert("Something went wrong.", "error");
+                addAlert(t("en", "genericError"), "error");
             }
 
             setLoading(false);
@@ -37,9 +37,9 @@ export default function Login() {
             });
         } catch (error) {
             if (error instanceof Error && error.name == "NotAllowedError") {
-                addAlert("Unable to get any passkeys. Check your authenticator.", "error");
+                addAlert(t("en", "cannotGetPasskeys"), "error");
             } else {
-                addAlert("Something went wrong.", "error");
+                addAlert(t("en", "genericError"), "error");
             }
 
             setLoading(false);
@@ -47,7 +47,7 @@ export default function Login() {
         }
 
         if (!credential) {
-            addAlert("No passkeys were found.", "info");
+            addAlert(t("en", "noPasskeysFound"), "info");
             setLoading(false);
             return;
         }
@@ -58,7 +58,7 @@ export default function Login() {
             await client.loginFinish(cred);
         } catch (error) {
             console.error(error);
-            addAlert("Server error. This shouldn't have happened.", "error");
+            addAlert(t("en", "serverError"), "error");
             setLoading(false);
             return;
         }
@@ -83,29 +83,29 @@ export default function Login() {
         <main class="h-full flex items-center justify-center">
             <div class="card w-full max-w-md bg-base-100 border border-base-200">
                 <div class="card-body items-center text-center">
-                    <h1 class="card-title text-2xl mb-4">Sign in</h1>
+                    <h1 class="card-title text-2xl mb-4">{t("en", "signInTitle")}</h1>
 
                     <div class="w-full">
                         <Switch>
                             <Match when={loading()}>
                                 <div class="flex flex-col items-center gap-3">
                                     <span class="loading loading-spinner loading-lg" />
-                                    <span>Waiting for your passkey...</span>
+                                    <span>{t("en", "waitingForPasskey")}</span>
                                 </div>
                             </Match>
                         </Switch>
 
                         <Show when={!loading()}>
                             <button class="btn btn-primary w-full" onclick={login}>
-                                Sign in
+                                {t("en", "signInButton")}
                             </button>
                         </Show>
                     </div>
 
-                    <div class="divider">OR</div>
+                    <div class="divider">{t("en", "altSeparatorText")}</div>
 
                     <A href={`/join${location.search}`} class="btn btn-ghost w-full">
-                        Join
+                        {t("en", "joinTitle")}
                     </A>
                 </div>
             </div>

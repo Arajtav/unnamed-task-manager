@@ -25,7 +25,7 @@ export default function Settings() {
             setMe("emails", me.emails.concat([{ email: email() }]));
             setEmail("");
         } catch (err) {
-            addAlert(err instanceof Error ? err.message : "Failed to add email.", "error");
+            addAlert(t("en", "failedEmailAdd"), "error");
         }
 
         setAdding(false);
@@ -46,7 +46,7 @@ export default function Settings() {
                 me.emails.filter(e => e.email != del)
             );
         } catch (err) {
-            addAlert(err instanceof Error ? err.message : "Failed to delete email.", "error");
+            addAlert(t("en", "failedEmailDelete"), "error");
         }
     }
 
@@ -55,16 +55,16 @@ export default function Settings() {
             <div class="w-full h-full flex flex-row">
                 <ul class="menu bg-base-200 w-56 h-full">
                     <li>
-                        <a class="menu-active">Account</a>
+                        <a class="menu-active">{t("en", "account")}</a>
                     </li>
                 </ul>
 
                 <div class="flex-1 p-6">
                     <fieldset class="fieldset bg-base-200 border-base-300 w-xs border p-4">
-                        <legend class="fieldset-legend">Email addresses</legend>
+                        <legend class="fieldset-legend">{t("en", "emailAddresses")}</legend>
                         {me.emails.length == 0 ? (
                             <div class="alert">
-                                <span>You have no emails linked yet.</span>
+                                <span>{t("en", "noEmailsLinked")}</span>
                             </div>
                         ) : (
                             <ul class="list bg-base-100 rounded-box mb-4">
@@ -117,14 +117,14 @@ export default function Settings() {
                                 type="text"
                                 inputMode="email"
                                 class="input join-item validator"
-                                placeholder="me@example.org"
+                                placeholder={t("en", "emailPlaceholder")}
                                 required
                                 value={email()}
                                 onInput={e => {
                                     setEmail(e.currentTarget.value);
                                     let is_valid = parseOneAddress(email()) != null;
                                     e.currentTarget.setCustomValidity(
-                                        is_valid ? "" : "Invalid email"
+                                        is_valid ? "" : t("en", "invalidEmail")
                                     );
                                     setEmailValid(is_valid);
                                 }}
@@ -137,7 +137,7 @@ export default function Settings() {
                                 onClick={addEmail}
                                 disabled={adding() || !emailValid()}
                             >
-                                {adding() ? "Adding..." : "Add"}
+                                {t("en", adding() ? "adding" : "add")}
                             </button>
                         </div>
                     </fieldset>
@@ -145,7 +145,7 @@ export default function Settings() {
             </div>
             <dialog id="modal" class="modal">
                 <div class="modal-box">
-                    <h3 class="text-lg font-bold">Are you sure?</h3>
+                    <h3 class="text-lg font-bold">{t("en", "areYouSure")}</h3>
                     <p class="py-4">
                         Are you sure you to unlink <span class="text-primary">{emailDelete()}</span>
                     </p>

@@ -16,14 +16,14 @@ export default function Board() {
             const result = await boardQuery(Number(id));
 
             if (handleAuthError(result.error)) {
-                addAlert("Something went wrong.", "error");
+                addAlert(t("en", "genericError"), "error");
                 return undefined;
             }
 
             let data = result.data?.board;
 
             if (!data) {
-                addAlert("Board not found.", "warning");
+                addAlert(t("en", "boardNotFound"), "warning");
                 return null;
             }
 
@@ -54,10 +54,9 @@ export default function Board() {
                                             <div>
                                                 <p class="font-bold">{task.title}</p>
                                                 <p>{task.description}</p>
-                                                <p>Author: {task.author}</p>
+                                                <p>{t("en", "author", task.author)}</p>
                                                 <p>
-                                                    Created at:{" "}
-                                                    {new Date(task.createdAt).toISOString()}
+                                                    {t("en", "createdAt", new Date(task.createdAt))}
                                                 </p>
                                             </div>
                                         </li>

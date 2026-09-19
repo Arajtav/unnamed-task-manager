@@ -13,6 +13,7 @@ const AlertContext = createContext<{
 
 type AlertType = "info" | "success" | "warning" | "error";
 
+// TODO: this is wrong actually. It should accept translation keys not output strings.
 export function useAlert() {
     const context = useContext(AlertContext);
 
