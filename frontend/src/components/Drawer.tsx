@@ -2,8 +2,11 @@ import { createMemo, createResource, For, Show } from "solid-js";
 import { A, useLocation } from "@solidjs/router";
 import { boardsQuery, boardsRefreshTick } from "../graphql/client";
 import { handleAuthError } from "../auth";
+import { useAlert } from "./Layout";
 
 export default function Drawer() {
+    let { addAlert } = useAlert();
+
     const location = useLocation();
 
     let drawerToggle: HTMLInputElement | undefined;
@@ -15,7 +18,10 @@ export default function Drawer() {
     const [boards] = createResource(boardsRefreshTick, async () => {
         const result = await boardsQuery();
 
-        if (handleAuthError(result.error)) return undefined;
+        if (handleAuthError(result.error)) {
+            addAlert("Something went wrong.", "error");
+            return undefined;
+        }
 
         return result.data?.boards ?? [];
     });
@@ -45,12 +51,6 @@ export default function Drawer() {
                 <ul class="menu bg-base-200 min-h-full w-80 p-4 justify-between">
                     <Show when={boards.loading}>
                         <span class="loading loading-spinner loading-lg" />
-                    </Show>
-
-                    <Show when={!boards.loading && boards() === undefined}>
-                        <div role="alert" class="alert alert-error">
-                            <span>Something went wrong</span>
-                        </div>
                     </Show>
 
                     <Show when={!boards.loading && boards()}>

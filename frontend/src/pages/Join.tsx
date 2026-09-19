@@ -1,19 +1,21 @@
-import { createSignal, Match, Switch } from "solid-js";
+import { createSignal, Match, Show, Switch } from "solid-js";
 import { client } from "../auth";
 import { A } from "@solidjs/router";
+import { useAlert } from "../components/Layout";
 
 export default function Join() {
+    let { addAlert } = useAlert();
+
     // TODO: would be nice to debounce loading by a few ms.
-    let [status, setStatus] = createSignal<
-        null | "loading" | "error" | "invalid_invite" | "no_credential_created"
-    >(null);
+    let [loading, setLoading] = createSignal(false);
+
     const [invite, setInvite] = createSignal("");
     const [name, setName] = createSignal("");
 
     async function register(e: SubmitEvent) {
         e.preventDefault();
 
-        setStatus("loading");
+        setLoading(true);
 
         let options;
         try {
@@ -23,11 +25,12 @@ export default function Join() {
             console.error(error);
 
             if (error instanceof Error && error.message.startsWith("HTTP 404")) {
-                setStatus("invalid_invite");
+                addAlert("Invalid or expired invite code.", "error");
             } else {
-                setStatus("error");
+                addAlert("Something went wrong. Please try again.", "error");
             }
 
+            setLoading(false);
             return;
         }
 
@@ -36,25 +39,25 @@ export default function Join() {
         });
 
         if (!credential) {
-            setStatus("no_credential_created");
+            addAlert("Failed to create a passkey. Please try again.", "warning");
+            setLoading(false);
             return;
         }
 
         let cred = (credential as PublicKeyCredential).toJSON();
 
         try {
-            if ((await client.registerFinish(cred)) !== null) {
-                console.warn("seems wrong");
-            }
+            await client.registerFinish(cred);
         } catch (error) {
             console.error(error);
 
             if (error instanceof Error && error.message.startsWith("HTTP 404")) {
-                setStatus("invalid_invite");
+                addAlert("The code expired while you were creating the passkey.", "error");
             } else {
-                setStatus("error");
+                addAlert("Something went wrong. Please try again.", "error");
             }
 
+            setLoading(false);
             return;
         }
 
@@ -70,38 +73,12 @@ export default function Join() {
                     <h1 class="card-title text-2xl">Join</h1>
 
                     <div class="w-full">
-                        <Switch>
-                            <Match when={status() == "loading"}>
-                                <div class="flex flex-col items-center gap-3">
-                                    <span class="loading loading-spinner loading-lg" />
-                                    <span>Waiting for your passkey...</span>
-                                </div>
-                            </Match>
-
-                            <Match when={status() == "invalid_invite"}>
-                                <div class="toast">
-                                    <span class="alert alert-error">
-                                        Invalid or expired invite code.
-                                    </span>
-                                </div>
-                            </Match>
-
-                            <Match when={status() == "no_credential_created"}>
-                                <div class="toast">
-                                    <span class="alert alert-warning">
-                                        No passkey was created. Please try again.
-                                    </span>
-                                </div>
-                            </Match>
-
-                            <Match when={status() == "error"}>
-                                <div class="toast">
-                                    <span class="alert alert-error">
-                                        Something went wrong. Please try again.
-                                    </span>
-                                </div>
-                            </Match>
-                        </Switch>
+                        <Show when={loading()}>
+                            <div class="flex flex-col items-center gap-3">
+                                <span class="loading loading-spinner loading-lg" />
+                                <span>Waiting for your passkey...</span>
+                            </div>
+                        </Show>
                     </div>
 
                     <form class="mt-4 w-full" onSubmit={register}>
@@ -157,7 +134,7 @@ export default function Join() {
                             />
                             <button
                                 class="btn btn-primary mt-4 w-full"
-                                disabled={status() == "loading"}
+                                disabled={loading()}
                             >
                                 Join
                             </button>

@@ -1,21 +1,19 @@
 import { createSignal } from "solid-js";
-import { useMe } from "../components/Layout";
+import { useAlert, useMe } from "../components/Layout";
 import { addUserEmail, deleteUserEmail } from "../graphql/client";
 import { parseOneAddress } from "email-addresses";
 
 export default function Settings() {
     const [me, setMe] = useMe();
+    let { addAlert } = useAlert();
 
     const [email, setEmail] = createSignal("");
     const [adding, setAdding] = createSignal(false);
-    const [error, setError] = createSignal<string | null>();
     const [emailValid, setEmailValid] = createSignal(false);
     const [emailDelete, setEmailDelete] = createSignal("");
 
     async function addEmail() {
         setAdding(true);
-
-        setError(null);
 
         try {
             const result = await addUserEmail(me.id, email());
@@ -27,15 +25,13 @@ export default function Settings() {
             setMe("emails", me.emails.concat([{ email: email() }]));
             setEmail("");
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Failed to add email.");
+            addAlert(err instanceof Error ? err.message : "Failed to add email.", "error");
         }
 
         setAdding(false);
     }
 
     async function deleteEmail() {
-        setError(null);
-
         let del = emailDelete();
 
         try {
@@ -50,7 +46,7 @@ export default function Settings() {
                 me.emails.filter(e => e.email != del)
             );
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Failed to delete email.");
+            addAlert(err instanceof Error ? err.message : "Failed to delete email.", "error");
         }
     }
 
@@ -144,12 +140,6 @@ export default function Settings() {
                                 {adding() ? "Adding..." : "Add"}
                             </button>
                         </div>
-
-                        {error() && (
-                            <div class="toast">
-                                <span class="alert alert-error">{error()}</span>
-                            </div>
-                        )}
                     </fieldset>
                 </div>
             </div>

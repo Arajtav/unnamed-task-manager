@@ -3,8 +3,11 @@ import { useParams } from "@solidjs/router";
 import { handleAuthError } from "../auth";
 import { boardQuery } from "../graphql/client";
 import TaskForm from "../components/TaskForm";
+import { useAlert } from "../components/Layout";
 
 export default function Board() {
+    let { addAlert } = useAlert();
+
     const params = useParams<{ id: string }>();
 
     const [board, { refetch }] = createResource(
@@ -12,9 +15,19 @@ export default function Board() {
         async id => {
             const result = await boardQuery(Number(id));
 
-            if (handleAuthError(result.error)) return undefined;
+            if (handleAuthError(result.error)) {
+                addAlert("Something went wrong.", "error");
+                return undefined;
+            }
 
-            return result.data?.board ?? null;
+            let data = result.data?.board;
+
+            if (!data) {
+                addAlert("Board not found.", "warning");
+                return null;
+            }
+
+            return data;
         }
     );
 
@@ -23,18 +36,6 @@ export default function Board() {
             <Show when={board.loading}>
                 <div class="w-full h-full items-center justify-center flex">
                     <span class="loading loading-spinner loading-lg" />
-                </div>
-            </Show>
-
-            <Show when={!board.loading && board() === null}>
-                <div role="alert" class="alert alert-warning">
-                    <span>Board not found</span>
-                </div>
-            </Show>
-
-            <Show when={!board.loading && board() === undefined}>
-                <div role="alert" class="alert alert-error">
-                    <span>Something went wrong</span>
                 </div>
             </Show>
 

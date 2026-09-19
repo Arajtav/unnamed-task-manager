@@ -1,15 +1,16 @@
 import { createSignal, Match, onMount, Show, Switch } from "solid-js";
 import { client } from "../auth";
 import { A } from "@solidjs/router";
+import { useAlert } from "../components/Layout";
 
 export default function Login() {
+    let { addAlert } = useAlert();
+
     // TODO: would be nice to debounce loading by a few ms.
-    let [status, setStatus] = createSignal<
-        null | "loading" | "server_error" | "no_credentials" | "error" | "user"
-    >(null);
+    let [loading, setLoading] = createSignal(false);
 
     async function login() {
-        setStatus("loading");
+        setLoading(true);
 
         let options;
         try {
@@ -19,11 +20,12 @@ export default function Login() {
             console.error(error);
 
             if (error instanceof Error && error.message.startsWith("HTTP 500")) {
-                setStatus("server_error");
+                addAlert("Server error. This shouldn't have happened.", "error");
             } else {
-                setStatus("error");
+                addAlert("Something went wrong.", "error");
             }
 
+            setLoading(false);
             return;
         }
 
@@ -34,16 +36,19 @@ export default function Login() {
                 mediation: "required",
             });
         } catch (error) {
-            if (error instanceof Error && error.name === "NotAllowedError") {
-                setStatus("user");
+            if (error instanceof Error && error.name == "NotAllowedError") {
+                addAlert("Unable to get any passkeys. Check your authenticator.", "error");
             } else {
-                setStatus("error");
+                addAlert("Something went wrong.", "error");
             }
+
+            setLoading(false);
             return;
         }
 
         if (!credential) {
-            setStatus("no_credentials");
+            addAlert("No passkeys were found.", "info");
+            setLoading(false);
             return;
         }
 
@@ -53,7 +58,8 @@ export default function Login() {
             await client.loginFinish(cred);
         } catch (error) {
             console.error(error);
-            setStatus("server_error");
+            addAlert("Server error. This shouldn't have happened.", "error");
+            setLoading(false);
             return;
         }
 
@@ -81,49 +87,15 @@ export default function Login() {
 
                     <div class="w-full">
                         <Switch>
-                            <Match when={status() == "loading"}>
+                            <Match when={loading()}>
                                 <div class="flex flex-col items-center gap-3">
                                     <span class="loading loading-spinner loading-lg" />
                                     <span>Waiting for your passkey...</span>
                                 </div>
                             </Match>
-
-                            <Match when={status() == "server_error"}>
-                                <div class="toast">
-                                    <div class="alert alert-error">
-                                        <span>Server error. This shouldn't have happened.</span>
-                                    </div>
-                                </div>
-                            </Match>
-
-                            <Match when={status() == "no_credentials"}>
-                                <div class="toast">
-                                    <div class="alert alert-info">
-                                        <span>No passkeys were found.</span>
-                                    </div>
-                                </div>
-                            </Match>
-
-                            <Match when={status() == "user"}>
-                                <div class="toast">
-                                    <div class="alert alert-error">
-                                        <span>
-                                            Unable to get any passkeys. Check your authenticator.
-                                        </span>
-                                    </div>
-                                </div>
-                            </Match>
-
-                            <Match when={status() == "error"}>
-                                <div class="toast">
-                                    <div class="alert alert-error">
-                                        <span>Something went wrong.</span>
-                                    </div>
-                                </div>
-                            </Match>
                         </Switch>
 
-                        <Show when={status() != "loading"}>
+                        <Show when={!loading()}>
                             <button class="btn btn-primary w-full" onclick={login}>
                                 Sign in
                             </button>
