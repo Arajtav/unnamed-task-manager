@@ -1,34 +1,69 @@
 import { createSignal, For, Show } from "solid-js";
-import { createTask } from "../graphql/client";
 import { useMe } from "./Layout";
 import { A } from "@solidjs/router";
-import { GqlTask } from "../graphql/types";
+import { gqlClient } from "../graphql";
+import { gql } from "@urql/core";
+import { Task } from "../pages/BoardLayout";
 
-export default function TaskForm(props: { boardId: number; onCreated: (task: GqlTask) => void }) {
+export default function TaskForm({
+    boardId,
+    onCreated,
+}: {
+    boardId: number;
+    onCreated: (task: Task) => void;
+}) {
     const [me] = useMe();
 
     const [title, setTitle] = createSignal("");
     const [description, setDescription] = createSignal("");
-    const [author, setAuthor] = createSignal(me.emails[0]?.email ?? "");
+    const [author, setAuthor] = createSignal(me.emails[0] ?? "");
 
     async function submit(e: SubmitEvent) {
         e.preventDefault();
 
-        const result = await createTask(props.boardId, title(), author(), description() || undefined);
+        const result = await gqlClient.mutation<{
+            createTask: Task;
+        }>(
+            gql`
+                mutation CreateTask(
+                    $boardId: Int!
+                    $title: String!
+                    $description: String
+                    $author: String!
+                ) {
+                    createTask(
+                        boardId: $boardId
+                        title: $title
+                        description: $description
+                        author: $author
+                    ) {
+                        id
+                        title
+                        createdAt
+                        author
+                        status
+                        assignee
+                    }
+                }
+            `,
+            { boardId, title: title(), description: description() || null, author: author() }
+        );
 
         if (result.error) {
             console.error(result.error);
             return;
         }
 
-        if (!result.data) {
+        let task = result.data?.createTask;
+
+        if (!task) {
             return;
         }
 
         setTitle("");
         setDescription("");
         setAuthor("");
-        props.onCreated(result.data.createTask);
+        onCreated(task);
     }
 
     return (
@@ -52,7 +87,7 @@ export default function TaskForm(props: { boardId: number; onCreated: (task: Gql
                                 type="text"
                                 placeholder="Title"
                                 value={title()}
-                                onInput={(e) => setTitle(e.currentTarget.value)}
+                                onInput={e => setTitle(e.currentTarget.value)}
                                 required
                             />
 
@@ -61,7 +96,7 @@ export default function TaskForm(props: { boardId: number; onCreated: (task: Gql
                                 class="textarea"
                                 placeholder="Description"
                                 value={description()}
-                                onInput={(e) => setDescription(e.currentTarget.value)}
+                                onInput={e => setDescription(e.currentTarget.value)}
                             />
 
                             <label class="label">Author email</label>
@@ -69,18 +104,22 @@ export default function TaskForm(props: { boardId: number; onCreated: (task: Gql
                             <select
                                 class="select w-full"
                                 value={author()}
-                                onChange={(e) => setAuthor(e.currentTarget.value)}
+                                onChange={e => setAuthor(e.currentTarget.value)}
                                 disabled={me.emails.length == 1}
                                 required
                             >
                                 <For each={me.emails}>
-                                    {(email) => <option value={email.email}>{email.email}</option>}
+                                    {email => <option value={email}>{email}</option>}
                                 </For>
                             </select>
                         </fieldset>
 
                         <div class="card-actions">
-                            <button class="btn btn-primary mt-4" type="submit" disabled={me.emails.length == 0}>
+                            <button
+                                class="btn btn-primary mt-4"
+                                type="submit"
+                                disabled={me.emails.length == 0}
+                            >
                                 Create
                             </button>
                         </div>

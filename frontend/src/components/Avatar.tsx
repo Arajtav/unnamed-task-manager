@@ -1,10 +1,12 @@
 import { client } from "../auth";
 import { A } from "@solidjs/router";
-import { useMe } from "./Layout";
 
-export default function Avatar() {
-    let [me] = useMe();
+type User = {
+    id: string;
+    handle?: string;
+};
 
+export default function Avatar({ user }: { user: User }) {
     async function logout() {
         try {
             await client.logout();
@@ -21,7 +23,7 @@ export default function Avatar() {
                 popovertarget="popover-1"
                 style="anchor-name:--anchor-1"
             >
-                <span>{(me.handle || me.id)[0].toUpperCase()}</span>
+                <span>{(user.handle || user.id)[0].toUpperCase()}</span>
             </button>
 
             {/* m-2 doesn't really work it needs to be shifted a bit form the right page border as well */}

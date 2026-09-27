@@ -1,7 +1,9 @@
-import { createMemo, createSignal } from "solid-js";
+import { createMemo, createSignal, For, Show } from "solid-js";
 import { useAlert, useMe } from "../components/Layout";
-import { addUserEmail, deleteUserEmail, setUserHandle } from "../graphql/client";
 import { parseOneAddress } from "email-addresses";
+import { gqlClient } from "../graphql";
+import { gql } from "@urql/core";
+import Email from "../components/Email";
 
 export default function Settings() {
     const [me, setMe] = useMe();
@@ -23,13 +25,33 @@ export default function Settings() {
         setAdding(true);
 
         try {
-            const result = await addUserEmail(me.id, email());
+            const result = await gqlClient.mutation<{
+                addUserEmail: { emails: string[] };
+            }>(
+                gql`
+                    mutation AddUserEmail($userId: UUID!, $email: String!) {
+                        addUserEmail(userId: $userId, email: $email) {
+                            emails
+                        }
+                    }
+                `,
+                {
+                    userId: me.id,
+                    email: email(),
+                }
+            );
 
             if (result.error) {
                 throw result.error;
             }
 
-            setMe("emails", me.emails.concat([{ email: email() }]));
+            let emails = result.data?.addUserEmail.emails;
+
+            if (!emails) {
+                throw new Error("What");
+            }
+
+            setMe("emails", emails);
             setEmail("");
         } catch (err) {
             addAlert(err instanceof Error ? err.message : "Failed to add email.", "error");
@@ -39,42 +61,66 @@ export default function Settings() {
     }
 
     async function saveHandle() {
+        if (handle() == me.handle) return;
         setSaving(true);
 
         try {
-            const result = await setUserHandle(me.id, handle());
+            const result = await gqlClient.mutation<{
+                setUserHandle: { handle: string };
+            }>(
+                gql`
+                    mutation SetUserHandle($userId: UUID!, $handle: String) {
+                        setUserHandle(userId: $userId, handle: $handle) {
+                            handle
+                        }
+                    }
+                `,
+                { userId: me.id, handle: handle() || null }
+            );
 
             if (result.error) {
                 throw result.error;
             }
 
-            if (!result.data) {
+            let new_handle = result.data?.setUserHandle.handle;
+
+            if (handle() != "" && !new_handle) {
                 throw "what";
             }
 
-            setMe(result.data.setUserHandle);
-            setHandle("");
+            setMe("handle", new_handle ?? "");
+            setHandle(new_handle ?? "");
         } catch (err) {
-            addAlert(err instanceof Error ? err.message : "Failed to add email.", "error");
+            addAlert(err instanceof Error ? err.message : "Failed to set handle.", "error");
         }
 
         setSaving(false);
     }
 
     async function deleteEmail() {
-        let del = emailDelete();
-
         try {
-            const result = await deleteUserEmail(me.id, del);
+            const result = await gqlClient.mutation<{ deleteUserEmail: { emails: string[] } }>(
+                gql`
+                    mutation DeleteUserEmail($userId: UUID!, $email: String!) {
+                        deleteUserEmail(userId: $userId, email: $email) {
+                            emails
+                        }
+                    }
+                `,
+                { userId: me.id, email: emailDelete() }
+            );
 
             if (result.error) {
                 throw result.error;
             }
 
-            setMe(
-                "emails",
-                me.emails.filter(e => e.email != del)
-            );
+            let emails = result.data?.deleteUserEmail.emails;
+
+            if (!emails) {
+                throw new Error("What");
+            }
+
+            setMe("emails", emails);
         } catch (err) {
             addAlert(err instanceof Error ? err.message : "Failed to delete email.", "error");
         }
@@ -92,55 +138,51 @@ export default function Settings() {
                 <div class="flex-1 p-6">
                     <fieldset class="fieldset bg-base-200 border-base-300 w-xs border p-4">
                         <legend class="fieldset-legend">Email addresses</legend>
-                        {me.emails.length == 0 ? (
+                        <Show when={me.emails.length == 0}>
                             <div class="alert">
                                 <span>You have no emails linked yet.</span>
                             </div>
-                        ) : (
+                        </Show>
+                        <Show when={me.emails.length > 0}>
                             <ul class="list bg-base-100 rounded-box mb-4">
-                                {me.emails.map(({ email }) => {
-                                    let at = email.lastIndexOf("@");
-
-                                    return (
-                                        <li class="list-row">
-                                            <div></div>
-                                            <div>
-                                                <span>{email.slice(0, at)}</span>
-                                                <span class="opacity-60">
-                                                    {" @ " + email.slice(at + 1)}
-                                                </span>
-                                            </div>
-                                            <button
-                                                class="btn btn-square btn-ghost"
-                                                onClick={() => {
-                                                    setEmailDelete(email);
-                                                    return (
-                                                        document.getElementById(
-                                                            "modal"
-                                                        ) as HTMLDialogElement
-                                                    ).showModal();
-                                                }}
-                                            >
-                                                <svg
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    fill="none"
-                                                    viewBox="0 0 24 24"
-                                                    stroke-width="1.5"
-                                                    stroke="currentColor"
-                                                    class="size-6"
+                                <For each={me.emails}>
+                                    {email => {
+                                        return (
+                                            <li class="list-row">
+                                                <div></div>
+                                                <Email email={email} />
+                                                <button
+                                                    class="btn btn-square btn-ghost"
+                                                    onClick={() => {
+                                                        setEmailDelete(email);
+                                                        return (
+                                                            document.getElementById(
+                                                                "modal"
+                                                            ) as HTMLDialogElement
+                                                        ).showModal();
+                                                    }}
                                                 >
-                                                    <path
-                                                        stroke-linecap="round"
-                                                        stroke-linejoin="round"
-                                                        d="M6 18 18 6M6 6l12 12"
-                                                    />
-                                                </svg>
-                                            </button>
-                                        </li>
-                                    );
-                                })}
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        fill="none"
+                                                        viewBox="0 0 24 24"
+                                                        stroke-width="1.5"
+                                                        stroke="currentColor"
+                                                        class="size-6"
+                                                    >
+                                                        <path
+                                                            stroke-linecap="round"
+                                                            stroke-linejoin="round"
+                                                            d="M6 18 18 6M6 6l12 12"
+                                                        />
+                                                    </svg>
+                                                </button>
+                                            </li>
+                                        );
+                                    }}
+                                </For>
                             </ul>
-                        )}
+                        </Show>
 
                         <div class="join">
                             <input

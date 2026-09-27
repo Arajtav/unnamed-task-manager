@@ -1,11 +1,13 @@
-import { createMemo, createResource, For, Show } from "solid-js";
+import { createMemo, For } from "solid-js";
 import { A, useLocation } from "@solidjs/router";
-import { boardsQuery, boardsRefreshTick } from "../graphql/client";
-import { handleAuthError } from "../auth";
-import { useAlert } from "./Layout";
+import { useBoards } from "./Layout";
 
 export default function Drawer() {
-    let { addAlert } = useAlert();
+    const [boards] = useBoards();
+
+    let boardsSorted = createMemo(() => {
+        return [...boards()].sort((a, b) => a[1].localeCompare(b[1]));
+    });
 
     const location = useLocation();
 
@@ -14,17 +16,6 @@ export default function Drawer() {
     function closeDrawer() {
         if (drawerToggle) drawerToggle.checked = false;
     }
-
-    const [boards] = createResource(boardsRefreshTick, async () => {
-        const result = await boardsQuery();
-
-        if (handleAuthError(result.error)) {
-            addAlert("Something went wrong.", "error");
-            return undefined;
-        }
-
-        return result.data?.boards ?? [];
-    });
 
     let currentBoard = createMemo(() => {
         if (!location.pathname.startsWith("/boards/")) return null;
@@ -49,35 +40,27 @@ export default function Drawer() {
             <div class="drawer-side">
                 <label for="board-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
                 <ul class="menu bg-base-200 min-h-full w-80 p-4 justify-between">
-                    <Show when={boards.loading}>
-                        <span class="loading loading-spinner loading-lg" />
-                    </Show>
-
-                    <Show when={!boards.loading && boards()}>
-                        <div>
-                            <For each={boards()}>
-                                {board => (
-                                    <li class="list-row">
-                                        <A
-                                            class={
-                                                "font-bold" +
-                                                (board.id.toString() == currentBoard()
-                                                    ? " menu-active"
-                                                    : "")
-                                            }
-                                            href={`/boards/${board.id}`}
-                                            onClick={closeDrawer}
-                                        >
-                                            {board.name}
-                                        </A>
-                                    </li>
-                                )}
-                            </For>
-                        </div>
-                        <A class="btn btn-accent" href="/boards/create" onClick={closeDrawer}>
-                            Create Board
-                        </A>
-                    </Show>
+                    <div>
+                        <For each={boardsSorted()}>
+                            {board => (
+                                <li class="list-row">
+                                    <A
+                                        class={
+                                            "font-bold" +
+                                            (board[0] == currentBoard() ? " menu-active" : "")
+                                        }
+                                        href={`/boards/${board[0]}`}
+                                        onClick={closeDrawer}
+                                    >
+                                        {board[1]}
+                                    </A>
+                                </li>
+                            )}
+                        </For>
+                    </div>
+                    <A class="btn btn-accent" href="/boards/create" onClick={closeDrawer}>
+                        Create Board
+                    </A>
                 </ul>
             </div>
         </div>

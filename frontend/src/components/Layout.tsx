@@ -1,23 +1,33 @@
 import { createContext, createSignal, For, onMount, Show, useContext } from "solid-js";
 import { createStore } from "solid-js/store";
 import { RouteSectionProps, useLocation } from "@solidjs/router";
-import { meQuery } from "../graphql/client";
 import { handleAuthError } from "../auth";
-import { GqlMe } from "../graphql/types";
 import Navbar from "./Navbar";
+import { gqlClient } from "../graphql";
+import { gql } from "@urql/core";
 
-const MeContext = createContext<ReturnType<typeof createStore<GqlMe>>>();
+type Me = {
+    id: string;
+    isAdmin: boolean;
+    emails: string[];
+    handle?: string;
+};
+
+const MeContext = createContext<ReturnType<typeof createStore<Me>>>();
+
+type AlertType = "info" | "success" | "warning" | "error";
+
 const AlertContext = createContext<{
     addAlert: (message: string, type: AlertType, duration?: number) => void;
 }>();
 
-type AlertType = "info" | "success" | "warning" | "error";
+const BoardsContext = createContext<ReturnType<typeof createSignal<Map<string, string>>>>();
 
 export function useAlert() {
     const context = useContext(AlertContext);
 
     if (!context) {
-        throw new Error("useAlert must be used inside MeContext.Provider");
+        throw new Error("useAlert must be used inside AlertContext.Provider");
     }
 
     return context;
@@ -33,26 +43,75 @@ export function useMe() {
     return context;
 }
 
+export function useBoards() {
+    const context = useContext(BoardsContext);
+
+    if (!context) {
+        throw new Error("useBoards must be used inside BoardsContext.Provider");
+    }
+
+    return context;
+}
+
 export default function Layout(props: RouteSectionProps) {
     const location = useLocation();
     const [loading, setLoading] = createSignal(true);
 
     const isAuthPage = () => location.pathname == "/login" || location.pathname == "/join";
 
-    const store = createStore<GqlMe>({} as GqlMe);
+    const meStore = createStore({} as Me);
+    const boardsSignal = createSignal({} as Map<string, string>);
 
     onMount(async () => {
         if (isAuthPage()) return;
 
-        const result = await meQuery();
+        const result = await gqlClient.query<{
+            me: {
+                id: string;
+                isAdmin: boolean;
+                emails: string[];
+                handle: string | null;
+            };
+            boards: {
+                id: string;
+                name: string;
+            }[];
+        }>(
+            gql`
+                query Me {
+                    me {
+                        id
+                        isAdmin
+                        emails
+                        handle
+                    }
+                    boards {
+                        id
+                        name
+                    }
+                }
+            `,
+            {}
+        );
 
         if (handleAuthError(result.error)) return;
 
-        if (!result.data?.me) {
+        const me = result.data?.me;
+        const boards = result.data?.boards;
+
+        if (!me || !boards) {
             throw new Error("Expected authenticated user");
         }
 
-        store[1](result.data.me);
+        meStore[1]({
+            id: me.id,
+            isAdmin: me.isAdmin,
+            emails: me.emails,
+            handle: me.handle ?? undefined,
+        });
+
+        boardsSignal[1](new Map(boards.map(board => [board.id, board.name])));
+
         setLoading(false);
     });
 
@@ -60,11 +119,23 @@ export default function Layout(props: RouteSectionProps) {
 
     function addAlert(message: string, type: AlertType, duration: number = 10000) {
         switch (type) {
-            case "info": { console.info(message); break; }
-            case "success": { console.debug(message);  break; }
-            case "warning": { console.warn(message);  break; }
-            case "error": { console.error(message);  break; }
-        };
+            case "info": {
+                console.info(message);
+                break;
+            }
+            case "success": {
+                console.debug(message);
+                break;
+            }
+            case "warning": {
+                console.warn(message);
+                break;
+            }
+            case "error": {
+                console.error(message);
+                break;
+            }
+        }
 
         const id = Symbol();
 
@@ -95,9 +166,11 @@ export default function Layout(props: RouteSectionProps) {
                         when={!isAuthPage()}
                         fallback={<div class="flex-1 overflow-auto">{props.children}</div>}
                     >
-                        <MeContext.Provider value={store}>
-                            <Navbar></Navbar>
-                            <div class="flex-1 overflow-auto">{props.children}</div>
+                        <MeContext.Provider value={meStore}>
+                            <BoardsContext.Provider value={boardsSignal}>
+                                <Navbar></Navbar>
+                                <div class="flex-1 overflow-auto">{props.children}</div>
+                            </BoardsContext.Provider>
                         </MeContext.Provider>
                     </Show>
                 </Show>

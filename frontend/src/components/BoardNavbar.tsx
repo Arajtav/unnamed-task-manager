@@ -1,9 +1,12 @@
 import { A } from "@solidjs/router";
+import { useBoard } from "../pages/BoardLayout";
 
-export default function BoardNavbar(props: { boardId: number }) {
+export default function BoardNavbar() {
+    let [board] = useBoard();
+
     return (
         <div class="navbar bg-base-200">
-            <A href={`/boards/${props.boardId}/settings`}>Settings</A>
+            <A href={`/boards/${board.id}/settings`}>Settings</A>
         </div>
     );
 }

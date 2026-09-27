@@ -1,4 +1,4 @@
-import { createSignal, Match, Show, Switch } from "solid-js";
+import { createSignal, Show } from "solid-js";
 import { client } from "../auth";
 import { A } from "@solidjs/router";
 import { useAlert } from "../components/Layout";

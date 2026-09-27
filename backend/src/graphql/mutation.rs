@@ -11,12 +11,10 @@ use uuid::Uuid;
 use crate::{
     graphql::{
         get_db, get_user,
-        query::{Access, Board, Email, Invite, Task},
+        models::{Board, Invite, Task, User},
     },
     models,
 };
-
-use super::query::User;
 
 #[derive(Default)]
 pub struct MutationRoot;
@@ -136,7 +134,7 @@ impl MutationRoot {
         ctx: &Context<'_>,
         user_id: Uuid,
         email: String,
-    ) -> Result<Email> {
+    ) -> Result<User> {
         let db = get_db(ctx);
         let user = get_user(ctx);
 
@@ -144,13 +142,17 @@ impl MutationRoot {
             return Err(Error::new("FORBIDDEN"));
         }
 
+        let user = models::user::Entity::find_by_id(user_id)
+            .require_one(db)
+            .await?;
+
         let email_model = models::email::ActiveModel {
             user_id: sea_orm::Set(user_id),
             email: sea_orm::Set(email.clone()),
         };
 
         match email_model.insert(db).await {
-            Ok(email) => Ok(Email::from(email)),
+            Ok(_) => Ok(User::from(user)),
             Err(err) => {
                 if let Some(SqlErr::UniqueConstraintViolation(_)) = err.sql_err() {
                     return Err(Error::new(format!("Email already exists: {email}")));
@@ -172,7 +174,7 @@ impl MutationRoot {
         ctx: &Context<'_>,
         user_id: Uuid,
         email: String,
-    ) -> Result<bool> {
+    ) -> Result<User> {
         let db = get_db(ctx);
         let user = get_user(ctx);
 
@@ -180,16 +182,20 @@ impl MutationRoot {
             return Err(Error::new("FORBIDDEN"));
         }
 
-        let result = models::email::Entity::delete_many()
+        let user = models::user::Entity::find_by_id(user_id)
+            .require_one(db)
+            .await?;
+
+        models::email::Entity::delete_many()
             .filter(models::email::Column::UserId.eq(user_id))
             .filter(models::email::Column::Email.eq(&email))
             .exec(db)
             .await?;
 
-        Ok(result.rows_affected > 0)
+        Ok(User::from(user))
     }
 
-    async fn delete_user(&self, ctx: &Context<'_>, id: Uuid) -> Result<bool> {
+    async fn delete_user(&self, ctx: &Context<'_>, id: Uuid) -> Result<Option<User>> {
         let db = get_db(ctx);
         let user = get_user(ctx);
 
@@ -197,9 +203,9 @@ impl MutationRoot {
             return Err(Error::new("FORBIDDEN"));
         }
 
-        let result = models::user::Entity::delete_by_id(id).exec(db).await?;
+        models::user::Entity::delete_by_id(id).exec(db).await?;
 
-        Ok(result.rows_affected > 0)
+        Ok(None)
     }
 
     async fn create_board(&self, ctx: &Context<'_>, name: String) -> Result<Board> {
@@ -246,7 +252,7 @@ impl MutationRoot {
         ctx: &Context<'_>,
         id: i32,
         name: Option<String>,
-    ) -> Result<Option<Board>> {
+    ) -> Result<Board> {
         let db = get_db(ctx);
         let user = get_user(ctx);
 
@@ -261,7 +267,7 @@ impl MutationRoot {
         }
 
         let Some(board) = models::board::Entity::find_by_id(id).one(db).await? else {
-            return Ok(None);
+            return Err(Error::new("BOARD NOT FOUND"));
         };
 
         let mut board = board.into_active_model();
@@ -278,10 +284,10 @@ impl MutationRoot {
             Error::new("Failed to update board")
         })?;
 
-        Ok(Some(Board::from(board)))
+        Ok(Board::from(board))
     }
 
-    async fn delete_board(&self, ctx: &Context<'_>, id: i32) -> Result<bool> {
+    async fn delete_board(&self, ctx: &Context<'_>, id: i32) -> Result<Option<Board>> {
         let db = get_db(ctx);
         let user = get_user(ctx);
 
@@ -295,9 +301,9 @@ impl MutationRoot {
             }
         }
 
-        let result = models::board::Entity::delete_by_id(id).exec(db).await?;
+        models::board::Entity::delete_by_id(id).exec(db).await?;
 
-        Ok(result.rows_affected > 0)
+        Ok(None)
     }
 
     async fn create_task(
@@ -307,6 +313,8 @@ impl MutationRoot {
         title: String,
         description: Option<String>,
         author: String,
+        status: Option<String>,
+        assignee: Option<String>,
     ) -> Result<Task> {
         let db = get_db(ctx);
         let user = get_user(ctx);
@@ -336,6 +344,8 @@ impl MutationRoot {
             title: sea_orm::Set(title),
             description: description.map_or(NotSet, Set),
             author: sea_orm::Set(author),
+            status: status.map_or(NotSet, |s| Set(Some(s))),
+            assignee: assignee.map_or(NotSet, |a| Set(Some(a))),
             ..Default::default()
         };
 
@@ -360,12 +370,14 @@ impl MutationRoot {
         id: i32,
         title: Option<String>,
         description: Option<String>,
-    ) -> Result<Option<Task>> {
+        status: Option<Option<String>>,
+        assignee: Option<Option<String>>,
+    ) -> Result<Task> {
         let db = get_db(ctx);
         let user = get_user(ctx);
 
         let Some(task) = models::task::Entity::find_by_id(id).one(db).await? else {
-            return Ok(None);
+            return Err(Error::new("TASK NOT FOUND"));
         };
 
         if !user.is_admin {
@@ -388,8 +400,16 @@ impl MutationRoot {
             task.description = sea_orm::Set(description);
         }
 
+        if let Some(status) = status {
+            task.status = sea_orm::Set(status);
+        }
+
+        if let Some(assignee) = assignee {
+            task.assignee = sea_orm::Set(assignee);
+        }
+
         match task.update(db).await {
-            Ok(task) => Ok(Some(Task::from(task))),
+            Ok(task) => Ok(Task::from(task)),
             Err(err) => {
                 if let Some(SqlErr::UniqueConstraintViolation(_)) = err.sql_err() {
                     Err(Error::new("TITLE"))
@@ -400,12 +420,12 @@ impl MutationRoot {
         }
     }
 
-    async fn delete_task(&self, ctx: &Context<'_>, id: i32) -> Result<bool> {
+    async fn delete_task(&self, ctx: &Context<'_>, id: i32) -> Result<Option<Task>> {
         let db = get_db(ctx);
         let user = get_user(ctx);
 
         let Some(task) = models::task::Entity::find_by_id(id).one(db).await? else {
-            return Ok(false);
+            return Err(Error::new("TASK NOT FOUND"));
         };
 
         if !user.is_admin {
@@ -418,9 +438,9 @@ impl MutationRoot {
             }
         }
 
-        let result = task.delete(db).await?;
+        task.delete(db).await?;
 
-        Ok(result.rows_affected > 0)
+        Ok(None)
     }
 
     async fn add_access(
@@ -429,7 +449,7 @@ impl MutationRoot {
         board_id: i32,
         user_id: Uuid,
         is_moderator: bool,
-    ) -> Result<Access> {
+    ) -> Result<Board> {
         let db = get_db(ctx);
         let user = get_user(ctx);
 
@@ -443,13 +463,19 @@ impl MutationRoot {
             }
         }
 
+        // Seems wrong to query it before insert but actually access query is gonna be it's own thing so it's fine.
+        let board = models::board::Entity::find_by_id(board_id)
+            .one(db)
+            .await?
+            .ok_or_else(|| Error::new("NOT_FOUND"))?;
+
         let access = models::board_access::ActiveModel {
             board_id: Set(board_id),
             user_id: Set(user_id),
             is_moderator: Set(is_moderator),
         };
 
-        let access = models::board_access::Entity::insert(access)
+        models::board_access::Entity::insert(access)
             .on_conflict(
                 OnConflict::columns([
                     models::board_access::Column::BoardId,
@@ -469,15 +495,26 @@ impl MutationRoot {
                 )
                 .to_owned(),
             )
-            .exec_with_returning(db)
+            .exec(db)
             .await?;
 
-        Ok(Access::from(access))
+        Ok(Board::from(board))
     }
 
-    async fn remove_access(&self, ctx: &Context<'_>, board_id: i32, user_id: Uuid) -> Result<bool> {
+    async fn remove_access(
+        &self,
+        ctx: &Context<'_>,
+        board_id: i32,
+        user_id: Uuid,
+    ) -> Result<Board> {
         let db = get_db(ctx);
         let user = get_user(ctx);
+
+        // As in the method above.
+        let board = models::board::Entity::find_by_id(board_id)
+            .one(db)
+            .await?
+            .ok_or_else(|| Error::new("NOT_FOUND"))?;
 
         let target = models::board_access::Entity::find_by_id((board_id, user_id))
             .one(db)
@@ -492,16 +529,14 @@ impl MutationRoot {
                 .one(db)
                 .await?;
 
-            if !(user.is_admin
-                || (access.is_some_and(|access| access.is_moderator) && !target.is_moderator))
-            {
+            if !(access.is_some_and(|access| access.is_moderator) && !target.is_moderator) {
                 return Err(Error::new("FORBIDDEN"));
             }
         }
 
-        let result = target.delete(db).await?;
+        target.delete(db).await?;
 
-        Ok(result.rows_affected > 0)
+        Ok(Board::from(board))
     }
 
     async fn add_invite(&self, ctx: &Context<'_>, user_id: Uuid) -> Result<Invite> {
@@ -534,7 +569,7 @@ impl MutationRoot {
         Ok(Invite::from(invite))
     }
 
-    async fn remove_invite(&self, ctx: &Context<'_>, user_id: Uuid) -> Result<bool> {
+    async fn remove_invite(&self, ctx: &Context<'_>, user_id: Uuid) -> Result<Option<Invite>> {
         let db = get_db(ctx);
         let user = get_user(ctx);
 
@@ -551,8 +586,8 @@ impl MutationRoot {
             return Err(Error::new("NOT_FOUND"));
         };
 
-        let result = target.delete(db).await?;
+        target.delete(db).await?;
 
-        Ok(result.rows_affected > 0)
+        Ok(None)
     }
 }

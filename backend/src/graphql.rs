@@ -1,8 +1,14 @@
+// For graphql args.
+#![allow(clippy::too_many_arguments)]
+// This is a deeper problem that would require changing database schema from nullable text to empty text being effectively null.
+#![allow(clippy::option_option)]
+
 use actix_web::web::ThinData;
 use async_graphql::Context;
 use async_graphql::EmptySubscription;
 use async_graphql::Schema;
 
+mod models;
 mod mutation;
 mod query;
 
@@ -11,11 +17,10 @@ pub use query::QueryRoot;
 use sea_orm::DatabaseConnection;
 
 use crate::AuthUser;
-use crate::models;
 
 pub type AppSchema = Schema<QueryRoot, MutationRoot, EmptySubscription>;
 
-pub fn get_user<'a>(ctx: &'a Context<'_>) -> &'a models::user::Model {
+pub fn get_user<'a>(ctx: &'a Context<'_>) -> &'a crate::models::user::Model {
     &ctx.data_unchecked::<AuthUser>().0
 }
 

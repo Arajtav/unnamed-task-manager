@@ -1,13 +1,34 @@
-import { Accessor, createContext, createResource, createSignal, onMount, Show, useContext } from "solid-js";
+import { createContext, createSignal, onMount, Show, useContext } from "solid-js";
 import { RouteSectionProps, useParams } from "@solidjs/router";
 import { handleAuthError } from "../auth";
-import { boardQuery, boardsQuery } from "../graphql/client";
-import type { GqlFullBoard } from "../graphql/types";
 import BoardNavbar from "../components/BoardNavbar";
 import { useAlert } from "../components/Layout";
 import { createStore } from "solid-js/store";
+import { gqlClient } from "../graphql";
+import { gql } from "@urql/core";
 
-const BoardContext = createContext<ReturnType<typeof createStore<GqlFullBoard>>>();
+export type Task = {
+    id: string;
+    title: string;
+    createdAt: string;
+    author: string;
+    status?: string;
+    assignee?: string;
+};
+
+export type Access = {
+    userId: string;
+    isModerator: boolean;
+};
+
+export type FullBoard = {
+    id: number;
+    name: string;
+    tasks: Task[];
+    access: Access[];
+};
+
+const BoardContext = createContext<ReturnType<typeof createStore<FullBoard>>>();
 
 export function useBoard() {
     const context = useContext(BoardContext);
@@ -18,14 +39,40 @@ export function useBoard() {
 }
 
 export default function BoardLayout(props: RouteSectionProps) {
-    const { id } = useParams<{ id: string }>();
+    const params = useParams<{ id: string }>();
+    let id = Number(params.id);
+
     let { addAlert } = useAlert();
 
-    const store = createStore<GqlFullBoard>({} as GqlFullBoard);
+    const store = createStore({} as FullBoard);
     const [loading, setLoading] = createSignal("yes");
 
     onMount(async () => {
-        const result = await boardQuery(Number(id));
+        const result = await gqlClient.query<{
+            board: FullBoard;
+        }>(
+            gql`
+                query Board($id: Int!) {
+                    board(id: $id) {
+                        id
+                        name
+                        tasks {
+                            id
+                            title
+                            createdAt
+                            author
+                            status
+                            assignee
+                        }
+                        access {
+                            userId
+                            isModerator
+                        }
+                    }
+                }
+            `,
+            { id }
+        );
 
         if (handleAuthError(result.error)) {
             addAlert("Something went wrong.", "error");
@@ -36,7 +83,7 @@ export default function BoardLayout(props: RouteSectionProps) {
         let board = result.data?.board;
 
         if (!board) {
-            addAlert("Something went wrong.", "error");
+            addAlert("Board not found.", "error");
             setLoading("error");
             return;
         }
@@ -55,7 +102,7 @@ export default function BoardLayout(props: RouteSectionProps) {
 
             <Show when={loading() == "no"}>
                 <BoardContext.Provider value={store}>
-                    <BoardNavbar boardId={store[0].id} />
+                    <BoardNavbar />
                     {props.children}
                 </BoardContext.Provider>
             </Show>

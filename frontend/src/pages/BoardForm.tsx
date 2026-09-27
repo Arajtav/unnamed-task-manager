@@ -1,9 +1,34 @@
 import { createSignal } from "solid-js";
 import { useNavigate } from "@solidjs/router";
-import { createBoard } from "../graphql/client";
+import { gqlClient } from "../graphql";
+import { gql } from "@urql/core";
+import { useBoards } from "../components/Layout";
+
+async function createBoard(name: string) {
+    const result = await gqlClient.mutation<{
+        createBoard: {
+            id: string;
+            name: string;
+        };
+    }>(
+        gql`
+            mutation CreateBoard($name: String!) {
+                createBoard(name: $name) {
+                    id
+                    name
+                }
+            }
+        `,
+        { name }
+    );
+
+    return result;
+}
 
 export default function BoardForm() {
     const navigate = useNavigate();
+    let [_, setBoards] = useBoards();
+
     const [name, setName] = createSignal("");
 
     async function submit(e: SubmitEvent) {
@@ -11,12 +36,20 @@ export default function BoardForm() {
 
         const result = await createBoard(name());
 
-        if (result.error || !result.data) {
+        if (result.error) {
             console.error(result.error);
             return;
         }
 
-        navigate(`/boards/${result.data.createBoard.id}`);
+        let board = result.data?.createBoard;
+
+        if (!board) {
+            return;
+        }
+
+        setBoards(boards => boards.set(board.id, board.name));
+
+        navigate(`/boards/${board.id}`);
     }
 
     return (
@@ -32,7 +65,7 @@ export default function BoardForm() {
                                 type="text"
                                 placeholder="Name"
                                 value={name()}
-                                onInput={(e) => setName(e.currentTarget.value)}
+                                onInput={e => setName(e.currentTarget.value)}
                                 required
                             />
                         </fieldset>
