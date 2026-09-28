@@ -1,6 +1,6 @@
 import { Client, cacheExchange, fetchExchange } from "@urql/core";
 import { createSignal } from "solid-js";
-import type { GqlBoard, GqlEmail, GqlMe, GqlTask, GqlUser } from "./types";
+import type { GqlAccess, GqlBoard, GqlFullBoard, GqlEmail, GqlMe, GqlTask, GqlUser } from "./types";
 import {
     ME_QUERY,
     USERS_QUERY,
@@ -14,6 +14,8 @@ import {
     ADD_USER_EMAIL,
     DELETE_USER_EMAIL,
     SET_USER_HANDLE,
+    ADD_ACCESS_MUTATION,
+    REMOVE_ACCESS_MUTATION,
 } from "./queries";
 
 export const gqlClient = new Client({
@@ -57,8 +59,18 @@ export function boardsQuery(name?: string) {
 }
 
 export function boardQuery(id: number) {
+    return gqlClient.query<{ board: GqlFullBoard | null }>(BOARD_QUERY, { id }).toPromise();
+}
+
+export function addAccess(boardId: number, userId: string, isModerator: boolean) {
     return gqlClient
-        .query<{ board: (GqlBoard & { tasks: GqlTask[] }) | null }>(BOARD_QUERY, { id })
+        .mutation<{ addAccess: GqlAccess }>(ADD_ACCESS_MUTATION, { boardId, userId, isModerator })
+        .toPromise();
+}
+
+export function removeAccess(boardId: number, userId: string) {
+    return gqlClient
+        .mutation<{ removeAccess: boolean }>(REMOVE_ACCESS_MUTATION, { boardId, userId })
         .toPromise();
 }
 

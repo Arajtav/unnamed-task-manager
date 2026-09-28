@@ -16,7 +16,23 @@ export const USERS_QUERY = `
             id
             createdAt
             isAdmin
+            emails { email }
         }
+    }
+`;
+
+export const ADD_ACCESS_MUTATION = `
+    mutation AddAccess($boardId: Int!, $userId: UUID!, $isModerator: Boolean!) {
+        addAccess(boardId: $boardId, userId: $userId, isModerator: $isModerator) {
+            userId
+            isModerator
+        }
+    }
+`;
+
+export const REMOVE_ACCESS_MUTATION = `
+    mutation RemoveAccess($boardId: Int!, $userId: UUID!) {
+        removeAccess(boardId: $boardId, userId: $userId)
     }
 `;
 
@@ -52,6 +68,10 @@ export const BOARD_QUERY = `
                 description
                 createdAt
                 author
+            }
+            access {
+                userId
+                isModerator
             }
         }
     }

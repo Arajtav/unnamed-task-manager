@@ -1,73 +1,34 @@
-import { createResource, For, Show } from "solid-js";
-import { useParams } from "@solidjs/router";
-import { handleAuthError } from "../auth";
-import { boardQuery } from "../graphql/client";
+import { For, Show } from "solid-js";
 import TaskForm from "../components/TaskForm";
-import { useAlert } from "../components/Layout";
+import { useBoard } from "./BoardLayout";
 
 export default function Board() {
-    let { addAlert } = useAlert();
-
-    const params = useParams<{ id: string }>();
-
-    const [board, { refetch }] = createResource(
-        () => params.id,
-        async id => {
-            const result = await boardQuery(Number(id));
-
-            if (handleAuthError(result.error)) {
-                addAlert("Something went wrong.", "error");
-                return undefined;
-            }
-
-            let data = result.data?.board;
-
-            if (!data) {
-                addAlert("Board not found.", "warning");
-                return null;
-            }
-
-            return data;
-        }
-    );
+    const [board, setBoard] = useBoard();
 
     return (
         <div class="flex items-start justify-center pt-8 w-full h-full">
-            <Show when={board.loading}>
-                <div class="w-full h-full items-center justify-center flex">
-                    <span class="loading loading-spinner loading-lg" />
-                </div>
-            </Show>
+            <div class="flex flex-col gap-8">
+                <p class="text-center font-bold">{board.name}</p>
 
-            <Show when={!board.loading && board()}>
-                {b => (
-                    <div class="flex flex-col gap-8">
-                        <p class="text-center font-bold">{b().name}</p>
+                <TaskForm boardId={board.id} onCreated={(task) => setBoard("tasks", (tasks) => [...tasks, task])} />
 
-                        <TaskForm boardId={b().id} onCreated={refetch} />
-
-                        <Show when={b().tasks.length > 0}>
-                            <ul class="list bg-base-100 rounded-box">
-                                <For each={b().tasks}>
-                                    {task => (
-                                        <li class="list-row flex flex-col">
-                                            <div>
-                                                <p class="font-bold">{task.title}</p>
-                                                <p>{task.description}</p>
-                                                <p>Author: {task.author}</p>
-                                                <p>
-                                                    Created at:{" "}
-                                                    {new Date(task.createdAt).toISOString()}
-                                                </p>
-                                            </div>
-                                        </li>
-                                    )}
-                                </For>
-                            </ul>
-                        </Show>
-                    </div>
-                )}
-            </Show>
+                <Show when={board.tasks.length > 0}>
+                    <ul class="list bg-base-100 rounded-box">
+                        <For each={board.tasks}>
+                            {(task) => (
+                                <li class="list-row flex flex-col">
+                                    <div>
+                                        <p class="font-bold">{task.title}</p>
+                                        <p>{task.description}</p>
+                                        <p>Author: {task.author}</p>
+                                        <p>Created at: {new Date(task.createdAt).toISOString()}</p>
+                                    </div>
+                                </li>
+                            )}
+                        </For>
+                    </ul>
+                </Show>
+            </div>
         </div>
     );
 }
