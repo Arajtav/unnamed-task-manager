@@ -1,4 +1,4 @@
-import { createContext, createSignal, onMount, Show, useContext } from "solid-js";
+import { createContext, createEffect, createSignal, Show, useContext } from "solid-js";
 import { RouteSectionProps, useParams } from "@solidjs/router";
 import { handleAuthError } from "../auth";
 import BoardNavbar from "../components/BoardNavbar";
@@ -40,17 +40,21 @@ export function useBoard() {
 
 export default function BoardLayout(props: RouteSectionProps) {
     const params = useParams<{ id: string }>();
-    let id = Number(params.id);
-
-    let { addAlert } = useAlert();
+    const { addAlert } = useAlert();
 
     const store = createStore({} as FullBoard);
-    const [loading, setLoading] = createSignal("yes");
+    const [loading, setLoading] = createSignal<"yes" | "no" | "error">("yes");
 
-    onMount(async () => {
-        const result = await gqlClient.query<{
-            board: FullBoard;
-        }>(
+    createEffect(async () => {
+        const id = Number(params.id);
+
+        setLoading("yes");
+
+        await fetchBoard(id);
+    });
+
+    async function fetchBoard(id: number) {
+        const result = await gqlClient.query<{ board: FullBoard }>(
             gql`
                 query Board($id: Int!) {
                     board(id: $id) {
@@ -80,7 +84,7 @@ export default function BoardLayout(props: RouteSectionProps) {
             return;
         }
 
-        let board = result.data?.board;
+        const board = result.data?.board;
 
         if (!board) {
             addAlert("Board not found.", "error");
@@ -90,7 +94,7 @@ export default function BoardLayout(props: RouteSectionProps) {
 
         store[1](board);
         setLoading("no");
-    });
+    }
 
     return (
         <>
