@@ -11,7 +11,7 @@ use uuid::Uuid;
 use crate::{
     graphql::{
         get_db, get_user,
-        models::{Board, Invite, Task, User},
+        models::{Board, Task, User},
     },
     models,
 };
@@ -529,7 +529,7 @@ impl MutationRoot {
                 .one(db)
                 .await?;
 
-            if !(access.is_some_and(|access| access.is_moderator) && !target.is_moderator) {
+            if !access.is_some_and(|access| access.is_moderator) || target.is_moderator {
                 return Err(Error::new("FORBIDDEN"));
             }
         }
@@ -539,7 +539,7 @@ impl MutationRoot {
         Ok(Board::from(board))
     }
 
-    async fn add_invite(&self, ctx: &Context<'_>, user_id: Uuid) -> Result<Invite> {
+    async fn add_invite(&self, ctx: &Context<'_>, user_id: Uuid) -> Result<String> {
         let db = get_db(ctx);
         let user = get_user(ctx);
 
@@ -566,10 +566,10 @@ impl MutationRoot {
             .exec_with_returning(db)
             .await?;
 
-        Ok(Invite::from(invite))
+        Ok(String::from(invite))
     }
 
-    async fn remove_invite(&self, ctx: &Context<'_>, user_id: Uuid) -> Result<Option<Invite>> {
+    async fn remove_invite(&self, ctx: &Context<'_>, user_id: Uuid) -> Result<Option<String>> {
         let db = get_db(ctx);
         let user = get_user(ctx);
 

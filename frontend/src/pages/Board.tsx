@@ -1,6 +1,7 @@
 import { For, Show } from "solid-js";
 import TaskForm from "../components/TaskForm";
 import { useBoard } from "./BoardLayout";
+import Task from "../components/Task";
 
 export default function Board() {
     let [board, setBoard] = useBoard();
@@ -20,11 +21,7 @@ export default function Board() {
                         <For each={board.tasks}>
                             {task => (
                                 <li class="list-row flex flex-col">
-                                    <div>
-                                        <p class="font-bold">{task.title}</p>
-                                        <p>Author: {task.author}</p>
-                                        <p>Created at: {new Date(task.createdAt).toISOString()}</p>
-                                    </div>
+                                    <Task task={task} />
                                 </li>
                             )}
                         </For>

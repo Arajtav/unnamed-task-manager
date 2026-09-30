@@ -1,4 +1,4 @@
-use async_graphql::{Context, Error, Object, Result};
+use async_graphql::{ComplexObject, Context, Error, Result, SimpleObject};
 use chrono::{DateTime, Utc};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use uuid::Uuid;
@@ -8,6 +8,8 @@ use crate::{
     models,
 };
 
+#[derive(SimpleObject)]
+#[graphql(complex)]
 pub struct User {
     pub id: Uuid,
     pub created_at: DateTime<Utc>,
@@ -26,24 +28,8 @@ impl From<models::user::Model> for User {
     }
 }
 
-#[Object]
+#[ComplexObject]
 impl User {
-    async fn id(&self) -> Uuid {
-        self.id
-    }
-
-    async fn created_at(&self) -> DateTime<Utc> {
-        self.created_at
-    }
-
-    async fn is_admin(&self) -> bool {
-        self.is_admin
-    }
-
-    async fn handle(&self) -> &Option<String> {
-        &self.handle
-    }
-
     async fn emails(&self, ctx: &Context<'_>) -> Result<Vec<String>> {
         let db = get_db(ctx);
 
@@ -55,7 +41,7 @@ impl User {
         Ok(vec_map(emails))
     }
 
-    async fn invite(&self, ctx: &Context<'_>) -> Result<Option<Invite>> {
+    async fn invite(&self, ctx: &Context<'_>) -> Result<Option<String>> {
         let db = get_db(ctx);
         let user = get_user(ctx);
 
@@ -68,18 +54,13 @@ impl User {
             .one(db)
             .await?;
 
-        Ok(invite.map(Invite::from))
+        Ok(invite.map(From::from))
     }
 }
 
-#[derive(async_graphql::SimpleObject)]
-pub struct Invite {
-    pub code: String,
-}
-
-impl From<models::invite::Model> for Invite {
+impl From<models::invite::Model> for String {
     fn from(invite: models::invite::Model) -> Self {
-        Self { code: invite.code }
+        invite.code
     }
 }
 
@@ -89,6 +70,8 @@ impl From<models::email::Model> for String {
     }
 }
 
+#[derive(SimpleObject)]
+#[graphql(complex)]
 pub struct Board {
     id: i32,
     name: String,
@@ -105,20 +88,8 @@ impl From<models::board::Model> for Board {
     }
 }
 
-#[Object]
+#[ComplexObject]
 impl Board {
-    async fn id(&self) -> i32 {
-        self.id
-    }
-
-    async fn name(&self) -> &str {
-        &self.name
-    }
-
-    async fn created_at(&self) -> DateTime<Utc> {
-        self.created_at
-    }
-
     async fn tasks(&self, ctx: &Context<'_>) -> Result<Vec<Task>> {
         let db = get_db(ctx);
 
@@ -142,7 +113,8 @@ impl Board {
     }
 }
 
-#[derive(async_graphql::SimpleObject)]
+#[derive(SimpleObject)]
+#[graphql(complex)]
 pub struct Access {
     user_id: Uuid,
     is_moderator: bool,
@@ -157,27 +129,92 @@ impl From<models::board_access::Model> for Access {
     }
 }
 
-#[derive(async_graphql::SimpleObject)]
+#[ComplexObject]
+impl Access {
+    async fn user(&self, ctx: &Context<'_>) -> Result<User> {
+        let db = get_db(ctx);
+
+        let user = models::user::Entity::find_by_id(self.user_id)
+            .require_one(db)
+            .await?;
+
+        Ok(User::from(user))
+    }
+}
+
+#[derive(SimpleObject)]
+#[graphql(complex)]
 pub struct Task {
     id: i32,
     title: String,
     description: String,
     created_at: DateTime<Utc>,
-    author: String,
+    author: Email,
     status: Option<String>,
-    assignee: Option<String>,
+    assignee: Option<Email>,
+
+    #[graphql(skip)]
+    board_id: i32,
 }
 
 impl From<models::task::Model> for Task {
     fn from(task: models::task::Model) -> Self {
         Self {
+            board_id: task.board_id,
             id: task.id,
             title: task.title,
             description: task.description,
             created_at: task.created_at,
-            author: task.author,
+            author: Email { email: task.author },
             status: task.status,
-            assignee: task.assignee,
+            assignee: task.assignee.map(|email| Email { email }),
         }
     }
 }
+
+#[ComplexObject]
+impl Task {
+    async fn board(&self, ctx: &Context<'_>) -> Result<Board> {
+        let db = get_db(ctx);
+
+        let board = models::board::Entity::find_by_id(self.board_id)
+            .require_one(db)
+            .await?;
+
+        Ok(Board::from(board))
+    }
+}
+
+#[derive(SimpleObject)]
+#[graphql(complex)]
+pub struct Email {
+    email: String,
+}
+
+#[ComplexObject]
+impl Email {
+    async fn user(&self, ctx: &Context<'_>) -> Result<Option<User>> {
+        let db = get_db(ctx);
+
+        let user = models::email::Entity::find_by_id(&self.email)
+            .find_also_related(models::user::Entity)
+            .one(db)
+            .await?
+            .and_then(|(_, user)| user);
+
+        Ok(user.map(User::from))
+    }
+}
+
+// TODO: https://async-graphql.github.io/async-graphql/en/context.html#selection--lookahead I guess it can remove N+1s.
+// or this https://async-graphql.github.io/async-graphql/en/dataloader.html
+
+// Not a todo but streaming is possible with graphql, although I think it is incompatible with
+// our current auth system and would require some kind of a database proxy?
+
+// TODO: proper guards https://async-graphql.github.io/async-graphql/en/field_guard.html
+// https://async-graphql.github.io/async-graphql/en/input_value_validators.html
+
+// This will be used stuff later https://async-graphql.github.io/async-graphql/en/cursor_connections.html
+
+// TODO: https://async-graphql.github.io/async-graphql/en/depth_and_complexity.html since queries can be recursive now

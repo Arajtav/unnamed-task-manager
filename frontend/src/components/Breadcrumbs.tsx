@@ -52,3 +52,5 @@ export default function Breadcrumbs() {
         </div>
     );
 }
+
+// TODO: show /settings or something or at least make it so you can go back from them

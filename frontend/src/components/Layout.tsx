@@ -23,6 +23,11 @@ const AlertContext = createContext<{
 
 const BoardsContext = createContext<ReturnType<typeof createSignal<Map<string, string>>>>();
 
+// Idk what to call it really.
+const ColdAppDataContext = createContext<{
+    users: { id: string; emails: string[]; handle: string }[];
+}>();
+
 export function useAlert() {
     const context = useContext(AlertContext);
 
@@ -53,6 +58,16 @@ export function useBoards() {
     return context;
 }
 
+export function useColdAppDataContext() {
+    const context = useContext(ColdAppDataContext);
+
+    if (!context) {
+        throw new Error("useColdAppDataContext must be used inside ColdAppDataContext.Provider");
+    }
+
+    return context;
+}
+
 export default function Layout(props: RouteSectionProps) {
     const location = useLocation();
     const [loading, setLoading] = createSignal(true);
@@ -61,6 +76,7 @@ export default function Layout(props: RouteSectionProps) {
 
     const meStore = createStore({} as Me);
     const boardsSignal = createSignal({} as Map<string, string>);
+    let coldAppData;
 
     onMount(async () => {
         if (isAuthPage()) return;
@@ -76,6 +92,11 @@ export default function Layout(props: RouteSectionProps) {
                 id: string;
                 name: string;
             }[];
+            users: {
+                id: string;
+                handle?: string;
+                emails: string[];
+            }[];
         }>(
             gql`
                 query Me {
@@ -89,6 +110,11 @@ export default function Layout(props: RouteSectionProps) {
                         id
                         name
                     }
+                    users {
+                        id
+                        handle
+                        emails
+                    }
                 }
             `,
             {}
@@ -98,8 +124,9 @@ export default function Layout(props: RouteSectionProps) {
 
         const me = result.data?.me;
         const boards = result.data?.boards;
+        const users = result.data?.users;
 
-        if (!me || !boards) {
+        if (!me || !boards || !users) {
             throw new Error("Expected authenticated user");
         }
 
@@ -111,6 +138,8 @@ export default function Layout(props: RouteSectionProps) {
         });
 
         boardsSignal[1](new Map(boards.map(board => [board.id, board.name])));
+
+        coldAppData = { users };
 
         setLoading(false);
     });
@@ -167,10 +196,12 @@ export default function Layout(props: RouteSectionProps) {
                         fallback={<div class="flex-1 overflow-auto">{props.children}</div>}
                     >
                         <MeContext.Provider value={meStore}>
-                            <BoardsContext.Provider value={boardsSignal}>
-                                <Navbar></Navbar>
-                                <div class="flex-1 overflow-auto">{props.children}</div>
-                            </BoardsContext.Provider>
+                            <ColdAppDataContext.Provider value={coldAppData}>
+                                <BoardsContext.Provider value={boardsSignal}>
+                                    <Navbar></Navbar>
+                                    <div class="flex-1 overflow-auto">{props.children}</div>
+                                </BoardsContext.Provider>
+                            </ColdAppDataContext.Provider>
                         </MeContext.Provider>
                     </Show>
                 </Show>

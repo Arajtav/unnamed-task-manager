@@ -10,14 +10,14 @@ import { gql } from "@urql/core";
 export type Task = {
     id: string;
     title: string;
-    createdAt: string;
-    author: string;
+    createdAt: Date;
+    author: UserFromEmail;
     status?: string;
-    assignee?: string;
+    assignee?: UserFromEmail;
 };
 
 export type Access = {
-    userId: string;
+    user: User;
     isModerator: boolean;
 };
 
@@ -26,6 +26,16 @@ export type FullBoard = {
     name: string;
     tasks: Task[];
     access: Access[];
+};
+
+export type User = {
+    id: string;
+    handle?: string;
+};
+
+export type UserFromEmail = {
+    email: string;
+    user?: User;
 };
 
 const BoardContext = createContext<ReturnType<typeof createStore<FullBoard>>>();
@@ -54,7 +64,13 @@ export default function BoardLayout(props: RouteSectionProps) {
     });
 
     async function fetchBoard(id: number) {
-        const result = await gqlClient.query<{ board: FullBoard }>(
+        const result = await gqlClient.query<{
+            board: Omit<FullBoard, "tasks"> & {
+                tasks: (Omit<Task, "createdAt"> & {
+                    createdAt: string;
+                })[];
+            };
+        }>(
             gql`
                 query Board($id: Int!) {
                     board(id: $id) {
@@ -64,12 +80,27 @@ export default function BoardLayout(props: RouteSectionProps) {
                             id
                             title
                             createdAt
-                            author
+                            author {
+                                email
+                                user {
+                                    id
+                                    handle
+                                }
+                            }
                             status
-                            assignee
+                            assignee {
+                                email
+                                user {
+                                    id
+                                    handle
+                                }
+                            }
                         }
                         access {
-                            userId
+                            user {
+                                id
+                                handle
+                            }
                             isModerator
                         }
                     }
@@ -92,7 +123,12 @@ export default function BoardLayout(props: RouteSectionProps) {
             return;
         }
 
-        store[1](board);
+        const fullBoard: FullBoard = {
+            ...board,
+            tasks: board.tasks.map(task => ({ ...task, createdAt: new Date(task.createdAt) })),
+        };
+
+        store[1](fullBoard);
         setLoading("no");
     }
 

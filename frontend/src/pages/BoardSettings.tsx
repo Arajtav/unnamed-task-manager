@@ -1,5 +1,5 @@
 import { createMemo, createResource, createSignal, For, Show } from "solid-js";
-import { useAlert } from "../components/Layout";
+import { useAlert, useColdAppDataContext } from "../components/Layout";
 import { Access, useBoard } from "./BoardLayout";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
@@ -7,6 +7,7 @@ import Email from "../components/Email";
 
 export default function BoardSettings() {
     const [board, setBoard] = useBoard();
+    const { users } = useColdAppDataContext();
 
     let { addAlert } = useAlert();
 
@@ -14,37 +15,16 @@ export default function BoardSettings() {
     const [adding, setAdding] = createSignal(false);
     const [removeMemberId, setRemoveMemberId] = createSignal("");
 
-    const [users] = createResource(
-        async () => {
-            const result = await gqlClient.query<{ users: { id: string; emails: string[] }[] }>(
-                gql`
-                    query Users {
-                        users {
-                            id
-                            emails
-                        }
-                    }
-                `,
-                {}
-            );
-
-            if (result.error || !result.data?.users) {
-                addAlert("Failed to load users.", "error");
-                return [];
-            }
-
-            return result.data.users;
-        },
-        { initialValue: [] }
-    );
-
     async function removeMember() {
         const result = await gqlClient.mutation<{ removeAccess: { access: Access[] } }>(
             gql`
                 mutation RemoveAccess($boardId: Int!, $userId: UUID!) {
                     removeAccess(boardId: $boardId, userId: $userId) {
                         access {
-                            userId
+                            user {
+                                id
+                                handle
+                            }
                             isModerator
                         }
                     }
@@ -75,7 +55,10 @@ export default function BoardSettings() {
                 mutation AddAccess($boardId: Int!, $userId: UUID!, $isModerator: Boolean!) {
                     addAccess(boardId: $boardId, userId: $userId, isModerator: $isModerator) {
                         access {
-                            userId
+                            user {
+                                id
+                                handle
+                            }
                             isModerator
                         }
                     }
@@ -97,7 +80,7 @@ export default function BoardSettings() {
     const EmailUserMap = createMemo(() => {
         const map = new Map<string, string>();
 
-        for (const user of users()) {
+        for (const user of users) {
             for (const email of user.emails) {
                 map.set(email, user.id);
             }
@@ -106,7 +89,7 @@ export default function BoardSettings() {
         return map;
     });
 
-    const UserEmailMap = createMemo(() => new Map(users().map(user => [user.id, user.emails])));
+    const userEmailMap = new Map(users.map(user => [user.id, user.emails]));
 
     return (
         <>
@@ -138,9 +121,9 @@ export default function BoardSettings() {
                                                 <div>
                                                     <For
                                                         each={
-                                                            UserEmailMap().get(access.userId) ?? []
+                                                            userEmailMap.get(access.user.id) ?? []
                                                         }
-                                                        fallback={access.userId}
+                                                        fallback={access.user.id}
                                                     >
                                                         {email => <Email email={email} />}
                                                     </For>
@@ -148,7 +131,7 @@ export default function BoardSettings() {
                                                 <button
                                                     class="btn btn-square btn-ghost"
                                                     onClick={() => {
-                                                        setRemoveMemberId(access.userId);
+                                                        setRemoveMemberId(access.user.id);
                                                         return (
                                                             document.getElementById(
                                                                 "modal"
@@ -201,7 +184,7 @@ export default function BoardSettings() {
                         </div>
 
                         <datalist id="all-emails">
-                            <For each={users()}>
+                            <For each={users}>
                                 {user => (
                                     <For each={user.emails}>
                                         {email => <option value={email}>{email}</option>}

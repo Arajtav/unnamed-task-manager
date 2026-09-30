@@ -1,7 +1,7 @@
 import Drawer from "./Drawer";
 import Breadcrumbs from "./Breadcrumbs";
-import Avatar from "./Avatar";
 import { useMe } from "./Layout";
+import AvatarWithSettings from "./MainAvatar";
 
 export default function Navbar() {
     let [me] = useMe();
@@ -12,7 +12,7 @@ export default function Navbar() {
                 <Drawer />
                 <Breadcrumbs />
             </div>
-            <Avatar user={me} />
+            <AvatarWithSettings user={me.handle ?? me.emails[0] ?? me.id} />
         </div>
     );
 }
