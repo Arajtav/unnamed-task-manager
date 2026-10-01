@@ -1,5 +1,5 @@
-import { createMemo, createResource, createSignal, For, Show } from "solid-js";
-import { useAlert, useColdAppDataContext } from "../components/Layout";
+import { createMemo, createSignal, For, Show } from "solid-js";
+import { useAlert, useColdAppData, useModal } from "../components/Layout";
 import { Access, useBoard } from "./BoardLayout";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
@@ -7,13 +7,15 @@ import Email from "../components/Email";
 
 export default function BoardSettings() {
     const [board, setBoard] = useBoard();
-    const { users } = useColdAppDataContext();
+    const { users } = useColdAppData();
 
     let { addAlert } = useAlert();
 
     const [email, setEmail] = createSignal("");
     const [adding, setAdding] = createSignal(false);
     const [removeMemberId, setRemoveMemberId] = createSignal("");
+
+    const { openModal } = useModal();
 
     async function removeMember() {
         const result = await gqlClient.mutation<{ removeAccess: { access: Access[] } }>(
@@ -132,11 +134,28 @@ export default function BoardSettings() {
                                                     class="btn btn-square btn-ghost"
                                                     onClick={() => {
                                                         setRemoveMemberId(access.user.id);
-                                                        return (
-                                                            document.getElementById(
-                                                                "modal"
-                                                            ) as HTMLDialogElement
-                                                        ).showModal();
+                                                        openModal({
+                                                            title: "Are you sure?",
+                                                            content: (
+                                                                <p>
+                                                                    Are you sure you want to kick{" "}
+                                                                    <span class="text-primary">
+                                                                        {removeMemberId()}
+                                                                    </span>
+                                                                </p>
+                                                            ),
+                                                            buttons: [
+                                                                {
+                                                                    label: "No",
+                                                                    class: "btn-primary",
+                                                                },
+                                                                {
+                                                                    label: "Yes",
+                                                                    class: "btn-error",
+                                                                    onClick: removeMember,
+                                                                },
+                                                            ],
+                                                        });
                                                     }}
                                                 >
                                                     <svg
@@ -195,26 +214,6 @@ export default function BoardSettings() {
                     </fieldset>
                 </div>
             </div>
-            <dialog id="modal" class="modal">
-                <div class="modal-box">
-                    <h3 class="text-lg font-bold">Are you sure?</h3>
-                    <p class="py-4">
-                        Are you sure want to kick{" "}
-                        <span class="text-primary">{removeMemberId()}</span>
-                    </p>
-                    <div class="modal-action">
-                        <form method="dialog" class="flex gap-2">
-                            <button class="btn btn-primary">No</button>
-                            <button onClick={removeMember} class="btn btn-error">
-                                Yes
-                            </button>
-                        </form>
-                    </div>
-                </div>
-                <form method="dialog" class="modal-backdrop">
-                    <button>close</button>
-                </form>
-            </dialog>
         </>
     );
 }

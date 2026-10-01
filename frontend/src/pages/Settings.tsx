@@ -1,5 +1,5 @@
 import { createMemo, createSignal, For, Show } from "solid-js";
-import { useAlert, useMe } from "../components/Layout";
+import { useAlert, useMe, useModal } from "../components/Layout";
 import { parseOneAddress } from "email-addresses";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
@@ -126,6 +126,8 @@ export default function Settings() {
         }
     }
 
+    const { openModal } = useModal();
+
     return (
         <>
             <div class="w-full h-full flex flex-row">
@@ -155,11 +157,28 @@ export default function Settings() {
                                                     class="btn btn-square btn-ghost"
                                                     onClick={() => {
                                                         setEmailDelete(email);
-                                                        return (
-                                                            document.getElementById(
-                                                                "modal"
-                                                            ) as HTMLDialogElement
-                                                        ).showModal();
+                                                        openModal({
+                                                            title: "Are you sure?",
+                                                            content: (
+                                                                <p>
+                                                                    Are you sure you want to unlink{" "}
+                                                                    <span class="text-primary">
+                                                                        {emailDelete()}
+                                                                    </span>
+                                                                </p>
+                                                            ),
+                                                            buttons: [
+                                                                {
+                                                                    label: "No",
+                                                                    class: "btn-primary",
+                                                                },
+                                                                {
+                                                                    label: "Yes",
+                                                                    class: "btn-error",
+                                                                    onClick: deleteEmail,
+                                                                },
+                                                            ],
+                                                        });
                                                     }}
                                                 >
                                                     <svg
@@ -246,25 +265,6 @@ export default function Settings() {
                     </fieldset>
                 </div>
             </div>
-            <dialog id="modal" class="modal">
-                <div class="modal-box">
-                    <h3 class="text-lg font-bold">Are you sure?</h3>
-                    <p class="py-4">
-                        Are you sure you to unlink <span class="text-primary">{emailDelete()}</span>
-                    </p>
-                    <div class="modal-action">
-                        <form method="dialog" class="flex gap-2">
-                            <button class="btn btn-primary">No</button>
-                            <button onClick={deleteEmail} class="btn btn-error">
-                                Yes
-                            </button>
-                        </form>
-                    </div>
-                </div>
-                <form method="dialog" class="modal-backdrop">
-                    <button>close</button>
-                </form>
-            </dialog>
         </>
     );
 }

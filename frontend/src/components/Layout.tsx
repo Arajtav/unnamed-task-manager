@@ -1,4 +1,4 @@
-import { createContext, createSignal, For, onMount, Show, useContext } from "solid-js";
+import { createContext, createSignal, For, JSXElement, onMount, Show, useContext } from "solid-js";
 import { createStore } from "solid-js/store";
 import { RouteSectionProps, useLocation } from "@solidjs/router";
 import { handleAuthError } from "../auth";
@@ -26,6 +26,23 @@ const BoardsContext = createContext<ReturnType<typeof createSignal<Map<string, s
 // Idk what to call it really.
 const ColdAppDataContext = createContext<{
     users: { id: string; emails: string[]; handle: string }[];
+}>();
+
+type ModalButton = {
+    label: string;
+    class?: string;
+    onClick?: () => void | Promise<void>;
+};
+
+type ModalOptions = {
+    title: string;
+    content: JSXElement;
+    buttons?: ModalButton[];
+};
+
+const ModalContext = createContext<{
+    openModal: (options: ModalOptions) => void;
+    closeModal: () => void;
 }>();
 
 export function useAlert() {
@@ -58,11 +75,21 @@ export function useBoards() {
     return context;
 }
 
-export function useColdAppDataContext() {
+export function useColdAppData() {
     const context = useContext(ColdAppDataContext);
 
     if (!context) {
-        throw new Error("useColdAppDataContext must be used inside ColdAppDataContext.Provider");
+        throw new Error("useColdAppData must be used inside ColdAppDataContext.Provider");
+    }
+
+    return context;
+}
+
+export function useModal() {
+    const context = useContext(ModalContext);
+
+    if (!context) {
+        throw new Error("useModal must be used inside ModalContext.Provider");
     }
 
     return context;
@@ -177,35 +204,57 @@ export default function Layout(props: RouteSectionProps) {
 
     const alerts = { addAlert };
 
+    const [modal, setModal] = createSignal<ModalOptions | null>(null);
+
+    let modalDialog!: HTMLDialogElement;
+
+    function openModal(options: ModalOptions) {
+        setModal(options);
+        modalDialog.showModal();
+    }
+
+    function closeModal() {
+        modalDialog.close();
+        setModal(null);
+    }
+
+    const modalContext = {
+        openModal,
+        closeModal,
+    };
+
     return (
         <div class="flex flex-col h-screen w-screen">
             <AlertContext.Provider value={alerts}>
-                <Show
-                    when={isAuthPage() || !loading()}
-                    fallback={
-                        <div
-                            id="layout_spinner"
-                            class="flex items-center justify-center w-full h-full"
-                        >
-                            <span class="loading loading-spinner loading-lg" />
-                        </div>
-                    }
-                >
+                <ModalContext.Provider value={modalContext}>
                     <Show
-                        when={!isAuthPage()}
-                        fallback={<div class="flex-1 overflow-auto">{props.children}</div>}
+                        when={isAuthPage() || !loading()}
+                        fallback={
+                            <div
+                                id="layout_spinner"
+                                class="flex items-center justify-center w-full h-full"
+                            >
+                                <span class="loading loading-spinner loading-lg" />
+                            </div>
+                        }
                     >
-                        <MeContext.Provider value={meStore}>
-                            <ColdAppDataContext.Provider value={coldAppData}>
-                                <BoardsContext.Provider value={boardsSignal}>
-                                    <Navbar></Navbar>
-                                    <div class="flex-1 overflow-auto">{props.children}</div>
-                                </BoardsContext.Provider>
-                            </ColdAppDataContext.Provider>
-                        </MeContext.Provider>
+                        <Show
+                            when={!isAuthPage()}
+                            fallback={<div class="flex-1 overflow-auto">{props.children}</div>}
+                        >
+                            <MeContext.Provider value={meStore}>
+                                <ColdAppDataContext.Provider value={coldAppData}>
+                                    <BoardsContext.Provider value={boardsSignal}>
+                                        <Navbar></Navbar>
+                                        <div class="flex-1 overflow-auto">{props.children}</div>
+                                    </BoardsContext.Provider>
+                                </ColdAppDataContext.Provider>
+                            </MeContext.Provider>
+                        </Show>
                     </Show>
-                </Show>
+                </ModalContext.Provider>
             </AlertContext.Provider>
+
             <div class="toast">
                 <For each={gAlert()}>
                     {a => (
@@ -215,6 +264,39 @@ export default function Layout(props: RouteSectionProps) {
                     )}
                 </For>
             </div>
+
+            <dialog ref={modalDialog} class="modal">
+                <Show when={modal()}>
+                    {m => (
+                        <div class="modal-box">
+                            <Show when={m().title}>
+                                <h3 class="text-lg font-bold">{m().title}</h3>
+                            </Show>
+
+                            <div class="py-4">{m().content}</div>
+
+                            <div class="modal-action">
+                                <form method="dialog" class="flex gap-2">
+                                    <For each={m().buttons}>
+                                        {button => (
+                                            <button
+                                                class={`btn ${button.class ?? ""}`}
+                                                onClick={button.onClick}
+                                            >
+                                                {button.label}
+                                            </button>
+                                        )}
+                                    </For>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+                </Show>
+
+                <form method="dialog" class="modal-backdrop">
+                    <button>close</button>
+                </form>
+            </dialog>
         </div>
     );
 }
