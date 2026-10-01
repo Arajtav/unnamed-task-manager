@@ -7,7 +7,7 @@ export default function Navbar() {
     let [me] = useMe();
 
     return (
-        <div class="navbar flex flex-row justify-between h-10 bg-base-100">
+        <div class="navbar flex flex-row justify-between bg-base-100">
             <div class="flex flex-row gap-4">
                 <Drawer />
                 <Breadcrumbs />

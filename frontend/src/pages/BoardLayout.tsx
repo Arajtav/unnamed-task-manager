@@ -6,6 +6,7 @@ import { useAlert } from "../components/Layout";
 import { createStore } from "solid-js/store";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
+import TaskForm from "../components/TaskForm";
 
 export type Task = {
     id: string;
@@ -58,6 +59,7 @@ export default function BoardLayout(props: RouteSectionProps) {
     createEffect(async () => {
         const id = Number(params.id);
 
+        setCreateTask(false);
         setLoading("yes");
 
         await fetchBoard(id);
@@ -132,8 +134,10 @@ export default function BoardLayout(props: RouteSectionProps) {
         setLoading("no");
     }
 
+    const [createTask, setCreateTask] = createSignal(false);
+
     return (
-        <>
+        <div class="flex flex-col h-full">
             <Show when={loading() == "yes"}>
                 <div class="w-full h-full items-center justify-center flex">
                     <span class="loading loading-spinner loading-lg" />
@@ -142,10 +146,17 @@ export default function BoardLayout(props: RouteSectionProps) {
 
             <Show when={loading() == "no"}>
                 <BoardContext.Provider value={store}>
-                    <BoardNavbar />
-                    {props.children}
+                    <BoardNavbar setCreateTask={setCreateTask} />
+                    <div class="flex-1 overflow-auto">{props.children}</div>
+                    <Show when={createTask()}>
+                        {_ => (
+                            <div class="fixed h-screen w-screen flex items-center justify-center">
+                                <TaskForm setCreateTask={setCreateTask} />
+                            </div>
+                        )}
+                    </Show>
                 </BoardContext.Provider>
             </Show>
-        </>
+        </div>
     );
 }

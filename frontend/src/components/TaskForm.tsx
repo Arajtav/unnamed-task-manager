@@ -1,18 +1,13 @@
-import { createSignal, For, Show } from "solid-js";
-import { useMe } from "./Layout";
+import { createSignal, For, Setter, Show } from "solid-js";
 import { A } from "@solidjs/router";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
-import { Task } from "../pages/BoardLayout";
+import { Task, useBoard } from "../pages/BoardLayout";
+import { useMe } from "./Layout";
 
-export default function TaskForm({
-    boardId,
-    onCreated,
-}: {
-    boardId: number;
-    onCreated: (task: Task) => void;
-}) {
+export default function TaskForm({ setCreateTask }: { setCreateTask: Setter<boolean> }) {
     const [me] = useMe();
+    const [board, setBoard] = useBoard();
 
     const [title, setTitle] = createSignal("");
     const [description, setDescription] = createSignal("");
@@ -22,7 +17,9 @@ export default function TaskForm({
         e.preventDefault();
 
         const result = await gqlClient.mutation<{
-            createTask: Task;
+            createTask: Omit<Task, "createdAt"> & {
+                createdAt: string;
+            };
         }>(
             gql`
                 mutation CreateTask(
@@ -40,13 +37,30 @@ export default function TaskForm({
                         id
                         title
                         createdAt
-                        author
+                        author {
+                            email
+                            user {
+                                id
+                                handle
+                            }
+                        }
                         status
-                        assignee
+                        assignee {
+                            email
+                            user {
+                                id
+                                handle
+                            }
+                        }
                     }
                 }
             `,
-            { boardId, title: title(), description: description() || null, author: author() }
+            {
+                boardId: board.id,
+                title: title(),
+                description: description() || null,
+                author: author(),
+            }
         );
 
         if (result.error) {
@@ -63,7 +77,8 @@ export default function TaskForm({
         setTitle("");
         setDescription("");
         setAuthor("");
-        onCreated(task);
+        setBoard("tasks", tasks => [...tasks, { ...task, createdAt: new Date(task.createdAt) }]);
+        setCreateTask(false)
     }
 
     return (
@@ -115,6 +130,12 @@ export default function TaskForm({
                         </fieldset>
 
                         <div class="card-actions">
+                            <button
+                                class="btn btn-warning mt-4"
+                                onclick={() => setCreateTask(false)}
+                            >
+                                Cancel
+                            </button>
                             <button
                                 class="btn btn-primary mt-4"
                                 type="submit"
