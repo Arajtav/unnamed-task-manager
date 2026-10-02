@@ -1,6 +1,6 @@
 import { A } from "@solidjs/router";
-import { useBoard } from "../pages/BoardLayout";
 import { Setter } from "solid-js";
+import { useBoard } from "../contexts/boardContext";
 
 export default function BoardNavbar({ setCreateTask }: { setCreateTask: Setter<boolean> }) {
     let [board] = useBoard();

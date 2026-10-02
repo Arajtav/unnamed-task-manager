@@ -1,4 +1,4 @@
-import { createContext, createEffect, createSignal, Show, useContext } from "solid-js";
+import { createEffect, createSignal, Show } from "solid-js";
 import { RouteSectionProps, useParams } from "@solidjs/router";
 import { handleAuthError } from "../auth";
 import BoardNavbar from "../components/BoardNavbar";
@@ -7,47 +7,7 @@ import { createStore } from "solid-js/store";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
 import TaskForm from "../components/TaskForm";
-
-export type Task = {
-    id: number;
-    title: string;
-    createdAt: Date;
-    author: UserFromEmail;
-    status?: string;
-    assignee?: UserFromEmail;
-};
-
-export type Access = {
-    user: User;
-    isModerator: boolean;
-};
-
-export type FullBoard = {
-    id: number;
-    name: string;
-    tasks: Task[];
-    access: Access[];
-};
-
-export type User = {
-    id: string;
-    handle?: string;
-};
-
-export type UserFromEmail = {
-    email: string;
-    user?: User;
-};
-
-const BoardContext = createContext<ReturnType<typeof createStore<FullBoard>>>();
-
-export function useBoard() {
-    const context = useContext(BoardContext);
-
-    if (!context) throw new Error("useBoard must be used inside BoardLayout");
-
-    return context;
-}
+import { BoardContext, FullBoard, Task } from "../contexts/boardContext";
 
 export default function BoardLayout(props: RouteSectionProps) {
     const params = useParams<{ id: string }>();
@@ -104,6 +64,11 @@ export default function BoardLayout(props: RouteSectionProps) {
                                 handle
                             }
                             isModerator
+                        }
+                        taskStatus {
+                            name
+                            priority
+                            color
                         }
                     }
                 }

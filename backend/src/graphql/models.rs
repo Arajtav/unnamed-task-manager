@@ -1,6 +1,6 @@
 use async_graphql::{ComplexObject, Context, Error, Result, SimpleObject};
 use chrono::{DateTime, Utc};
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use uuid::Uuid;
 
 use crate::{
@@ -111,6 +111,35 @@ impl Board {
 
         Ok(vec_map(access))
     }
+
+    async fn task_status(&self, ctx: &Context<'_>) -> Result<Vec<TaskStatus>> {
+        let db = get_db(ctx);
+
+        let task_status = models::board_task_status::Entity::find()
+            .filter(models::board_task_status::Column::BoardId.eq(self.id))
+            .order_by_asc(models::board_task_status::Column::Priority)
+            .all(db)
+            .await?;
+
+        Ok(vec_map(task_status))
+    }
+}
+
+#[derive(SimpleObject)]
+pub struct TaskStatus {
+    name: String,
+    color: String,
+    priority: f32,
+}
+
+impl From<models::board_task_status::Model> for TaskStatus {
+    fn from(value: models::board_task_status::Model) -> Self {
+        Self {
+            name: value.name,
+            color: value.color,
+            priority: value.priority,
+        }
+    }
 }
 
 #[derive(SimpleObject)]
@@ -150,7 +179,7 @@ pub struct Task {
     description: String,
     created_at: DateTime<Utc>,
     author: Email,
-    status: Option<String>,
+    status: String,
     assignee: Option<Email>,
 
     #[graphql(skip)]

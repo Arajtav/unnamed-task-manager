@@ -54,8 +54,8 @@ impl MutationRoot {
         let email_models = emails
             .into_iter()
             .map(|email| models::email::ActiveModel {
-                user_id: sea_orm::Set(user.id),
-                email: sea_orm::Set(email),
+                user_id: Set(user.id),
+                email: Set(email),
             })
             .collect::<Vec<_>>();
 
@@ -147,8 +147,8 @@ impl MutationRoot {
             .await?;
 
         let email_model = models::email::ActiveModel {
-            user_id: sea_orm::Set(user_id),
-            email: sea_orm::Set(email.clone()),
+            user_id: Set(user_id),
+            email: Set(email.clone()),
         };
 
         match email_model.insert(db).await {
@@ -219,7 +219,7 @@ impl MutationRoot {
         let tx = db.begin().await?;
 
         let board = models::board::ActiveModel {
-            name: sea_orm::Set(name),
+            name: Set(name),
             ..Default::default()
         };
 
@@ -235,9 +235,9 @@ impl MutationRoot {
         };
 
         let access = models::board_access::ActiveModel {
-            board_id: sea_orm::Set(board.id),
-            user_id: sea_orm::Set(user.id),
-            is_moderator: sea_orm::Set(true),
+            board_id: Set(board.id),
+            user_id: Set(user.id),
+            is_moderator: Set(true),
         };
 
         access.insert(&tx).await?;
@@ -273,7 +273,7 @@ impl MutationRoot {
         let mut board = board.into_active_model();
 
         if let Some(name) = name {
-            board.name = sea_orm::Set(name);
+            board.name = Set(name);
         }
 
         let board = board.update(db).await.map_err(|err| {
@@ -313,7 +313,7 @@ impl MutationRoot {
         title: String,
         description: Option<String>,
         author: String,
-        status: Option<String>,
+        status: String,
         assignee: Option<String>,
     ) -> Result<Task> {
         let db = get_db(ctx);
@@ -340,11 +340,11 @@ impl MutationRoot {
         }
 
         let task = models::task::ActiveModel {
-            board_id: sea_orm::Set(board_id),
-            title: sea_orm::Set(title),
+            board_id: Set(board_id),
+            title: Set(title),
             description: description.map_or(NotSet, Set),
-            author: sea_orm::Set(author),
-            status: status.map_or(NotSet, |s| Set(Some(s))),
+            author: Set(author),
+            status: Set(status),
             assignee: assignee.map_or(NotSet, |a| Set(Some(a))),
             ..Default::default()
         };
@@ -370,7 +370,7 @@ impl MutationRoot {
         id: i32,
         title: Option<String>,
         description: Option<String>,
-        status: Option<Option<String>>,
+        status: Option<String>,
         assignee: Option<Option<String>>,
     ) -> Result<Task> {
         let db = get_db(ctx);
@@ -393,19 +393,19 @@ impl MutationRoot {
         let mut task = task.into_active_model();
 
         if let Some(title) = title {
-            task.title = sea_orm::Set(title);
+            task.title = Set(title);
         }
 
         if let Some(description) = description {
-            task.description = sea_orm::Set(description);
+            task.description = Set(description);
         }
 
         if let Some(status) = status {
-            task.status = sea_orm::Set(status);
+            task.status = Set(status);
         }
 
         if let Some(assignee) = assignee {
-            task.assignee = sea_orm::Set(assignee);
+            task.assignee = Set(assignee);
         }
 
         match task.update(db).await {
@@ -589,5 +589,137 @@ impl MutationRoot {
         target.delete(db).await?;
 
         Ok(None)
+    }
+
+    async fn add_task_status(
+        &self,
+        ctx: &Context<'_>,
+        board_id: i32,
+        name: String,
+        color: String,
+        priority: f32,
+    ) -> Result<Board> {
+        let db = get_db(ctx);
+        let user = get_user(ctx);
+
+        if !user.is_admin {
+            let access = models::board_access::Entity::find_by_id((board_id, user.id))
+                .one(db)
+                .await?;
+
+            if access.is_none_or(|access| !access.is_moderator) {
+                return Err(Error::new("FORBIDDEN"));
+            }
+        }
+
+        let board = models::board::Entity::find_by_id(board_id)
+            .one(db)
+            .await?
+            .ok_or_else(|| Error::new("NOT_FOUND"))?;
+
+        let task_status = models::board_task_status::ActiveModel {
+            board_id: Set(board_id),
+            name: Set(name),
+            color: Set(color),
+            priority: Set(priority),
+        };
+
+        models::board_task_status::Entity::insert(task_status)
+            .exec(db)
+            .await?;
+
+        Ok(Board::from(board))
+    }
+
+    async fn update_task_status(
+        &self,
+        ctx: &Context<'_>,
+        board_id: i32,
+        name: String,
+        new_name: Option<String>,
+        color: Option<String>,
+        priority: Option<f32>,
+    ) -> Result<Board> {
+        let db = get_db(ctx);
+        let user = get_user(ctx);
+
+        if !user.is_admin {
+            let access = models::board_access::Entity::find_by_id((board_id, user.id))
+                .one(db)
+                .await?;
+
+            if access.is_none_or(|access| !access.is_moderator) {
+                return Err(Error::new("FORBIDDEN"));
+            }
+        }
+
+        let board = models::board::Entity::find_by_id(board_id)
+            .one(db)
+            .await?
+            .ok_or_else(|| Error::new("NOT_FOUND"))?;
+
+        let task_status = models::board_task_status::Entity::find()
+            .filter(models::board_task_status::Column::BoardId.eq(board_id))
+            .filter(models::board_task_status::Column::Name.eq(name))
+            .one(db)
+            .await?
+            .ok_or(Error::new("NOT_FOUND"))?;
+
+        let mut task_status = task_status.into_active_model();
+
+        if let Some(new_name) = new_name {
+            task_status.name = Set(new_name);
+        }
+
+        if let Some(color) = color {
+            task_status.color = Set(color);
+        }
+
+        if let Some(priority) = priority {
+            task_status.priority = Set(priority);
+        }
+
+        task_status.update(db).await?;
+
+        Ok(Board::from(board))
+    }
+
+    async fn remove_task_status(
+        &self,
+        ctx: &Context<'_>,
+        board_id: i32,
+        name: String,
+    ) -> Result<Board> {
+        let db = get_db(ctx);
+        let user = get_user(ctx);
+
+        let board = models::board::Entity::find_by_id(board_id)
+            .one(db)
+            .await?
+            .ok_or_else(|| Error::new("NOT_FOUND"))?;
+
+        if !user.is_admin {
+            let access = models::board_access::Entity::find_by_id((board_id, user.id))
+                .one(db)
+                .await?;
+
+            if access.is_none_or(|access| !access.is_moderator) {
+                return Err(Error::new("FORBIDDEN"));
+            }
+        }
+
+        let target = models::board_task_status::Entity::find()
+            .filter(models::board_task_status::Column::BoardId.eq(board_id))
+            .filter(models::board_task_status::Column::Name.eq(name))
+            .one(db)
+            .await?;
+
+        let Some(target) = target else {
+            return Err(Error::new("NOT_FOUND"));
+        };
+
+        target.delete(db).await?;
+
+        Ok(Board::from(board))
     }
 }

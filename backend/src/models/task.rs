@@ -20,7 +20,7 @@ pub struct Model {
     #[sea_orm(belongs_to, from = "board_id", to = "id")]
     pub board: BelongsTo<super::board::Entity>,
 
-    pub status: Option<String>,
+    pub status: String,
     pub assignee: Option<String>,
 }
 

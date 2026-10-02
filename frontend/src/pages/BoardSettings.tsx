@@ -1,9 +1,9 @@
 import { createMemo, createSignal, For, Show } from "solid-js";
 import { useAlert, useColdAppData, useModal } from "../components/Layout";
-import { Access, useBoard } from "./BoardLayout";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
 import Email from "../components/Email";
+import { Access, useBoard } from "../contexts/boardContext";
 
 export default function BoardSettings() {
     const [board, setBoard] = useBoard();

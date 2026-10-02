@@ -1,11 +1,11 @@
 import { createStore } from "solid-js/store";
-import { UserFromEmail } from "../pages/BoardLayout";
 import { createEffect, createSignal, Setter, Show } from "solid-js";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
 import { handleAuthError } from "../auth";
 import { useAlert } from "./Layout";
 import Avatar from "./Avatar";
+import { UserFromEmail } from "../contexts/boardContext";
 
 export type Task = {
     id: number;
@@ -13,7 +13,7 @@ export type Task = {
     description: string;
     createdAt: Date;
     author: UserFromEmail;
-    status?: string;
+    status: string;
     assignee?: UserFromEmail;
 };
 
@@ -70,6 +70,7 @@ export default function FullTask({ id, setId }: { id: number; setId: Setter<numb
         setLoading(false);
     });
 
+    // TODO: center the spinner
     return (
         <dialog open class="modal">
             <Show when={!loading()} fallback={<span class="loading loading-spinner loading-lg" />}>
@@ -126,6 +127,11 @@ export default function FullTask({ id, setId }: { id: number; setId: Setter<numb
                                     )}
                                 </Show>
                             </div>
+                        </div>
+
+                        <div>
+                            <div class="text-sm font-semibold text-base-content/70">Status</div>
+                            <div class="mt-1">{task.status}</div>
                         </div>
 
                         <div>

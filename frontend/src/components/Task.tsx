@@ -1,6 +1,6 @@
 import { Show } from "solid-js";
-import { Task as TaskT } from "../pages/BoardLayout";
 import Avatar from "./Avatar";
+import { Task as TaskT } from "../contexts/boardContext";
 
 export default function Task({ task }: { task: TaskT }) {
     return (
@@ -9,7 +9,7 @@ export default function Task({ task }: { task: TaskT }) {
             <p>
                 Author: <Avatar user={task.author.user?.handle ?? task.author.email} />
             </p>
-            <p>Status: {task.status ?? "Not Assigned"}</p>
+            <p>Status: {task.status}</p>
             <p>
                 Assignee:{" "}
                 <Show when={task.assignee} fallback={"No one is assigned to this task"}>

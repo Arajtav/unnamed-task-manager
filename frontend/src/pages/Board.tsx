@@ -1,41 +1,46 @@
 import { createSignal, For, Show } from "solid-js";
-import { useBoard } from "./BoardLayout";
 import Task from "../components/Task";
 import FullTask from "../components/FullTask";
+import { useBoard } from "../contexts/boardContext";
 
 export default function Board() {
-    let [board] = useBoard();
+    const [board] = useBoard();
 
     const [viewTask, setViewTask] = createSignal<number | null>(null);
 
     return (
         <>
-            <div class="flex items-start justify-center pt-8 w-full h-full">
-                <div class="flex flex-col gap-8">
-                    <p class="text-center font-bold">{board.name}</p>
+            <div class="flex flex-col w-full h-full">
+                <div class="flex flex-row w-full h-full">
+                    <For each={board.taskStatus}>
+                        {status => (
+                            <div class="flex flex-col w-80 min-w-80 h-full">
+                                <h3>{status.name}</h3>
 
-                    <Show when={board.tasks.length > 0}>
-                        <ul class="list bg-base-100 rounded-box">
-                            <For each={board.tasks}>
-                                {task => (
-                                    <li
-                                        class="list-row flex flex-col"
-                                        onClick={() => setViewTask(task.id)}
+                                <ul class="list bg-base-100 rounded-box">
+                                    <For
+                                        each={board.tasks.filter(
+                                            task => task.status == status.name
+                                        )}
                                     >
-                                        <Task task={task} />
-                                    </li>
-                                )}
-                            </For>
-                        </ul>
-                    </Show>
+                                        {task => (
+                                            <li
+                                                class="list-row flex flex-col"
+                                                onClick={() => setViewTask(task.id)}
+                                            >
+                                                <Task task={task} />
+                                            </li>
+                                        )}
+                                    </For>
+                                </ul>
+                            </div>
+                        )}
+                    </For>
                 </div>
             </div>
-            <Show when={viewTask() !== null}>
-                {_ => (
-                    <div class="fixed inset-0 h-screen w-screen flex items-center justify-center">
-                        <FullTask id={viewTask()!} setId={setViewTask} />
-                    </div>
-                )}
+
+            <Show when={viewTask() != null}>
+                {_ => <FullTask id={viewTask()!} setId={setViewTask} />}
             </Show>
         </>
     );
