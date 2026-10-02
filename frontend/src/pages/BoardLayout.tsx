@@ -9,7 +9,7 @@ import { gql } from "@urql/core";
 import TaskForm from "../components/TaskForm";
 
 export type Task = {
-    id: string;
+    id: number;
     title: string;
     createdAt: Date;
     author: UserFromEmail;
@@ -150,7 +150,7 @@ export default function BoardLayout(props: RouteSectionProps) {
                     <div class="flex-1 overflow-auto">{props.children}</div>
                     <Show when={createTask()}>
                         {_ => (
-                            <div class="fixed h-screen w-screen flex items-center justify-center">
+                            <div class="fixed inset-0 h-screen w-screen flex items-center justify-center">
                                 <TaskForm setCreateTask={setCreateTask} />
                             </div>
                         )}

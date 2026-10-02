@@ -55,3 +55,4 @@ export default function Breadcrumbs() {
 
 // TODO: show /settings or something or at least make it so you can go back from them
 // TODO: what did I even do a CR, make it show board name not id.
+// TODO: well now what tasks can be open display them too.
