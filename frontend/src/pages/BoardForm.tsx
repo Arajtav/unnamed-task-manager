@@ -80,3 +80,5 @@ export default function BoardForm() {
         </div>
     );
 }
+
+// TODO: handle graphql errors

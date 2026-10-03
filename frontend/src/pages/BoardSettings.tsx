@@ -6,7 +6,7 @@ import { Access, TaskStatus, useBoard } from "../contexts/boardContext";
 import { useColdAppData } from "../contexts/coldAppDataContext";
 import { useAlert } from "../contexts/alertContext";
 import { useModal } from "../contexts/modalContext";
-import { GripVerticalIcon } from "lucide-solid";
+import { GripVerticalIcon, TrashIcon } from "lucide-solid";
 
 export default function BoardSettings() {
     const [board, setBoard] = useBoard();
@@ -183,6 +183,62 @@ export default function BoardSettings() {
         await updateTaskStatus(status.name, { color });
     }
 
+    const [newStatusName, setNewStatusName] = createSignal("");
+    const [newStatusColor, setNewStatusColor] = createSignal("#000000");
+    const [addingStatus, setAddingStatus] = createSignal(false);
+
+    async function addTaskStatus() {
+        const statuses = board.taskStatus;
+        const last = statuses[statuses.length - 1];
+
+        const priority = last ? last.priority + 1 : 0;
+
+        setAddingStatus(true);
+
+        const result = await gqlClient.mutation<{
+            addTaskStatus: {
+                taskStatus: TaskStatus[];
+            };
+        }>(
+            gql`
+                mutation AddTaskStatus(
+                    $boardId: Int!
+                    $name: String!
+                    $color: String!
+                    $priority: Float!
+                ) {
+                    addTaskStatus(
+                        boardId: $boardId
+                        name: $name
+                        color: $color
+                        priority: $priority
+                    ) {
+                        taskStatus {
+                            name
+                            priority
+                            color
+                        }
+                    }
+                }
+            `,
+            {
+                boardId: board.id,
+                name: newStatusName().trim(),
+                color: newStatusColor(),
+                priority,
+            }
+        );
+
+        if (result.error) {
+            addAlert("Failed to add task status.", "error");
+        } else {
+            setNewStatusName("");
+            setBoard("taskStatus", result.data!.addTaskStatus.taskStatus);
+        }
+
+        setAddingStatus(false);
+    }
+
     return (
         <>
             <div class="w-full h-full flex flex-row">
@@ -248,20 +304,7 @@ export default function BoardSettings() {
                                                         });
                                                     }}
                                                 >
-                                                    <svg
-                                                        xmlns="http://www.w3.org/2000/svg"
-                                                        fill="none"
-                                                        viewBox="0 0 24 24"
-                                                        stroke-width="1.5"
-                                                        stroke="currentColor"
-                                                        class="size-6"
-                                                    >
-                                                        <path
-                                                            stroke-linecap="round"
-                                                            stroke-linejoin="round"
-                                                            d="M6 18 18 6M6 6l12 12"
-                                                        />
-                                                    </svg>
+                                                    <TrashIcon strokeWidth={1.5} />
                                                 </button>
                                             </li>
                                         );
@@ -369,6 +412,39 @@ export default function BoardSettings() {
                                 </For>
                             </ul>
                         </Show>
+
+                        <div class="join mt-4">
+                            <label
+                                class="aspect-square h-full cursor-pointer rounded-none self-center"
+                                style={{ "background-color": newStatusColor() }}
+                            >
+                                <input
+                                    type="color"
+                                    value={newStatusColor()}
+                                    class="size-0 opacity-0"
+                                    onInput={e => setNewStatusColor(e.currentTarget.value)}
+                                    disabled={addingStatus()}
+                                />
+                            </label>
+
+                            <input
+                                type="text"
+                                class="input join-item validator"
+                                placeholder="New status"
+                                required
+                                value={newStatusName()}
+                                onInput={e => setNewStatusName(e.currentTarget.value)}
+                                disabled={addingStatus()}
+                            />
+
+                            <button
+                                class="btn btn-primary join-item"
+                                onClick={addTaskStatus}
+                                disabled={addingStatus() || !newStatusName()}
+                            >
+                                {addingStatus() ? "Adding..." : "Add"}
+                            </button>
+                        </div>
                     </fieldset>
                 </div>
             </div>
