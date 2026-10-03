@@ -1,12 +1,12 @@
 import { createMemo, createSignal, For, Show } from "solid-js";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
-import Email from "../components/Email";
 import { Access, TaskStatus, useBoard } from "../contexts/boardContext";
 import { useColdAppData } from "../contexts/coldAppDataContext";
 import { useAlert } from "../contexts/alertContext";
 import { useModal } from "../contexts/modalContext";
 import { GripVerticalIcon, TrashIcon, PencilIcon } from "lucide-solid";
+import User from "../newComponents/User";
 
 export default function BoardSettings() {
     const [board, setBoard] = useBoard();
@@ -27,6 +27,7 @@ export default function BoardSettings() {
                             user {
                                 id
                                 handle
+                                emails
                             }
                             isModerator
                         }
@@ -61,6 +62,7 @@ export default function BoardSettings() {
                             user {
                                 id
                                 handle
+                                emails
                             }
                             isModerator
                         }
@@ -91,8 +93,6 @@ export default function BoardSettings() {
 
         return map;
     });
-
-    const userEmailMap = new Map(users.map(user => [user.id, user.emails]));
 
     // TODO: Block everything with a spinner while it saves.
     async function updateTaskStatus(
@@ -249,7 +249,7 @@ export default function BoardSettings() {
                 </ul>
 
                 <div class="flex-1 p-6 gap-6 flex flex-col">
-                    <fieldset class="fieldset bg-base-200 border-base-300 w-xs border p-4">
+                    <fieldset class="fieldset bg-base-200 border-base-300 w-min min-w-xl border p-4">
                         <legend class="fieldset-legend">Board members</legend>
 
                         <Show
@@ -267,14 +267,7 @@ export default function BoardSettings() {
                                             <li class="list-row">
                                                 <div></div>
                                                 <div>
-                                                    <For
-                                                        each={
-                                                            userEmailMap.get(access.user.id) ?? []
-                                                        }
-                                                        fallback={access.user.id}
-                                                    >
-                                                        {email => <Email email={email} />}
-                                                    </For>
+                                                    <User user={access.user} />
                                                 </div>
                                                 <button
                                                     class="btn btn-square btn-ghost"
@@ -313,11 +306,11 @@ export default function BoardSettings() {
                             </ul>
                         </Show>
 
-                        <div class="join">
+                        <div class="join w-full">
                             <input
                                 type="text"
                                 inputMode="email"
-                                class="input join-item"
+                                class="input join-item flex-1"
                                 placeholder="me@example.org"
                                 list="all-emails"
                                 required

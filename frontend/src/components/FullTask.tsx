@@ -3,9 +3,9 @@ import { createEffect, createSignal, Setter, Show } from "solid-js";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
 import { handleAuthError } from "../auth";
-import Avatar from "./Avatar";
 import { UserFromEmail } from "../contexts/boardContext";
 import { useAlert } from "../contexts/alertContext";
+import User from "../newComponents/User";
 
 export type Task = {
     id: number;
@@ -91,38 +91,31 @@ export default function FullTask({ id, setId }: { id: number; setId: Setter<numb
 
                         <div>
                             <div class="text-sm font-semibold text-base-content/70">Author</div>
-                            <div class="mt-2 flex flex-row gap-2">
-                                <Avatar
-                                    user={task.author.email}
-                                ></Avatar>
-                                <div>
-                                    <div class="font-medium">
-                                        {task.author?.user?.handle
-                                            ? `@${task.author.user.handle}`
-                                            : task.author.email}
-                                    </div>
-                                </div>
-                            </div>
+                            <User
+                                user={{
+                                    emails: [task.author.email],
+                                    handle: task.author.user?.handle,
+                                }}
+                            />
                         </div>
 
                         <div>
                             <div class="text-sm font-semibold text-base-content/70">
                                 Assigned to
                             </div>
-                            <div class="mt-2 flex flex-row gap-2">
-                                <Show when={task.assignee} fallback={<p>No one</p>}>
+                            <div>
+                                <Show
+                                    when={task.assignee}
+                                    fallback={<p class="mt-2">No one</p>}
+                                >
                                     {assignee => (
                                         <>
-                                            <Avatar
-                                                user={assignee().email}
+                                            <User
+                                                user={{
+                                                    emails: [assignee().email],
+                                                    handle: assignee().user?.handle,
+                                                }}
                                             />
-                                            <div>
-                                                <div class="font-medium">
-                                                    {assignee().user?.handle
-                                                        ? `@${assignee().user!.handle}`
-                                                        : assignee().email}
-                                                </div>
-                                            </div>
                                         </>
                                     )}
                                 </Show>

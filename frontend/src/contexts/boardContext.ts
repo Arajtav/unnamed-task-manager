@@ -11,7 +11,7 @@ export type Task = {
 };
 
 export type Access = {
-    user: User;
+    user: User & { emails: string[] };
     isModerator: boolean;
 };
 

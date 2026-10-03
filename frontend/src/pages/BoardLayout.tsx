@@ -62,6 +62,7 @@ export default function BoardLayout(props: RouteSectionProps) {
                             user {
                                 id
                                 handle
+                                emails
                             }
                             isModerator
                         }
