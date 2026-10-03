@@ -138,7 +138,7 @@ export default function Settings() {
                     </li>
                 </ul>
 
-                <div class="flex-1 p-6">
+                <div class="flex-1 p-6 gap-6 flex flex-col">
                     <fieldset class="fieldset bg-base-200 border-base-300 w-xs border p-4">
                         <legend class="fieldset-legend">Email addresses</legend>
                         <Show when={me.emails.length == 0}>
@@ -232,8 +232,7 @@ export default function Settings() {
                             </button>
                         </div>
                     </fieldset>
-                </div>
-                <div class="flex-1 p-6">
+
                     <fieldset class="fieldset bg-base-200 border-base-300 w-xs border p-4">
                         <legend class="fieldset-legend">You handle</legend>
                         <div class="join">

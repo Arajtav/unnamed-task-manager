@@ -30,6 +30,7 @@ graphql mutation:
 - `addAccess` can be run by board moderators or admins. This mutation can also change access level if the target has access already; board moderators can only change access level up while no such restriction exists for admins.
 - `removeAccess` can be run by board moderators, but only by admins when the target is a board moderator too.
 - `addInvite` and `removeInvite` can by run by the user or by admins.
+- `addTaskStatus`, `updateTaskStatus` and `removeTaskStatus` can be run by board moderators or admins.
 
 Invites may only be used once.
 
