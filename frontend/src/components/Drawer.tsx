@@ -1,6 +1,7 @@
 import { createMemo, For } from "solid-js";
 import { A, useLocation } from "@solidjs/router";
 import { useBoards } from "../contexts/boardsContext";
+import { PanelLeftIcon } from "lucide-solid";
 
 export default function Drawer() {
     const [boards] = useBoards();
@@ -29,16 +30,16 @@ export default function Drawer() {
     });
 
     return (
-        <div class="drawer w-fit items-center mx-2">
+        <div class="drawer w-fit">
             <input ref={drawerToggle} id="board-drawer" type="checkbox" class="drawer-toggle" />
             <div class="drawer-content">
-                <label for="board-drawer" class="btn btn-primary h-lh box-content">
-                    Boards
+                <label for="board-drawer" class="btn btn-primary btn-square">
+                    <PanelLeftIcon strokeWidth={1.5} />
                 </label>
             </div>
 
             <div class="drawer-side">
-                <label for="board-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
+                <label for="board-drawer" aria-label="close sidebar" class="drawer-overlay" />
                 <ul class="menu bg-base-200 min-h-full w-80 p-4 justify-between">
                     <div>
                         <For each={boardsSorted()}>

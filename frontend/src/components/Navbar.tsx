@@ -5,11 +5,13 @@ import MeIcon from "./MeIcon";
 export default function Navbar() {
     return (
         <div class="navbar flex flex-row justify-between bg-base-100">
-            <div class="flex flex-row gap-4">
+            <div class="flex flex-row gap-4 items-center">
                 <Drawer />
                 <Breadcrumbs />
             </div>
-            <MeIcon />
+            <div class="m-2">
+                <MeIcon />
+            </div>
         </div>
     );
 }

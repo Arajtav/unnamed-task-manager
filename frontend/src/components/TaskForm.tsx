@@ -106,7 +106,7 @@ export default function TaskForm({ setCreateTask }: { setCreateTask: Setter<bool
                             </A>
                         }
                     >
-                        <form onSubmit={submit}>
+                        <form onSubmit={submit} id="create-task-form">
                             <fieldset class="fieldset">
                                 <label class="label">Title</label>
                                 <input
@@ -127,7 +127,6 @@ export default function TaskForm({ setCreateTask }: { setCreateTask: Setter<bool
                                 />
 
                                 <label class="label">Author email</label>
-
                                 <select
                                     class="select w-full"
                                     value={author()}
@@ -140,6 +139,7 @@ export default function TaskForm({ setCreateTask }: { setCreateTask: Setter<bool
                                     </For>
                                 </select>
 
+                                <label class="label">Status</label>
                                 <select
                                     class="select w-full"
                                     value={status()}
@@ -158,15 +158,11 @@ export default function TaskForm({ setCreateTask }: { setCreateTask: Setter<bool
                     </Show>
                 </Show>
                 <div class="card-actions">
-                    <button class="btn btn-warning mt-4" onclick={() => setCreateTask(false)}>
+                    <button class="btn btn-warning mt-4" onClick={() => setCreateTask(false)}>
                         Cancel
                     </button>
                     <Show when={me.emails.length && board.taskStatus.length}>
-                        <button
-                            class="btn btn-primary mt-4"
-                            type="submit"
-                            disabled={me.emails.length == 0}
-                        >
+                        <button class="btn btn-primary mt-4" type="submit" form="create-task-form">
                             Create
                         </button>
                     </Show>

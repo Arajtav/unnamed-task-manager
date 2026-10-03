@@ -16,7 +16,7 @@ export default function MeIcon() {
     }
 
     return (
-        <div class="m-2">
+        <div>
             <button popovertarget="avatar-settings" style="anchor-name: --avatar-anchor">
                 <Avatar user={me.handle ?? me.emails[0] ?? me.id} alt="You" />
             </button>

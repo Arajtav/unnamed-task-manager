@@ -329,7 +329,7 @@ export default function BoardSettings() {
                             <button
                                 class="btn btn-primary join-item"
                                 onClick={addMember}
-                                disabled={adding()}
+                                disabled={adding() || !email().trim()}
                             >
                                 {adding() ? "Adding..." : "Add"}
                             </button>
@@ -432,7 +432,7 @@ export default function BoardSettings() {
 
                         <div class="join mt-4">
                             <label
-                                class="aspect-square h-full cursor-pointer rounded-none self-center"
+                                class="aspect-square h-full cursor-pointer"
                                 style={{ "background-color": newStatusColor() }}
                             >
                                 <input
@@ -446,7 +446,7 @@ export default function BoardSettings() {
 
                             <input
                                 type="text"
-                                class="input join-item validator"
+                                class="input join-item"
                                 placeholder="New status"
                                 required
                                 value={newStatusName()}
