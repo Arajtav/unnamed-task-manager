@@ -1,99 +1,15 @@
-import { createContext, createSignal, For, JSXElement, onMount, Show, useContext } from "solid-js";
+import { createSignal, For, onMount, Show } from "solid-js";
 import { createStore } from "solid-js/store";
 import { RouteSectionProps, useLocation } from "@solidjs/router";
 import { handleAuthError } from "../auth";
 import Navbar from "./Navbar";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
-
-type Me = {
-    id: string;
-    isAdmin: boolean;
-    emails: string[];
-    handle?: string;
-};
-
-const MeContext = createContext<ReturnType<typeof createStore<Me>>>();
-
-type AlertType = "info" | "success" | "warning" | "error";
-
-const AlertContext = createContext<{
-    addAlert: (message: string, type: AlertType, duration?: number) => void;
-}>();
-
-const BoardsContext = createContext<ReturnType<typeof createSignal<Map<string, string>>>>();
-
-// Idk what to call it really.
-const ColdAppDataContext = createContext<{
-    users: { id: string; emails: string[]; handle: string }[];
-}>();
-
-type ModalButton = {
-    label: string;
-    class?: string;
-    onClick?: () => void | Promise<void>;
-};
-
-type ModalOptions = {
-    title: string;
-    content: JSXElement;
-    buttons?: ModalButton[];
-};
-
-const ModalContext = createContext<{
-    openModal: (options: ModalOptions) => void;
-    closeModal: () => void;
-}>();
-
-export function useAlert() {
-    const context = useContext(AlertContext);
-
-    if (!context) {
-        throw new Error("useAlert must be used inside AlertContext.Provider");
-    }
-
-    return context;
-}
-
-export function useMe() {
-    const context = useContext(MeContext);
-
-    if (!context) {
-        throw new Error("useMe must be used inside MeContext.Provider");
-    }
-
-    return context;
-}
-
-export function useBoards() {
-    const context = useContext(BoardsContext);
-
-    if (!context) {
-        throw new Error("useBoards must be used inside BoardsContext.Provider");
-    }
-
-    return context;
-}
-
-export function useColdAppData() {
-    const context = useContext(ColdAppDataContext);
-
-    if (!context) {
-        throw new Error("useColdAppData must be used inside ColdAppDataContext.Provider");
-    }
-
-    return context;
-}
-
-export function useModal() {
-    const context = useContext(ModalContext);
-
-    if (!context) {
-        throw new Error("useModal must be used inside ModalContext.Provider");
-    }
-
-    return context;
-}
+import { Me, MeContext } from "../contexts/meContext";
+import { AlertContext, AlertType } from "../contexts/alertContext";
+import { ModalContext, ModalOptions } from "../contexts/modalContext";
+import { ColdAppDataContext } from "../contexts/coldAppDataContext";
+import { BoardsContext } from "../contexts/boardsContext";
 
 export default function Layout(props: RouteSectionProps) {
     const location = useLocation();

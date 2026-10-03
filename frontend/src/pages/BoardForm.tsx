@@ -2,7 +2,7 @@ import { createSignal } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
-import { useBoards } from "../components/Layout";
+import { useBoards } from "../contexts/boardsContext";
 
 async function createBoard(name: string) {
     const result = await gqlClient.mutation<{
@@ -27,7 +27,7 @@ async function createBoard(name: string) {
 
 export default function BoardForm() {
     const navigate = useNavigate();
-    let [_, setBoards] = useBoards();
+    const [_, setBoards] = useBoards();
 
     const [name, setName] = createSignal("");
 

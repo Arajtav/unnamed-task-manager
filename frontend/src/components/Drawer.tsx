@@ -1,6 +1,6 @@
 import { createMemo, For } from "solid-js";
 import { A, useLocation } from "@solidjs/router";
-import { useBoards } from "./Layout";
+import { useBoards } from "../contexts/boardsContext";
 
 export default function Drawer() {
     const [boards] = useBoards();

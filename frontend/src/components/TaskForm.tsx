@@ -2,8 +2,8 @@ import { createSignal, For, Setter, Show } from "solid-js";
 import { A } from "@solidjs/router";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
-import { useMe } from "./Layout";
 import { Task, useBoard } from "../contexts/boardContext";
+import { useMe } from "../contexts/meContext";
 
 export default function TaskForm({ setCreateTask }: { setCreateTask: Setter<boolean> }) {
     const [me] = useMe();

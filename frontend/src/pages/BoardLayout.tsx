@@ -2,12 +2,12 @@ import { createEffect, createSignal, Show } from "solid-js";
 import { RouteSectionProps, useParams } from "@solidjs/router";
 import { handleAuthError } from "../auth";
 import BoardNavbar from "../components/BoardNavbar";
-import { useAlert } from "../components/Layout";
 import { createStore } from "solid-js/store";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
 import TaskForm from "../components/TaskForm";
 import { BoardContext, FullBoard, Task } from "../contexts/boardContext";
+import { useAlert } from "../contexts/alertContext";
 
 export default function BoardLayout(props: RouteSectionProps) {
     const params = useParams<{ id: string }>();

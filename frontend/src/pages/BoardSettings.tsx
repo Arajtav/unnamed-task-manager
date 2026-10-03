@@ -1,21 +1,21 @@
 import { createMemo, createSignal, For, Show } from "solid-js";
-import { useAlert, useColdAppData, useModal } from "../components/Layout";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
 import Email from "../components/Email";
 import { Access, useBoard } from "../contexts/boardContext";
+import { useColdAppData } from "../contexts/coldAppDataContext";
+import { useAlert } from "../contexts/alertContext";
+import { useModal } from "../contexts/modalContext";
 
 export default function BoardSettings() {
     const [board, setBoard] = useBoard();
     const { users } = useColdAppData();
-
-    let { addAlert } = useAlert();
+    const { addAlert } = useAlert();
+    const { openModal } = useModal();
 
     const [email, setEmail] = createSignal("");
     const [adding, setAdding] = createSignal(false);
     const [removeMemberId, setRemoveMemberId] = createSignal("");
-
-    const { openModal } = useModal();
 
     async function removeMember() {
         const result = await gqlClient.mutation<{ removeAccess: { access: Access[] } }>(

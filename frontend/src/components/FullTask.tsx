@@ -3,9 +3,9 @@ import { createEffect, createSignal, Setter, Show } from "solid-js";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
 import { handleAuthError } from "../auth";
-import { useAlert } from "./Layout";
 import Avatar from "./Avatar";
 import { UserFromEmail } from "../contexts/boardContext";
+import { useAlert } from "../contexts/alertContext";
 
 export type Task = {
     id: number;

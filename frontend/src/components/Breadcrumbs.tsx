@@ -1,6 +1,6 @@
 import { A, useLocation, useParams } from "@solidjs/router";
 import { createMemo, For } from "solid-js";
-import { useBoards } from "./Layout";
+import { useBoards } from "../contexts/boardsContext";
 
 type Crumb = { label: string; href: string };
 

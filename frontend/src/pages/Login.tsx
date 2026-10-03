@@ -1,10 +1,10 @@
 import { createSignal, Match, onMount, Show, Switch } from "solid-js";
 import { client } from "../auth";
 import { A } from "@solidjs/router";
-import { useAlert } from "../components/Layout";
+import { useAlert } from "../contexts/alertContext";
 
 export default function Login() {
-    let { addAlert } = useAlert();
+    const { addAlert } = useAlert();
 
     // TODO: would be nice to debounce loading by a few ms.
     let [loading, setLoading] = createSignal(false);

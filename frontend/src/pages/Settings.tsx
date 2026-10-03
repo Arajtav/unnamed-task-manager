@@ -1,13 +1,16 @@
 import { createMemo, createSignal, For, Show } from "solid-js";
-import { useAlert, useMe, useModal } from "../components/Layout";
 import { parseOneAddress } from "email-addresses";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
 import Email from "../components/Email";
+import { useMe } from "../contexts/meContext";
+import { useAlert } from "../contexts/alertContext";
+import { useModal } from "../contexts/modalContext";
 
 export default function Settings() {
     const [me, setMe] = useMe();
-    let { addAlert } = useAlert();
+    const { addAlert } = useAlert();
+    const { openModal } = useModal();
 
     const [email, setEmail] = createSignal("");
     const [adding, setAdding] = createSignal(false);
@@ -125,8 +128,6 @@ export default function Settings() {
             addAlert(err instanceof Error ? err.message : "Failed to delete email.", "error");
         }
     }
-
-    const { openModal } = useModal();
 
     return (
         <>

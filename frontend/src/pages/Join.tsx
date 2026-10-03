@@ -1,10 +1,10 @@
 import { createSignal, Show } from "solid-js";
 import { client } from "../auth";
 import { A } from "@solidjs/router";
-import { useAlert } from "../components/Layout";
+import { useAlert } from "../contexts/alertContext";
 
 export default function Join() {
-    let { addAlert } = useAlert();
+    const { addAlert } = useAlert();
 
     // TODO: would be nice to debounce loading by a few ms.
     let [loading, setLoading] = createSignal(false);
@@ -132,10 +132,7 @@ export default function Join() {
                                 onInput={e => setName(e.currentTarget.value)}
                                 required
                             />
-                            <button
-                                class="btn btn-primary mt-4 w-full"
-                                disabled={loading()}
-                            >
+                            <button class="btn btn-primary mt-4 w-full" disabled={loading()}>
                                 Join
                             </button>
                         </fieldset>

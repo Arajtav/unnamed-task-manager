@@ -3,7 +3,7 @@ import { Setter } from "solid-js";
 import { useBoard } from "../contexts/boardContext";
 
 export default function BoardNavbar({ setCreateTask }: { setCreateTask: Setter<boolean> }) {
-    let [board] = useBoard();
+    const [board] = useBoard();
 
     return (
         <div class="navbar flex flex-row gap-4 bg-base-200">
