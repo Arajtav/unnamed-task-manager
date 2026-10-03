@@ -658,28 +658,34 @@ impl MutationRoot {
             .await?
             .ok_or_else(|| Error::new("NOT_FOUND"))?;
 
-        let task_status = models::board_task_status::Entity::find()
+        // Primary key can change so update() doesn't work.
+        let mut update = models::board_task_status::Entity::update_many()
             .filter(models::board_task_status::Column::BoardId.eq(board_id))
-            .filter(models::board_task_status::Column::Name.eq(name))
-            .one(db)
-            .await?
-            .ok_or(Error::new("NOT_FOUND"))?;
-
-        let mut task_status = task_status.into_active_model();
+            .filter(models::board_task_status::Column::Name.eq(&name));
 
         if let Some(new_name) = new_name {
-            task_status.name = Set(new_name);
+            update = update.col_expr(
+                models::board_task_status::Column::Name,
+                Expr::value(new_name),
+            );
         }
 
         if let Some(color) = color {
-            task_status.color = Set(color);
+            update = update.col_expr(models::board_task_status::Column::Color, Expr::value(color));
         }
 
         if let Some(priority) = priority {
-            task_status.priority = Set(priority);
+            update = update.col_expr(
+                models::board_task_status::Column::Priority,
+                Expr::value(priority),
+            );
         }
 
-        task_status.update(db).await?;
+        let result = update.exec(db).await?;
+
+        if result.rows_affected == 0 {
+            return Err(Error::new("NOT_FOUND"));
+        }
 
         Ok(Board::from(board))
     }

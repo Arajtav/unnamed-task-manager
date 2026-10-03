@@ -6,7 +6,7 @@ import { Access, TaskStatus, useBoard } from "../contexts/boardContext";
 import { useColdAppData } from "../contexts/coldAppDataContext";
 import { useAlert } from "../contexts/alertContext";
 import { useModal } from "../contexts/modalContext";
-import { GripVerticalIcon, TrashIcon } from "lucide-solid";
+import { GripVerticalIcon, TrashIcon, PencilIcon } from "lucide-solid";
 
 export default function BoardSettings() {
     const [board, setBoard] = useBoard();
@@ -388,7 +388,6 @@ export default function BoardSettings() {
                                             >
                                                 <GripVerticalIcon strokeWidth={1.5} />
                                             </div>
-
                                             <label
                                                 class="size-6 cursor-pointer rounded-full self-center"
                                                 style={{ "background-color": status.color }}
@@ -406,7 +405,25 @@ export default function BoardSettings() {
                                                 />
                                             </label>
 
-                                            <div class="self-center">{status.name}</div>
+                                            <div class="self-center flex-1">{status.name}</div>
+
+                                            <button
+                                                class="btn btn-square btn-ghost"
+                                                onClick={async () => {
+                                                    const newName = prompt(
+                                                        "New status name",
+                                                        status.name
+                                                    );
+
+                                                    if (newName && newName.trim() != "") {
+                                                        await updateTaskStatus(status.name, {
+                                                            newName,
+                                                        });
+                                                    }
+                                                }}
+                                            >
+                                                <PencilIcon strokeWidth={1.5} />
+                                            </button>
                                         </li>
                                     )}
                                 </For>
