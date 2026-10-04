@@ -8,6 +8,7 @@ export type Task = {
     author: UserFromEmail;
     status: string;
     assignee?: UserFromEmail;
+    isArchived: boolean;
 };
 
 export type Access = {

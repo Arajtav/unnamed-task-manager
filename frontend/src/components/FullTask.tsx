@@ -51,6 +51,7 @@ export default function FullTask({ id, setId }: { id: number; setId: Setter<numb
                                 handle
                             }
                         }
+                        isArchived
                     }
                 }
             `,
@@ -145,3 +146,5 @@ export default function FullTask({ id, setId }: { id: number; setId: Setter<numb
         </dialog>
     );
 }
+
+// TODO: Do not allow editing when the task is archived.

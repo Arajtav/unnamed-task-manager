@@ -372,6 +372,7 @@ impl MutationRoot {
         description: Option<String>,
         status: Option<String>,
         assignee: Option<Option<String>>,
+        is_archived: Option<bool>,
     ) -> Result<Task> {
         let db = get_db(ctx);
         let user = get_user(ctx);
@@ -381,11 +382,14 @@ impl MutationRoot {
         };
 
         if !user.is_admin {
-            let access = models::board_access::Entity::find_by_id((task.board_id, user.id))
+            if let Some(access) = models::board_access::Entity::find_by_id((task.board_id, user.id))
                 .one(db)
-                .await?;
-
-            if access.is_none() {
+                .await?
+            {
+                if task.is_archived && is_archived != Some(false) && !access.is_moderator {
+                    return Err(Error::new("TASK ARCHIVED"));
+                }
+            } else {
                 return Err(Error::new("FORBIDDEN"));
             }
         }
@@ -406,6 +410,10 @@ impl MutationRoot {
 
         if let Some(assignee) = assignee {
             task.assignee = Set(assignee);
+        }
+
+        if let Some(is_archived) = is_archived {
+            task.is_archived = Set(is_archived);
         }
 
         match task.update(db).await {

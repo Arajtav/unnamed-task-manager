@@ -22,6 +22,8 @@ pub struct Model {
 
     pub status: String,
     pub assignee: Option<String>,
+
+    pub is_archived: bool,
 }
 
 impl ActiveModelBehavior for ActiveModel {}

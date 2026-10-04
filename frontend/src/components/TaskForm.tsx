@@ -1,13 +1,15 @@
-import { createSignal, For, Setter, Show } from "solid-js";
+import { createSignal, For, Show } from "solid-js";
 import { A } from "@solidjs/router";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
 import { Task, useBoard } from "../contexts/boardContext";
 import { useMe } from "../contexts/meContext";
+import { useBoardNav } from "../contexts/boardNavContext";
 
-export default function TaskForm({ setCreateTask }: { setCreateTask: Setter<boolean> }) {
+export default function TaskForm() {
     const [me] = useMe();
     const [board, setBoard] = useBoard();
+    const [boardNav, setBoardNav] = useBoardNav();
 
     const [title, setTitle] = createSignal("");
     const [description, setDescription] = createSignal("");
@@ -55,6 +57,7 @@ export default function TaskForm({ setCreateTask }: { setCreateTask: Setter<bool
                                 handle
                             }
                         }
+                        isArchived
                     }
                 }
             `,
@@ -82,7 +85,7 @@ export default function TaskForm({ setCreateTask }: { setCreateTask: Setter<bool
         setDescription("");
         setAuthor("");
         setBoard("tasks", tasks => [...tasks, { ...task, createdAt: new Date(task.createdAt) }]);
-        setCreateTask(false);
+        setBoardNav("createTask", false);
     }
 
     return (
@@ -158,7 +161,10 @@ export default function TaskForm({ setCreateTask }: { setCreateTask: Setter<bool
                     </Show>
                 </Show>
                 <div class="card-actions">
-                    <button class="btn btn-warning mt-4" onClick={() => setCreateTask(false)}>
+                    <button
+                        class="btn btn-warning mt-4"
+                        onClick={() => setBoardNav("createTask", false)}
+                    >
                         Cancel
                     </button>
                     <Show when={me.emails.length && board.taskStatus.length}>

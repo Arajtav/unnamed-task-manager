@@ -8,6 +8,7 @@ import { gql } from "@urql/core";
 import TaskForm from "../components/TaskForm";
 import { BoardContext, FullBoard, Task } from "../contexts/boardContext";
 import { useAlert } from "../contexts/alertContext";
+import { BoardNavContext, BoardNavSettings } from "../contexts/boardNavContext";
 
 export default function BoardLayout(props: RouteSectionProps) {
     const params = useParams<{ id: string }>();
@@ -16,10 +17,14 @@ export default function BoardLayout(props: RouteSectionProps) {
     const store = createStore({} as FullBoard);
     const [loading, setLoading] = createSignal<"yes" | "no" | "error">("yes");
 
+    const bnDefault = { createTask: false, showArchived: false };
+    const boardNavStore = createStore<BoardNavSettings>({ ...bnDefault });
+
+    // Actually when going to settings createTask should close to false TODO.
     createEffect(async () => {
         const id = Number(params.id);
 
-        setCreateTask(false);
+        boardNavStore[1]({ ...bnDefault });
         setLoading("yes");
 
         await fetchBoard(id);
@@ -57,6 +62,7 @@ export default function BoardLayout(props: RouteSectionProps) {
                                     handle
                                 }
                             }
+                            isArchived
                         }
                         access {
                             user {
@@ -100,8 +106,6 @@ export default function BoardLayout(props: RouteSectionProps) {
         setLoading("no");
     }
 
-    const [createTask, setCreateTask] = createSignal(false);
-
     return (
         <div class="flex flex-col h-full">
             <Show when={loading() == "yes"}>
@@ -112,15 +116,17 @@ export default function BoardLayout(props: RouteSectionProps) {
 
             <Show when={loading() == "no"}>
                 <BoardContext.Provider value={store}>
-                    <BoardNavbar setCreateTask={setCreateTask} />
-                    <div class="flex-1 overflow-auto">{props.children}</div>
-                    <Show when={createTask()}>
-                        {_ => (
-                            <div class="fixed inset-0 h-screen w-screen flex items-center justify-center">
-                                <TaskForm setCreateTask={setCreateTask} />
-                            </div>
-                        )}
-                    </Show>
+                    <BoardNavContext.Provider value={boardNavStore}>
+                        <BoardNavbar />
+                        <div class="flex-1 overflow-auto">{props.children}</div>
+                        <Show when={boardNavStore[0].createTask}>
+                            {_ => (
+                                <div class="fixed inset-0 h-screen w-screen flex items-center justify-center">
+                                    <TaskForm />
+                                </div>
+                            )}
+                        </Show>
+                    </BoardNavContext.Provider>
                 </BoardContext.Provider>
             </Show>
         </div>

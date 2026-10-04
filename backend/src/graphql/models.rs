@@ -181,6 +181,7 @@ pub struct Task {
     author: Email,
     status: String,
     assignee: Option<Email>,
+    is_archived: bool,
 
     #[graphql(skip)]
     board_id: i32,
@@ -197,6 +198,7 @@ impl From<models::task::Model> for Task {
             author: Email { email: task.author },
             status: task.status,
             assignee: task.assignee.map(|email| Email { email }),
+            is_archived: task.is_archived,
         }
     }
 }

@@ -4,12 +4,11 @@ import { Task as TaskT } from "../contexts/boardContext";
 
 export default function Task({ task }: { task: TaskT }) {
     return (
-        <div>
+        <div class={task.isArchived ? "opacity-50" : ""}>
             <p class="font-bold">{task.title}</p>
             <p>
                 Author: <Avatar user={task.author.user?.handle ?? task.author.email} />
             </p>
-            <p>Status: {task.status}</p>
             <p>
                 Assignee:{" "}
                 <Show when={task.assignee} fallback={"No one is assigned to this task"}>
