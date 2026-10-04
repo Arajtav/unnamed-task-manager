@@ -29,6 +29,26 @@ export default function BoardMembers() {
         return map;
     });
 
+    const filteredEmails = createMemo(() => {
+        const query = email().trim().toLowerCase();
+
+        if (!query) {
+            return [];
+        }
+
+        return users.flatMap(user =>
+            user.emails
+                .filter(userEmail => userEmail.toLowerCase().includes(query))
+                .map(userEmail => ({
+                    user: {
+                        emails: [userEmail],
+                        handle: user.handle,
+                    },
+                    email: userEmail,
+                }))
+        );
+    });
+
     async function removeMember(userId: string) {
         const result = await gqlClient.mutation<{
             removeAccess: { access: Access[] };
@@ -162,17 +182,34 @@ export default function BoardMembers() {
             </Show>
 
             <div class="join w-full">
-                <input
-                    type="text"
-                    inputMode="email"
-                    class="input join-item flex-1"
-                    placeholder="me@example.org"
-                    list="all-emails"
-                    required
-                    value={email()}
-                    onInput={e => setEmail(e.currentTarget.value)}
-                    disabled={adding()}
-                />
+                <div class="dropdown join-item flex-1">
+                    <input
+                        type="text"
+                        inputMode="email"
+                        class="input w-full"
+                        placeholder="me@example.org"
+                        required
+                        value={email()}
+                        onInput={e => setEmail(e.currentTarget.value)}
+                        disabled={adding()}
+                    />
+
+                    <Show when={filteredEmails().length > 0}>
+                        <ul class="dropdown-content menu bg-base-100 rounded-box mt-2 w-full">
+                            <For each={filteredEmails()}>
+                                {item => (
+                                    <li>
+                                        <button type="button" onClick={() => setEmail(item.email)}>
+                                            <div class="flex w-full items-center gap-2">
+                                                <User user={item.user} />
+                                            </div>
+                                        </button>
+                                    </li>
+                                )}
+                            </For>
+                        </ul>
+                    </Show>
+                </div>
 
                 <button
                     class="btn btn-primary join-item"
@@ -182,16 +219,6 @@ export default function BoardMembers() {
                     {adding() ? "Adding..." : "Add"}
                 </button>
             </div>
-
-            <datalist id="all-emails">
-                <For each={users}>
-                    {user => (
-                        <For each={user.emails}>
-                            {email => <option value={email}>{email}</option>}
-                        </For>
-                    )}
-                </For>
-            </datalist>
         </fieldset>
     );
 }

@@ -3,7 +3,7 @@
 import { createContext, useContext } from "solid-js";
 
 export const ColdAppDataContext = createContext<{
-    users: { id: string; emails: string[]; handle: string }[];
+    users: { id: string; emails: string[]; handle?: string }[];
 }>();
 
 export function useColdAppData() {
