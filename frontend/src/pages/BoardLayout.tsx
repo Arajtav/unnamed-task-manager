@@ -32,7 +32,7 @@ export default function BoardLayout(props: RouteSectionProps) {
 
     async function fetchBoard(id: number) {
         const result = await gqlClient.query<{
-            board: Omit<FullBoard, "tasks"> & {
+            board?: Omit<FullBoard, "tasks"> & {
                 tasks: (Omit<Task, "createdAt"> & {
                     createdAt: string;
                 })[];
@@ -89,7 +89,7 @@ export default function BoardLayout(props: RouteSectionProps) {
             return;
         }
 
-        const board = result.data?.board;
+        const board = result.data!.board;
 
         if (!board) {
             addAlert("Board not found.", "error");

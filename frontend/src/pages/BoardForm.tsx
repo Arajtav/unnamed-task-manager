@@ -41,11 +41,7 @@ export default function BoardForm() {
             return;
         }
 
-        let board = result.data?.createBoard;
-
-        if (!board) {
-            return;
-        }
+        let board = result.data!.createBoard;
 
         setBoards(boards => boards.set(board.id, board.name));
 

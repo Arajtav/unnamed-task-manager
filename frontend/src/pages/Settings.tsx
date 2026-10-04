@@ -49,13 +49,7 @@ export default function Settings() {
                 throw result.error;
             }
 
-            let emails = result.data?.addUserEmail.emails;
-
-            if (!emails) {
-                throw new Error("What");
-            }
-
-            setMe("emails", emails);
+            setMe("emails", result.data!.addUserEmail.emails);
             setEmail("");
         } catch (err) {
             addAlert(err instanceof Error ? err.message : "Failed to add email.", "error");
@@ -70,7 +64,7 @@ export default function Settings() {
 
         try {
             const result = await gqlClient.mutation<{
-                setUserHandle: { handle: string };
+                setUserHandle: { handle: string | null };
             }>(
                 gql`
                     mutation SetUserHandle($userId: UUID!, $handle: String) {
@@ -86,13 +80,9 @@ export default function Settings() {
                 throw result.error;
             }
 
-            let new_handle = result.data?.setUserHandle.handle;
+            let new_handle = result.data!.setUserHandle.handle;
 
-            if (handle() != "" && !new_handle) {
-                throw "what";
-            }
-
-            setMe("handle", new_handle ?? "");
+            setMe("handle", new_handle ?? undefined);
             setHandle(new_handle ?? "");
         } catch (err) {
             addAlert(err instanceof Error ? err.message : "Failed to set handle.", "error");
@@ -118,13 +108,7 @@ export default function Settings() {
                 throw result.error;
             }
 
-            let emails = result.data?.deleteUserEmail.emails;
-
-            if (!emails) {
-                throw new Error("What");
-            }
-
-            setMe("emails", emails);
+            setMe("emails", result.data!.deleteUserEmail.emails);
         } catch (err) {
             addAlert(err instanceof Error ? err.message : "Failed to delete email.", "error");
         }

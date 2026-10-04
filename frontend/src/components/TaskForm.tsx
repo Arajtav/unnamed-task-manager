@@ -75,11 +75,7 @@ export default function TaskForm() {
             return;
         }
 
-        let task = result.data?.createTask;
-
-        if (!task) {
-            return;
-        }
+        let task = result.data!.createTask;
 
         setTitle("");
         setDescription("");

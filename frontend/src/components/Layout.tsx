@@ -10,6 +10,7 @@ import { AlertContext, AlertType } from "../contexts/alertContext";
 import { ModalContext, ModalOptions } from "../contexts/modalContext";
 import { ColdAppDataContext } from "../contexts/coldAppDataContext";
 import { BoardsContext } from "../contexts/boardsContext";
+import { dbg } from "../debug";
 
 export default function Layout(props: RouteSectionProps) {
     const location = useLocation();
@@ -65,24 +66,22 @@ export default function Layout(props: RouteSectionProps) {
 
         if (handleAuthError(result.error)) return;
 
-        const me = result.data?.me;
-        const boards = result.data?.boards;
-        const users = result.data?.users;
+        const me = result.data!.me;
+        const boards = result.data!.boards;
+        const users = result.data!.users;
 
-        if (!me || !boards || !users) {
-            throw new Error("Expected authenticated user");
-        }
+        meStore[1](
+            dbg({
+                id: me.id,
+                isAdmin: me.isAdmin,
+                emails: me.emails,
+                handle: me.handle ?? undefined,
+            })
+        );
 
-        meStore[1]({
-            id: me.id,
-            isAdmin: me.isAdmin,
-            emails: me.emails,
-            handle: me.handle ?? undefined,
-        });
+        boardsSignal[1](dbg(new Map(boards.map(board => [board.id, board.name]))));
 
-        boardsSignal[1](new Map(boards.map(board => [board.id, board.name])));
-
-        coldAppData = { users };
+        coldAppData = dbg({ users });
 
         setLoading(false);
     });
