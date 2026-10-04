@@ -1,7 +1,8 @@
-import { createSignal, For } from "solid-js";
+import { createEffect, createSignal, For, on } from "solid-js";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
 import { handleAuthError } from "../auth";
+import { useMe } from "../contexts/meContext";
 import { useBoard } from "../contexts/boardContext";
 import { useAlert } from "../contexts/alertContext";
 import { Task } from "./FullTask";
@@ -12,6 +13,7 @@ function newValueOrUndefined<T>(value: T, original: T) {
 
 export default function TaskEditForm(props: { task: Task; onSaved: (task: Task) => void; onCancel: () => void }) {
     const { addAlert } = useAlert();
+    const [me] = useMe();
     const [board, setBoard] = useBoard();
 
     const task = props.task;
@@ -21,6 +23,10 @@ export default function TaskEditForm(props: { task: Task; onSaved: (task: Task) 
     const [assignee, setAssignee] = createSignal(task.assignee?.email ?? "");
     const [isArchived, setIsArchived] = createSignal(task.isArchived);
     const [saving, setSaving] = createSignal(false);
+
+    const canArchive = () => me.isAdmin || board.access.some((access) => access.user.id == me.id && access.isModerator);
+
+    createEffect(on([title, description, status, assignee], () => setIsArchived(false), { defer: true }));
 
     async function submit(e: SubmitEvent) {
         e.preventDefault();
@@ -91,24 +97,16 @@ export default function TaskEditForm(props: { task: Task; onSaved: (task: Task) 
         setSaving(false);
 
         if (handleAuthError(result.error)) {
-            addAlert(
-                result.error?.graphQLErrors[0]?.message == "TITLE"
-                    ? "A task with this title already exists"
-                    : "Failed to update task",
-                "error",
-            );
+            // TODO: Pre-check title uniqueness against board.tasks before submitting, also in TaskForm.
+            addAlert("Failed to update task", "error");
             return;
         }
 
         const updated = result.data!.updateTask;
+        const saved = { ...updated, createdAt: new Date(updated.createdAt) };
 
-        setBoard("tasks", (task) => task.id == updated.id, {
-            title: updated.title,
-            status: updated.status,
-            assignee: updated.assignee,
-            isArchived: updated.isArchived,
-        });
-        props.onSaved({ ...updated, createdAt: new Date(updated.createdAt) });
+        setBoard("tasks", (task) => task.id == saved.id, saved);
+        props.onSaved(saved);
     }
 
     return (
@@ -171,17 +169,18 @@ export default function TaskEditForm(props: { task: Task; onSaved: (task: Task) 
                                 class="checkbox"
                                 checked={isArchived()}
                                 onChange={(e) => setIsArchived(e.currentTarget.checked)}
+                                disabled={!canArchive()}
                             />
                             Archived
                         </label>
                     </fieldset>
                 </form>
 
-                <div class="card-actions">
-                    <button class="btn btn-warning mt-4" onClick={props.onCancel}>
+                <div class="card-actions mt-4">
+                    <button class="btn btn-warning" onClick={props.onCancel}>
                         Cancel
                     </button>
-                    <button class="btn btn-primary mt-4" type="submit" form="edit-task-form" disabled={saving()}>
+                    <button class="btn btn-primary" type="submit" form="edit-task-form" disabled={saving()}>
                         Save
                     </button>
                 </div>

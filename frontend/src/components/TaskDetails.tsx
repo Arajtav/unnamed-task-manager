@@ -1,17 +1,9 @@
 import { Show } from "solid-js";
 import User from "../newComponents/User";
 import { Task } from "./FullTask";
-import { useMe } from "../contexts/meContext";
-import { useBoard } from "../contexts/boardContext";
 
 export default function TaskDetails(props: { task: Task; onEdit: () => void; onClose: () => void }) {
-    const [me] = useMe();
-    const [board] = useBoard();
-
     const task = props.task;
-
-    const canEditArchived = () =>
-        me.isAdmin || board.access.some((access) => access.user.id == me.id && access.isModerator);
 
     return (
         <>
@@ -66,16 +58,12 @@ export default function TaskDetails(props: { task: Task; onEdit: () => void; onC
 
             <div class="flex flex-row gap-2">
                 <div class="modal-action">
-                    <button class="btn btn-warning mt-4" onClick={props.onClose}>
+                    <button class="btn btn-warning" onClick={props.onClose}>
                         Close
                     </button>
                 </div>
                 <div class="modal-action">
-                    <button
-                        class="btn btn-primary mt-4"
-                        onClick={props.onEdit}
-                        disabled={task.isArchived && !canEditArchived()}
-                    >
+                    <button class="btn btn-primary" onClick={props.onEdit}>
                         Edit
                     </button>
                 </div>
