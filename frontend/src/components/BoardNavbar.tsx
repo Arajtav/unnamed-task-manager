@@ -2,10 +2,17 @@ import { A } from "@solidjs/router";
 import { useBoard } from "../contexts/boardContext";
 import { PlusIcon, SettingsIcon } from "lucide-solid";
 import { useBoardNav } from "../contexts/boardNavContext";
+import { useMe } from "../contexts/meContext";
+import { createMemo } from "solid-js";
 
 export default function BoardNavbar() {
     const [board] = useBoard();
     const [boardNav, setBoardNav] = useBoardNav();
+    const [me] = useMe();
+
+    const modOrAdmin = createMemo(
+        () => me.isAdmin || board.access.find(a => a.user.id == me.id)?.isModerator
+    );
 
     return (
         <div class="navbar flex flex-row justify-between bg-base-200">
@@ -24,7 +31,11 @@ export default function BoardNavbar() {
                     />
                 </div>
             </div>
-            <A class="m-2" href={`/boards/${board.id}/settings`}>
+
+            <A
+                class={`btn btn-square ${modOrAdmin() ? "btn-primary" : "btn-disabled"}`}
+                href={`/boards/${board.id}/settings`}
+            >
                 <SettingsIcon strokeWidth={1.5} />
             </A>
         </div>

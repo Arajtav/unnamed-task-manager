@@ -2,9 +2,11 @@ import { createMemo, For } from "solid-js";
 import { A, useLocation } from "@solidjs/router";
 import { useBoards } from "../contexts/boardsContext";
 import { PanelLeftIcon } from "lucide-solid";
+import { useMe } from "../contexts/meContext";
 
 export default function Drawer() {
     const [boards] = useBoards();
+    const [me] = useMe();
 
     let boardsSorted = createMemo(() => {
         return [...boards()].sort((a, b) => a[1].localeCompare(b[1]));
@@ -59,7 +61,11 @@ export default function Drawer() {
                             )}
                         </For>
                     </div>
-                    <A class="btn btn-accent" href="/boards/create" onClick={closeDrawer}>
+                    <A
+                        class={`btn ${me.isAdmin ? "btn-accent" : "btn-disabled"}`}
+                        href="/boards/create"
+                        onClick={closeDrawer}
+                    >
                         Create Board
                     </A>
                 </ul>
