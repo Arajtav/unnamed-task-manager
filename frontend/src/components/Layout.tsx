@@ -155,13 +155,13 @@ export default function Layout(props: RouteSectionProps) {
                     >
                         <Show
                             when={!isAuthPage()}
-                            fallback={<div class="flex-1 overflow-auto">{props.children}</div>}
+                            fallback={<div class="flex-1 h-full overflow-auto">{props.children}</div>}
                         >
                             <MeContext.Provider value={meStore}>
                                 <ColdAppDataContext.Provider value={coldAppData}>
                                     <BoardsContext.Provider value={boardsSignal}>
                                         <Navbar></Navbar>
-                                        <div class="flex-1 overflow-auto">{props.children}</div>
+                                        <div class="flex-1 overflow-scroll h-full">{props.children}</div>
                                     </BoardsContext.Provider>
                                 </ColdAppDataContext.Provider>
                             </MeContext.Provider>
