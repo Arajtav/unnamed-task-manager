@@ -86,6 +86,7 @@ async fn graphql(
     schema.execute(request).await.into()
 }
 
+#[derive(Clone)]
 pub struct Origin(String);
 
 #[actix_web::main]
@@ -118,7 +119,7 @@ async fn main() -> std::io::Result<()> {
         },
     );
 
-    let origin = Data::new(Origin(env::var("ORIGIN").expect("ORIGIN")));
+    let origin = Origin(env::var("ORIGIN").expect("ORIGIN"));
 
     let rp = Data::new(simple_webauthn::registration::Rp {
         name: env::var("RP_ID").expect("RP_ID missing"),
@@ -149,10 +150,16 @@ async fn main() -> std::io::Result<()> {
             .app_data(db.clone())
             .app_data(actix_web::web::Data::new(schema.clone()))
             .app_data(rp.clone())
-            .app_data(origin.clone())
+            .app_data(Data::new(origin.clone()))
             .app_data(auth.clone())
             .app_data(reg.clone())
-            .wrap(Cors::permissive())
+            .wrap(
+                Cors::default()
+                    .allowed_origin(&origin.0)
+                    .allow_any_method()
+                    .allow_any_header()
+                    .supports_credentials(),
+            )
             .wrap(Logger::default())
             .wrap(NormalizePath::new(
                 actix_web::middleware::TrailingSlash::Trim,
