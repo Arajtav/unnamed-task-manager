@@ -1,7 +1,5 @@
 // For graphql args.
 #![allow(clippy::too_many_arguments)]
-// This is a deeper problem that would require changing database schema from nullable text to empty text being effectively null.
-#![allow(clippy::option_option)]
 
 use actix_web::web::ThinData;
 use async_graphql::Context;

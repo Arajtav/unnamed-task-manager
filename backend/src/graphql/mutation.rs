@@ -408,11 +408,11 @@ impl MutationRoot {
             task.status = Set(status);
         }
 
-        match assignee {
-            MaybeUndefined::Value(email) => task.assignee = Set(Some(email)),
-            MaybeUndefined::Null => task.assignee = Set(None),
-            MaybeUndefined::Undefined => {}
-        }
+        task.assignee = match assignee {
+            MaybeUndefined::Value(email) => Set(Some(email)),
+            MaybeUndefined::Null => Set(None),
+            MaybeUndefined::Undefined => NotSet,
+        };
 
         if let Some(is_archived) = is_archived {
             task.is_archived = Set(is_archived);

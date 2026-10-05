@@ -180,7 +180,7 @@ export default function TaskEditForm(props: { task: Task; onSaved: (task: Task) 
                                     <For each={filteredEmails()}>
                                         {(item) => (
                                             <li>
-                                                <button type="button" onClick={() => setAssignee(item.email)}>
+                                                <button onClick={() => setAssignee(item.email)}>
                                                     <div class="flex w-full items-center gap-2">
                                                         <User user={item.user} />
                                                     </div>
