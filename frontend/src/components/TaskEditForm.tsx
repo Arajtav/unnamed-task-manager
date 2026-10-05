@@ -5,7 +5,6 @@ import { handleAuthError } from "../auth";
 import { useMe } from "../contexts/meContext";
 import { useBoard } from "../contexts/boardContext";
 import { useAlert } from "../contexts/alertContext";
-import { useColdAppData } from "../contexts/coldAppDataContext";
 import { Task } from "./FullTask";
 import User from "../newComponents/User";
 
@@ -17,7 +16,6 @@ export default function TaskEditForm(props: { task: Task; onSaved: (task: Task) 
     const { addAlert } = useAlert();
     const [me] = useMe();
     const [board, setBoard] = useBoard();
-    const { users } = useColdAppData();
 
     const task = props.task;
     const [title, setTitle] = createSignal(task.title);
@@ -32,7 +30,7 @@ export default function TaskEditForm(props: { task: Task; onSaved: (task: Task) 
 
         if (!query) return [];
 
-        return users.flatMap((user) =>
+        return board.access.flatMap(({ user }) =>
             user.emails
                 .filter((userEmail) => userEmail.toLowerCase().includes(query))
                 .map((userEmail) => ({
