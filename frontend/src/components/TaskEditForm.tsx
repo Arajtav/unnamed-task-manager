@@ -43,6 +43,8 @@ export default function TaskEditForm(props: { task: Task; onSaved: (task: Task) 
         );
     });
 
+    const canKeepArchived = () => task.isArchived && isUserAdminOrModerator();
+
     const isUserAdminOrModerator = () =>
         me.isAdmin || board.access.some((access) => access.user.id == me.id && access.isModerator);
 
@@ -50,9 +52,7 @@ export default function TaskEditForm(props: { task: Task; onSaved: (task: Task) 
         on(
             [title, description, status, assignee],
             () => {
-                if (task.isArchived && !isUserAdminOrModerator()) {
-                    setIsArchived(false);
-                }
+                if (!canKeepArchived()) setIsArchived(false);
             },
             { defer: true },
         ),
@@ -207,6 +207,7 @@ export default function TaskEditForm(props: { task: Task; onSaved: (task: Task) 
                                 class="checkbox"
                                 checked={isArchived()}
                                 onChange={(e) => setIsArchived(e.currentTarget.checked)}
+                                disabled={!canKeepArchived()}
                             />
                             Archived
                         </label>
