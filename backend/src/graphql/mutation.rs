@@ -1,4 +1,4 @@
-use async_graphql::{Context, Error, Object, Result};
+use async_graphql::{Context, Error, MaybeUndefined, Object, Result};
 use sea_orm::{
     ActiveModelTrait,
     ActiveValue::{NotSet, Set},
@@ -371,7 +371,7 @@ impl MutationRoot {
         title: Option<String>,
         description: Option<String>,
         status: Option<String>,
-        assignee: Option<Option<String>>,
+        assignee: MaybeUndefined<String>,
         is_archived: Option<bool>,
     ) -> Result<Task> {
         let db = get_db(ctx);
@@ -408,8 +408,10 @@ impl MutationRoot {
             task.status = Set(status);
         }
 
-        if let Some(assignee) = assignee {
-            task.assignee = Set(assignee);
+        match assignee {
+            MaybeUndefined::Value(email) => task.assignee = Set(Some(email)),
+            MaybeUndefined::Null => task.assignee = Set(None),
+            MaybeUndefined::Undefined => {}
         }
 
         if let Some(is_archived) = is_archived {

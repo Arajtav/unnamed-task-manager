@@ -1,11 +1,13 @@
-import { createEffect, createSignal, For, on } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, Show } from "solid-js";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
 import { handleAuthError } from "../auth";
 import { useMe } from "../contexts/meContext";
 import { useBoard } from "../contexts/boardContext";
 import { useAlert } from "../contexts/alertContext";
+import { useColdAppData } from "../contexts/coldAppDataContext";
 import { Task } from "./FullTask";
+import User from "../newComponents/User";
 
 function newValueOrUndefined<T>(value: T, original: T) {
     return value !== original ? value : undefined;
@@ -15,6 +17,7 @@ export default function TaskEditForm(props: { task: Task; onSaved: (task: Task) 
     const { addAlert } = useAlert();
     const [me] = useMe();
     const [board, setBoard] = useBoard();
+    const { users } = useColdAppData();
 
     const task = props.task;
     const [title, setTitle] = createSignal(task.title);
@@ -24,9 +27,38 @@ export default function TaskEditForm(props: { task: Task; onSaved: (task: Task) 
     const [isArchived, setIsArchived] = createSignal(task.isArchived);
     const [saving, setSaving] = createSignal(false);
 
-    const canArchive = () => me.isAdmin || board.access.some((access) => access.user.id == me.id && access.isModerator);
+    const filteredEmails = createMemo(() => {
+        const query = assignee().trim().toLowerCase();
 
-    createEffect(on([title, description, status, assignee], () => setIsArchived(false), { defer: true }));
+        if (!query) return [];
+
+        return users.flatMap((user) =>
+            user.emails
+                .filter((userEmail) => userEmail.toLowerCase().includes(query))
+                .map((userEmail) => ({
+                    user: {
+                        emails: [userEmail],
+                        handle: user.handle,
+                    },
+                    email: userEmail,
+                })),
+        );
+    });
+
+    const isUserAdminOrModerator = () =>
+        me.isAdmin || board.access.some((access) => access.user.id == me.id && access.isModerator);
+
+    createEffect(
+        on(
+            [title, description, status, assignee],
+            () => {
+                if (task.isArchived && !isUserAdminOrModerator()) {
+                    setIsArchived(false);
+                }
+            },
+            { defer: true },
+        ),
+    );
 
     async function submit(e: SubmitEvent) {
         e.preventDefault();
@@ -133,24 +165,32 @@ export default function TaskEditForm(props: { task: Task; onSaved: (task: Task) 
                         />
 
                         <label class="label">Assigned to</label>
-                        <select
-                            class="select w-full"
-                            value={assignee()}
-                            onChange={(e) => setAssignee(e.currentTarget.value)}
-                        >
-                            <option value="">No one</option>
-                            <For
-                                each={board.access.flatMap((access) =>
-                                    access.user.emails.map((email) => ({ email, handle: access.user.handle })),
-                                )}
-                            >
-                                {(user) => (
-                                    <option value={user.email}>
-                                        {user.handle ? `${user.handle} (${user.email})` : user.email}
-                                    </option>
-                                )}
-                            </For>
-                        </select>
+                        <div class="dropdown w-full">
+                            <input
+                                type="text"
+                                inputMode="email"
+                                class="input w-full"
+                                placeholder="No one"
+                                value={assignee()}
+                                onInput={(e) => setAssignee(e.currentTarget.value)}
+                            />
+
+                            <Show when={filteredEmails().length > 0}>
+                                <ul class="dropdown-content menu bg-base-100 rounded-box mt-2 w-full">
+                                    <For each={filteredEmails()}>
+                                        {(item) => (
+                                            <li>
+                                                <button type="button" onClick={() => setAssignee(item.email)}>
+                                                    <div class="flex w-full items-center gap-2">
+                                                        <User user={item.user} />
+                                                    </div>
+                                                </button>
+                                            </li>
+                                        )}
+                                    </For>
+                                </ul>
+                            </Show>
+                        </div>
 
                         <label class="label">Status</label>
                         <select
@@ -169,7 +209,6 @@ export default function TaskEditForm(props: { task: Task; onSaved: (task: Task) 
                                 class="checkbox"
                                 checked={isArchived()}
                                 onChange={(e) => setIsArchived(e.currentTarget.checked)}
-                                disabled={!canArchive()}
                             />
                             Archived
                         </label>
