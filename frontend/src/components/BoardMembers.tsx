@@ -6,47 +6,107 @@ import { useModal } from "../contexts/modalContext";
 import { gql } from "@urql/core";
 import { gqlClient } from "../graphql";
 import User from "../newComponents/User";
-import { TrashIcon } from "lucide-solid";
+import { EllipsisVerticalIcon, PlusIcon } from "lucide-solid";
+import { useMe } from "../contexts/meContext";
+import Badge from "../newComponents/Badge";
+import { todo } from "../debug";
 
 export default function BoardMembers() {
     const [board, setBoard] = useBoard();
+    const [me] = useMe();
     const { users } = useColdAppData();
     const { addAlert } = useAlert();
     const { openModal } = useModal();
 
-    const [email, setEmail] = createSignal("");
-    const [adding, setAdding] = createSignal(false);
+    const [search, setSearch] = createSignal("");
 
-    const EmailUserMap = createMemo(() => {
-        const map = new Map<string, string>();
-
-        for (const user of users) {
-            for (const email of user.emails) {
-                map.set(email, user.id);
-            }
+    const permissions = createMemo(() => {
+        if (me.isAdmin) {
+            return "admin";
         }
 
-        return map;
+        return board.access.find(a => a.user.id == me.id)?.isModerator ? "moderator" : "";
     });
 
-    const filteredEmails = createMemo(() => {
-        const query = email().trim().toLowerCase();
+    type ComputedAccess = {
+        permissions: "admin" | "moderator" | "";
+        user: { emails: string[]; id: string; handle?: string };
+    };
 
-        if (!query) {
-            return [];
-        }
+    const computedAccess = createMemo<ComputedAccess[]>(() => {
+        const admins: ComputedAccess[] = users
+            .filter(u => u.isAdmin)
+            .map(u => ({ user: u, permissions: "admin" }));
 
-        return users.flatMap(user =>
-            user.emails
-                .filter(userEmail => userEmail.toLowerCase().includes(query))
-                .map(userEmail => ({
-                    user: {
-                        emails: [userEmail],
-                        handle: user.handle,
-                    },
-                    email: userEmail,
-                }))
+        const other: ComputedAccess[] = board.access.map(a => ({
+            user: a.user,
+            permissions: a.isModerator ? "moderator" : "",
+        }));
+
+        // Admins won't be overwritten as deduplicating removes from the left.
+        const access = [...admins, ...other].filter(
+            (value, index, self) => index == self.findIndex(o => o.user.id == value.user.id)
         );
+
+        return access.sort((a, b) => {
+            // Admins then Mods then Normal.
+            const ROLES = { admin: 0, moderator: 1, "": 2 } as const;
+
+            let diff = ROLES[a.permissions] - ROLES[b.permissions];
+            if (diff) return diff;
+
+            // Users with handles first, alphabetically.
+            if (a.user.handle && b.user.handle) {
+                const handleDiff = a.user.handle.localeCompare(b.user.handle);
+                if (handleDiff != 0) return handleDiff;
+            } else if (a.user.handle) {
+                return -1;
+            } else if (b.user.handle) {
+                return 1;
+            }
+
+            // Alphabetically by emails.
+            const emailsA = a.user.emails.toSorted();
+            const emailsB = b.user.emails.toSorted();
+
+            for (let i = 0; i < Math.min(emailsA.length, emailsB.length); i++) {
+                diff = emailsA[i].localeCompare(emailsB[i]);
+                if (diff) return diff;
+            }
+
+            diff = emailsA.length - emailsB.length;
+            if (diff) return diff;
+
+            // By id for consistency when everything else is the same.
+            return a.user.id.localeCompare(b.user.id);
+        });
+    });
+
+    const searchResults = createMemo(() => {
+        const query = search().trim().toLowerCase();
+
+        return users
+            .filter(user => !computedAccess().some(a => a.user.id == user.id))
+            .filter(
+                user =>
+                    user.handle?.includes(query) ||
+                    user.emails.some(email => email.toLowerCase().includes(query))
+            )
+            .flatMap(user =>
+                user.emails.length > 0
+                    ? user.emails.map(email => ({
+                          emails: [email],
+                          handle: user.handle,
+                          id: user.id,
+                      }))
+                    : [
+                          {
+                              emails: [],
+                              handle: user.handle,
+                              id: user.id,
+                          },
+                      ]
+            );
     });
 
     async function removeMember(userId: string) {
@@ -80,16 +140,44 @@ export default function BoardMembers() {
         }
     }
 
-    async function addMember() {
-        const userId = EmailUserMap().get(email().trim());
+    async function setModerator(userId: string, isModerator: boolean) {
+        const result = await gqlClient.mutation<{
+            addAccess: { access: Access[] };
+        }>(
+            gql`
+                mutation AddAccess($boardId: Int!, $userId: UUID!, $isModerator: Boolean!) {
+                    addAccess(boardId: $boardId, userId: $userId, isModerator: $isModerator) {
+                        access {
+                            user {
+                                id
+                                handle
+                                emails
+                            }
+                            isModerator
+                        }
+                    }
+                }
+            `,
+            {
+                boardId: board.id,
+                userId,
+                isModerator,
+            }
+        );
 
-        if (!userId) {
-            addAlert("No user with that email.", "error");
-            return;
+        if (result.error) {
+            addAlert(
+                isModerator
+                    ? "Failed to remove moderator permissions."
+                    : "Failed to add moderator permissions.",
+                "error"
+            );
+        } else {
+            setBoard("access", result.data!.addAccess.access);
         }
+    }
 
-        setAdding(true);
-
+    async function addMember(userId: string) {
         const result = await gqlClient.mutation<{
             addAccess: { access: Access[] };
         }>(
@@ -117,11 +205,8 @@ export default function BoardMembers() {
         if (result.error) {
             addAlert("Failed to add user.", "error");
         } else {
-            setEmail("");
             setBoard("access", result.data!.addAccess.access);
         }
-
-        setAdding(false);
     }
 
     return (
@@ -137,87 +222,136 @@ export default function BoardMembers() {
                 }
             >
                 <ul class="list bg-base-100 rounded-box mb-4">
-                    <For each={board.access}>
+                    <For each={computedAccess()}>
                         {access => (
                             <li class="list-row">
-                                <div></div>
-
-                                <div>
+                                <div class="list-col-grow">
                                     <User user={access.user} />
                                 </div>
 
-                                <button
-                                    class="btn btn-square btn-ghost"
-                                    onClick={() => {
-                                        openModal({
-                                            title: "Are you sure?",
-                                            content: (
-                                                <p>
-                                                    Are you sure you want to kick{" "}
-                                                    <span class="text-primary">
-                                                        {access.user.id}
-                                                    </span>
-                                                </p>
-                                            ),
-                                            buttons: [
-                                                {
-                                                    label: "No",
-                                                    class: "btn-primary",
-                                                },
-                                                {
-                                                    label: "Yes",
-                                                    class: "btn-error",
-                                                    onClick: () => removeMember(access.user.id),
-                                                },
-                                            ],
-                                        });
-                                    }}
+                                <div class="self-center">
+                                    <Show when={access.permissions}>
+                                        {permissions => (
+                                            <Badge
+                                                text={permissions()}
+                                                class={
+                                                    permissions() == "admin"
+                                                        ? "capitalize bg-primary-content border-primary/50"
+                                                        : "capitalize bg-accent-content border-accent/50"
+                                                }
+                                            />
+                                        )}
+                                    </Show>
+                                </div>
+
+                                <div
+                                    class={`dropdown dropdown-end ${
+                                        !permissions() ||
+                                        access.permissions == "admin" ||
+                                        (permissions() != "admin" &&
+                                            access.permissions == "moderator")
+                                            ? "invisible"
+                                            : ""
+                                    }`}
                                 >
-                                    <TrashIcon strokeWidth={1.5} />
-                                </button>
+                                    <button class="btn btn-square btn-ghost">
+                                        <EllipsisVerticalIcon strokeWidth={1.5} />
+                                    </button>
+
+                                    <ul class="dropdown-content menu bg-base-200 rounded-box mt-1 w-max">
+                                        <li>
+                                            <button
+                                                onClick={() => {
+                                                    openModal({
+                                                        title: "Are you sure?",
+                                                        content: (
+                                                            <p>
+                                                                Are you sure you want to kick{" "}
+                                                                <span class="text-primary">
+                                                                    {access.user.id}
+                                                                </span>
+                                                            </p>
+                                                        ),
+                                                        buttons: [
+                                                            {
+                                                                label: "No",
+                                                                class: "btn-primary",
+                                                            },
+                                                            {
+                                                                label: "Yes",
+                                                                class: "btn-error",
+                                                                onClick: () =>
+                                                                    removeMember(access.user.id),
+                                                            },
+                                                        ],
+                                                    });
+                                                }}
+                                            >
+                                                Kick
+                                            </button>
+                                        </li>
+
+                                        <Show when={permissions() == "admin"}>
+                                            <li>
+                                                <button
+                                                    onClick={() =>
+                                                        setModerator(
+                                                            access.user.id,
+                                                            access.permissions != "moderator"
+                                                        )
+                                                    }
+                                                >
+                                                    {access.permissions == "moderator"
+                                                        ? "Remove Moderator"
+                                                        : "Make Moderator"}
+                                                </button>
+                                            </li>
+                                        </Show>
+                                    </ul>
+                                </div>
                             </li>
                         )}
                     </For>
                 </ul>
             </Show>
 
-            <div class="join w-full">
-                <div class="dropdown join-item flex-1">
-                    <input
-                        type="text"
-                        inputMode="email"
-                        class="input w-full"
-                        placeholder="me@example.org"
-                        required
-                        value={email()}
-                        onInput={e => setEmail(e.currentTarget.value)}
-                        disabled={adding()}
-                    />
+            <div class="dropdown flex-1">
+                <input
+                    type="text"
+                    class="input w-full"
+                    placeholder="Search..."
+                    required
+                    value={search()}
+                    onInput={e => setSearch(e.currentTarget.value)}
+                />
 
-                    <Show when={filteredEmails().length > 0}>
-                        <ul class="dropdown-content menu bg-base-100 rounded-box mt-2 w-full">
-                            <For each={filteredEmails()}>
-                                {item => (
-                                    <li>
-                                        <button type="button" onClick={() => setEmail(item.email)}>
-                                            <div class="flex w-full items-center gap-2">
-                                                <User user={item.user} />
-                                            </div>
-                                        </button>
-                                    </li>
-                                )}
-                            </For>
-                        </ul>
-                    </Show>
-                </div>
-
-                <button
-                    class="btn btn-primary join-item"
-                    onClick={addMember}
-                    disabled={adding() || !email().trim()}
+                <ul
+                    class="dropdown-content menu bg-base-200 rounded-box mt-2 w-full"
+                    onPointerDown={e => e.preventDefault()}
                 >
-                    {adding() ? "Adding..." : "Add"}
-                </button>
+                    <For
+                        each={searchResults()}
+                        fallback={
+                            <li class="h-12 flex items-center justify-center">No results.</li>
+                        }
+                    >
+                        {user => (
+                            <li>
+                                <div class="flex w-full items-center gap-2">
+                                    <div class="flex-1">
+                                        <User user={user} />
+                                    </div>
+                                    <button
+                                        class="btn btn-square btn-ghost"
+                                        onClick={() => addMember(user.id)}
+                                    >
+                                        <PlusIcon strokeWidth={1.5} />
+                                    </button>
+                                </div>
+                            </li>
+                        )}
+                    </For>
+                </ul>
             </div>
         </fieldset>
     );

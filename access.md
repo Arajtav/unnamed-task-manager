@@ -27,7 +27,7 @@ graphql mutation:
 - `updateBoard` and `deleteBoard` can be run by board moderators or admins.
 - `createTask` can be run by all users with access to the board or admins. `Author` must be one of the emails associated with the user.
 - `updateTask` and `deleteTask` can be run by all users with access to the board or admins. Archived tasks however can only be updated without being unarchived by admins and board moderators.
-- `addAccess` can be run by board moderators or admins. This mutation can also change access level if the target has access already; board moderators can only change access level up while no such restriction exists for admins.
+- `addAccess` can be run by board moderators or admins. Admins can add and remover moderators and moderators can only add and remove normal users.
 - `removeAccess` can be run by board moderators, but only by admins when the target is a board moderator too.
 - `addInvite` and `removeInvite` can by run by the user or by admins.
 - `addTaskStatus`, `updateTaskStatus` and `removeTaskStatus` can be run by board moderators or admins.

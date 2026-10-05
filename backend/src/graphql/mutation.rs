@@ -2,7 +2,7 @@ use async_graphql::{Context, Error, Object, Result};
 use sea_orm::{
     ActiveModelTrait,
     ActiveValue::{NotSet, Set},
-    ColumnTrait, DbErr, EntityTrait, ExprTrait, IntoActiveModel, ModelTrait, QueryFilter, SqlErr,
+    ColumnTrait, DbErr, EntityTrait, IntoActiveModel, ModelTrait, QueryFilter, SqlErr,
     TransactionTrait,
     sea_query::{Expr, OnConflict},
 };
@@ -466,12 +466,11 @@ impl MutationRoot {
                 .one(db)
                 .await?;
 
-            if access.is_none_or(|access| !access.is_moderator) {
+            if access.is_none_or(|access| !access.is_moderator) || is_moderator {
                 return Err(Error::new("FORBIDDEN"));
             }
         }
 
-        // Seems wrong to query it before insert but actually access query is gonna be it's own thing so it's fine.
         let board = models::board::Entity::find_by_id(board_id)
             .one(db)
             .await?
@@ -491,15 +490,7 @@ impl MutationRoot {
                 ])
                 .value(
                     models::board_access::Column::IsModerator,
-                    if user.is_admin {
-                        Expr::val(is_moderator)
-                    } else {
-                        Expr::col((
-                            models::board_access::Entity,
-                            models::board_access::Column::IsModerator,
-                        ))
-                        .or(Expr::val(is_moderator))
-                    },
+                    Expr::val(is_moderator),
                 )
                 .to_owned(),
             )
@@ -518,7 +509,6 @@ impl MutationRoot {
         let db = get_db(ctx);
         let user = get_user(ctx);
 
-        // As in the method above.
         let board = models::board::Entity::find_by_id(board_id)
             .one(db)
             .await?

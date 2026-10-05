@@ -40,3 +40,7 @@ export function dbg<T>(value: T): T {
 
     return value;
 }
+
+export function todo(s?: string): any {
+    console.error(`not yet implemented${s ? ": " + s : ""}`);
+}
