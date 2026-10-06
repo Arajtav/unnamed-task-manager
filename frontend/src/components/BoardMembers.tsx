@@ -1,20 +1,17 @@
 import { createMemo, createSignal, For, Show } from "solid-js";
 import { Access, useBoard } from "../contexts/boardContext";
-import { useColdAppData } from "../contexts/coldAppDataContext";
 import { useAlert } from "../contexts/alertContext";
 import { useModal } from "../contexts/modalContext";
 import { gql } from "@urql/core";
 import { gqlClient } from "../graphql";
 import User from "../newComponents/User";
 import { EllipsisVerticalIcon, PlusIcon } from "lucide-solid";
-import { useMe } from "../contexts/meContext";
 import Badge from "../newComponents/Badge";
-import { todo } from "../debug";
+import { useAppData } from "../contexts/appDataContext";
 
 export default function BoardMembers() {
     const [board, setBoard] = useBoard();
-    const [me] = useMe();
-    const { users } = useColdAppData();
+    const [{ me, users }] = useAppData();
     const { addAlert } = useAlert();
     const { openModal } = useModal();
 

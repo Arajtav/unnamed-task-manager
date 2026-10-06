@@ -3,13 +3,13 @@ import { parseOneAddress } from "email-addresses";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
 import Email from "../components/Email";
-import { Me, useMe } from "../contexts/meContext";
 import { useAlert } from "../contexts/alertContext";
 import { useModal } from "../contexts/modalContext";
 import { TrashIcon } from "lucide-solid";
+import { Me, useAppData } from "../contexts/appDataContext";
 
 export default function Settings() {
-    const [me, setMe] = useMe();
+    const [appData, setAppData] = useAppData();
     const { addAlert } = useAlert();
     const { openModal } = useModal();
 
@@ -17,7 +17,7 @@ export default function Settings() {
     const [adding, setAdding] = createSignal(false);
     const [emailValid, setEmailValid] = createSignal(false);
     const [emailDelete, setEmailDelete] = createSignal("");
-    const [handle, setHandle] = createSignal(me.handle ?? "");
+    const [handle, setHandle] = createSignal(appData.me.handle ?? "");
     const [saving, setSaving] = createSignal(false);
 
     const handleValid = createMemo(() => {
@@ -43,7 +43,7 @@ export default function Settings() {
                     }
                 `,
                 {
-                    userId: me.id,
+                    userId: appData.me.id,
                     email: email(),
                 }
             );
@@ -52,7 +52,7 @@ export default function Settings() {
                 throw result.error;
             }
 
-            setMe(result.data!.updateUser);
+            setAppData("me", result.data!.updateUser);
             setEmail("");
         } catch (err) {
             addAlert(err instanceof Error ? err.message : "Failed to add email.", "error");
@@ -62,7 +62,7 @@ export default function Settings() {
     }
 
     async function saveHandle() {
-        if (handle() == me.handle) return;
+        if (handle() == appData.me.handle) return;
         setSaving(true);
 
         try {
@@ -80,7 +80,7 @@ export default function Settings() {
                     }
                 `,
                 {
-                    userId: me.id,
+                    userId: appData.me.id,
                     handle: handle() || null,
                 }
             );
@@ -89,8 +89,8 @@ export default function Settings() {
                 throw result.error;
             }
 
-            setMe(result.data!.updateUser);
-            setHandle(me.handle ?? "");
+            setAppData("me", result.data!.updateUser);
+            setHandle(appData.me.handle ?? "");
         } catch (err) {
             addAlert(err instanceof Error ? err.message : "Failed to set handle.", "error");
         }
@@ -114,7 +114,7 @@ export default function Settings() {
                     }
                 `,
                 {
-                    userId: me.id,
+                    userId: appData.me.id,
                     email: emailDelete(),
                 }
             );
@@ -123,7 +123,7 @@ export default function Settings() {
                 throw result.error;
             }
 
-            setMe(result.data!.updateUser);
+            setAppData("me", result.data!.updateUser);
         } catch (err) {
             addAlert(err instanceof Error ? err.message : "Failed to delete email.", "error");
         }
@@ -141,14 +141,14 @@ export default function Settings() {
                 <div class="flex-1 p-6 gap-6 flex flex-col">
                     <fieldset class="fieldset bg-base-200 border-base-300 w-xs border p-4">
                         <legend class="fieldset-legend">Email addresses</legend>
-                        <Show when={me.emails.length == 0}>
+                        <Show when={appData.me.emails.length == 0}>
                             <div class="alert">
                                 <span>You have no emails linked yet.</span>
                             </div>
                         </Show>
-                        <Show when={me.emails.length > 0}>
+                        <Show when={appData.me.emails.length > 0}>
                             <ul class="list bg-base-100 rounded-box mb-4">
-                                <For each={me.emails}>
+                                <For each={appData.me.emails}>
                                     {email => {
                                         return (
                                             <li class="list-row">
@@ -226,7 +226,7 @@ export default function Settings() {
                             <input
                                 type="text"
                                 class="input join-item validator"
-                                placeholder={me.handle ?? ""}
+                                placeholder={appData.me.handle ?? ""}
                                 value={handle()}
                                 minLength={3}
                                 maxLength={19}

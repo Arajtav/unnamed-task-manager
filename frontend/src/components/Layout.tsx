@@ -5,12 +5,10 @@ import { handleAuthError } from "../auth";
 import Navbar from "./Navbar";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
-import { Me, MeContext } from "../contexts/meContext";
 import { AlertContext, AlertType } from "../contexts/alertContext";
 import { ModalContext, ModalOptions } from "../contexts/modalContext";
-import { ColdAppDataContext } from "../contexts/coldAppDataContext";
-import { BoardsContext } from "../contexts/boardsContext";
 import { dbg } from "../debug";
+import { AppData, AppDataContext, Me, User } from "../contexts/appDataContext";
 
 export default function Layout(props: RouteSectionProps) {
     const location = useLocation();
@@ -18,30 +16,18 @@ export default function Layout(props: RouteSectionProps) {
 
     const isAuthPage = () => location.pathname == "/login" || location.pathname == "/join";
 
-    const meStore = createStore({} as Me);
-    const boardsSignal = createSignal({} as Map<string, string>);
-    let coldAppData;
+    const appData = createStore({} as AppData);
 
     onMount(async () => {
         if (isAuthPage()) return;
 
         const result = await gqlClient.query<{
-            me: {
-                id: string;
-                isAdmin: boolean;
-                emails: string[];
-                handle: string | null;
-            };
+            me: Me;
             boards: {
                 id: string;
                 name: string;
             }[];
-            users: {
-                id: string;
-                handle?: string;
-                emails: string[];
-                isAdmin: boolean;
-            }[];
+            users: User[];
         }>(
             gql`
                 query Me {
@@ -73,18 +59,13 @@ export default function Layout(props: RouteSectionProps) {
         const boards = result.data!.boards;
         const users = result.data!.users;
 
-        meStore[1](
+        appData[1](
             dbg({
-                id: me.id,
-                isAdmin: me.isAdmin,
-                emails: me.emails,
-                handle: me.handle ?? undefined,
+                me,
+                boards: new Map(boards.map(board => [board.id, board.name])),
+                users,
             })
         );
-
-        boardsSignal[1](dbg(new Map(boards.map(board => [board.id, board.name]))));
-
-        coldAppData = dbg({ users });
 
         setLoading(false);
     });
@@ -162,16 +143,10 @@ export default function Layout(props: RouteSectionProps) {
                                 <div class="flex-1 h-full overflow-auto">{props.children}</div>
                             }
                         >
-                            <MeContext.Provider value={meStore}>
-                                <ColdAppDataContext.Provider value={coldAppData}>
-                                    <BoardsContext.Provider value={boardsSignal}>
-                                        <Navbar></Navbar>
-                                        <div class="flex-1 overflow-scroll h-full">
-                                            {props.children}
-                                        </div>
-                                    </BoardsContext.Provider>
-                                </ColdAppDataContext.Provider>
-                            </MeContext.Provider>
+                            <AppDataContext.Provider value={appData}>
+                                <Navbar></Navbar>
+                                <div class="flex-1 overflow-scroll h-full">{props.children}</div>
+                            </AppDataContext.Provider>
                         </Show>
                     </Show>
                 </ModalContext.Provider>

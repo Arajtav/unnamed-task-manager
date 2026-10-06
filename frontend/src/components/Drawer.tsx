@@ -1,15 +1,13 @@
 import { createMemo, For } from "solid-js";
 import { A, useLocation } from "@solidjs/router";
-import { useBoards } from "../contexts/boardsContext";
 import { PanelLeftIcon } from "lucide-solid";
-import { useMe } from "../contexts/meContext";
+import { useAppData } from "../contexts/appDataContext";
 
 export default function Drawer() {
-    const [boards] = useBoards();
-    const [me] = useMe();
+    const [{ boards, me }] = useAppData();
 
     let boardsSorted = createMemo(() => {
-        return [...boards()].sort((a, b) => a[1].localeCompare(b[1]));
+        return [...boards].sort((a, b) => a[1].localeCompare(b[1]));
     });
 
     const location = useLocation();

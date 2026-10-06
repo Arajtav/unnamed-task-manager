@@ -2,19 +2,23 @@ import { createEffect, createMemo, createSignal, For, on, Show } from "solid-js"
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
 import { handleAuthError } from "../auth";
-import { useMe } from "../contexts/meContext";
 import { useBoard } from "../contexts/boardContext";
 import { useAlert } from "../contexts/alertContext";
 import { Task } from "./FullTask";
 import User from "../newComponents/User";
+import { useAppData } from "../contexts/appDataContext";
 
 function newValueOrUndefined<T>(value: T, original: T) {
     return value !== original ? value : undefined;
 }
 
-export default function TaskEditForm(props: { task: Task; onSaved: (task: Task) => void; onCancel: () => void }) {
+export default function TaskEditForm(props: {
+    task: Task;
+    onSaved: (task: Task) => void;
+    onCancel: () => void;
+}) {
     const { addAlert } = useAlert();
-    const [me] = useMe();
+    const [{ me }] = useAppData();
     const [board, setBoard] = useBoard();
 
     const task = props.task;
@@ -32,21 +36,21 @@ export default function TaskEditForm(props: { task: Task; onSaved: (task: Task) 
 
         return board.access.flatMap(({ user }) =>
             user.emails
-                .filter((userEmail) => userEmail.toLowerCase().includes(query))
-                .map((userEmail) => ({
+                .filter(userEmail => userEmail.toLowerCase().includes(query))
+                .map(userEmail => ({
                     user: {
                         emails: [userEmail],
                         handle: user.handle,
                     },
                     email: userEmail,
-                })),
+                }))
         );
     });
 
     const canKeepArchived = () => !task.isArchived || isUserAdminOrModerator();
 
     const isUserAdminOrModerator = () =>
-        me.isAdmin || board.access.some((access) => access.user.id == me.id && access.isModerator);
+        me.isAdmin || board.access.some(access => access.user.id == me.id && access.isModerator);
 
     createEffect(
         on(
@@ -54,8 +58,8 @@ export default function TaskEditForm(props: { task: Task; onSaved: (task: Task) 
             () => {
                 if (!canKeepArchived()) setIsArchived(false);
             },
-            { defer: true },
-        ),
+            { defer: true }
+        )
     );
 
     async function submit(e: SubmitEvent) {
@@ -69,7 +73,7 @@ export default function TaskEditForm(props: { task: Task; onSaved: (task: Task) 
             isArchived: newValueOrUndefined(isArchived(), task.isArchived),
         };
 
-        if (Object.values(fields).every((value) => value === undefined)) {
+        if (Object.values(fields).every(value => value === undefined)) {
             props.onCancel();
             return;
         }
@@ -121,7 +125,7 @@ export default function TaskEditForm(props: { task: Task; onSaved: (task: Task) 
                     }
                 }
             `,
-            { id: task.id, ...fields },
+            { id: task.id, ...fields }
         );
 
         setSaving(false);
@@ -135,7 +139,7 @@ export default function TaskEditForm(props: { task: Task; onSaved: (task: Task) 
         const updated = result.data!.updateTask;
         const saved = { ...updated, createdAt: new Date(updated.createdAt) };
 
-        setBoard("tasks", (task) => task.id == saved.id, saved);
+        setBoard("tasks", task => task.id == saved.id, saved);
         props.onSaved(saved);
     }
 
@@ -151,7 +155,7 @@ export default function TaskEditForm(props: { task: Task; onSaved: (task: Task) 
                             class="input w-full"
                             type="text"
                             value={title()}
-                            onInput={(e) => setTitle(e.currentTarget.value)}
+                            onInput={e => setTitle(e.currentTarget.value)}
                             required
                         />
 
@@ -159,7 +163,7 @@ export default function TaskEditForm(props: { task: Task; onSaved: (task: Task) 
                         <textarea
                             class="textarea w-full max-h-50"
                             value={description()}
-                            onInput={(e) => setDescription(e.currentTarget.value)}
+                            onInput={e => setDescription(e.currentTarget.value)}
                         />
 
                         <label class="label">Assigned to</label>
@@ -170,13 +174,13 @@ export default function TaskEditForm(props: { task: Task; onSaved: (task: Task) 
                                 class="input w-full"
                                 placeholder="No one"
                                 value={assignee()}
-                                onInput={(e) => setAssignee(e.currentTarget.value)}
+                                onInput={e => setAssignee(e.currentTarget.value)}
                             />
 
                             <Show when={filteredEmails().length > 0}>
                                 <ul class="dropdown-content menu bg-base-100 rounded-box mt-2 w-full">
                                     <For each={filteredEmails()}>
-                                        {(item) => (
+                                        {item => (
                                             <li>
                                                 <button onClick={() => setAssignee(item.email)}>
                                                     <div class="flex w-full items-center gap-2">
@@ -194,10 +198,10 @@ export default function TaskEditForm(props: { task: Task; onSaved: (task: Task) 
                         <select
                             class="select w-full"
                             value={status()}
-                            onChange={(e) => setStatus(e.currentTarget.value)}
+                            onChange={e => setStatus(e.currentTarget.value)}
                         >
                             <For each={board.taskStatus}>
-                                {(status) => <option value={status.name}>{status.name}</option>}
+                                {status => <option value={status.name}>{status.name}</option>}
                             </For>
                         </select>
 
@@ -206,7 +210,7 @@ export default function TaskEditForm(props: { task: Task; onSaved: (task: Task) 
                                 type="checkbox"
                                 class="checkbox"
                                 checked={isArchived()}
-                                onChange={(e) => setIsArchived(e.currentTarget.checked)}
+                                onChange={e => setIsArchived(e.currentTarget.checked)}
                                 disabled={!canKeepArchived()}
                             />
                             Archived
@@ -218,7 +222,12 @@ export default function TaskEditForm(props: { task: Task; onSaved: (task: Task) 
                     <button class="btn btn-warning" onClick={props.onCancel}>
                         Cancel
                     </button>
-                    <button class="btn btn-primary" type="submit" form="edit-task-form" disabled={saving()}>
+                    <button
+                        class="btn btn-primary"
+                        type="submit"
+                        form="edit-task-form"
+                        disabled={saving()}
+                    >
                         Save
                     </button>
                 </div>

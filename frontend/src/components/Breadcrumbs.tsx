@@ -1,13 +1,13 @@
 import { A, useLocation, useParams } from "@solidjs/router";
 import { createMemo, For } from "solid-js";
-import { useBoards } from "../contexts/boardsContext";
+import { useAppData } from "../contexts/appDataContext";
 
 type Crumb = { label: string; href: string };
 
 export default function Breadcrumbs() {
     const location = useLocation();
     const params = useParams<{ id?: string }>();
-    const [boards] = useBoards();
+    const [{ boards }] = useAppData();
 
     const boardId = createMemo(() =>
         location.pathname.startsWith("/boards/") ? params.id : undefined
@@ -17,7 +17,7 @@ export default function Breadcrumbs() {
         let id = boardId();
 
         if (id) {
-            return boards().get(id);
+            return boards.get(id);
         } else {
             return undefined;
         }

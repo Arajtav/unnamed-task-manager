@@ -3,13 +3,13 @@ import { A } from "@solidjs/router";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
 import { Task, useBoard } from "../contexts/boardContext";
-import { useMe } from "../contexts/meContext";
 import { useBoardNav } from "../contexts/boardNavContext";
+import { useAppData } from "../contexts/appDataContext";
 
 export default function TaskForm() {
-    const [me] = useMe();
+    const [{ me }] = useAppData();
     const [board, setBoard] = useBoard();
-    const [boardNav, setBoardNav] = useBoardNav();
+    const [_, setBoardNav] = useBoardNav();
 
     const [title, setTitle] = createSignal("");
     const [description, setDescription] = createSignal("");

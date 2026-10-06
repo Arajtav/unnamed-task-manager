@@ -1,10 +1,10 @@
 import { A } from "@solidjs/router";
 import { client } from "../auth";
 import Avatar from "./Avatar";
-import { useMe } from "../contexts/meContext";
+import { useAppData } from "../contexts/appDataContext";
 
 export default function MeIcon() {
-    const [me] = useMe();
+    const [{ me }] = useAppData();
 
     async function logout() {
         try {

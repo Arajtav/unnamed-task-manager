@@ -2,13 +2,13 @@ import { A } from "@solidjs/router";
 import { useBoard } from "../contexts/boardContext";
 import { PlusIcon, SettingsIcon } from "lucide-solid";
 import { useBoardNav } from "../contexts/boardNavContext";
-import { useMe } from "../contexts/meContext";
 import { createMemo } from "solid-js";
+import { useAppData } from "../contexts/appDataContext";
 
 export default function BoardNavbar() {
     const [board] = useBoard();
     const [boardNav, setBoardNav] = useBoardNav();
-    const [me] = useMe();
+    const [{ me }] = useAppData();
 
     const modOrAdmin = createMemo(
         () => me.isAdmin || board.access.find(a => a.user.id == me.id)?.isModerator
