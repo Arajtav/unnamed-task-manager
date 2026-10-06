@@ -7,6 +7,7 @@ export type User = {
     handle: string | null;
     isAdmin: boolean;
     isDisabled: boolean;
+    createdAt: Date;
 };
 
 export type Me = {

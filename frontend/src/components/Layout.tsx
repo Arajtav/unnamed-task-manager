@@ -27,7 +27,7 @@ export default function Layout(props: RouteSectionProps) {
                 id: string;
                 name: string;
             }[];
-            users: User[];
+            users: Replace<User, "createdAt", string>[];
         }>(
             gql`
                 query Me {
@@ -47,6 +47,7 @@ export default function Layout(props: RouteSectionProps) {
                         emails
                         isAdmin
                         isDisabled
+                        createdAt
                     }
                 }
             `,
@@ -63,7 +64,7 @@ export default function Layout(props: RouteSectionProps) {
             dbg({
                 me,
                 boards: new Map(boards.map(board => [board.id, board.name])),
-                users,
+                users: users.map(user => ({ ...user, createdAt: new Date(user.createdAt) })),
             })
         );
 
