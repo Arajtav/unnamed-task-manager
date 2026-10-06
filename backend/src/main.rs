@@ -50,9 +50,12 @@ async fn require_auth(
         .await
         .map_err(internal_server_error)?;
 
-    let Some(user) = user else {
-        session.purge();
-        return Err(actix_web::error::ErrorUnauthorized(""));
+    let user = match user {
+        Some(user) if !user.is_disabled => user,
+        _ => {
+            session.purge();
+            return Err(actix_web::error::ErrorUnauthorized(""));
+        }
     };
 
     req.extensions_mut().insert(AuthUser(user));

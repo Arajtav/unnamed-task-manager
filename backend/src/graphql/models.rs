@@ -15,6 +15,7 @@ pub struct User {
     pub created_at: DateTime<Utc>,
     pub is_admin: bool,
     pub handle: Option<String>,
+    pub is_disabled: bool,
 }
 
 impl From<models::user::Model> for User {
@@ -24,6 +25,7 @@ impl From<models::user::Model> for User {
             created_at: user.created_at,
             is_admin: user.is_admin,
             handle: user.handle,
+            is_disabled: user.is_disabled,
         }
     }
 }

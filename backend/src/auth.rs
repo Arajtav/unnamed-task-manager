@@ -6,8 +6,8 @@ use actix_web::{
     web::{Data, Json, ThinData},
 };
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::Set, DatabaseConnection, EntityTrait, TransactionTrait,
-    sea_query::value::prelude::serde_json,
+    ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
+    QuerySelect, RelationTrait, TransactionTrait, sea_query::value::prelude::serde_json,
 };
 use serde::Deserialize;
 use simple_webauthn::{
@@ -58,6 +58,11 @@ pub async fn login_finish(
     let cred_id = response.credential_id();
 
     let passkey = models::passkey::Entity::find_by_id(cred_id)
+        .join(
+            sea_orm::JoinType::InnerJoin,
+            models::passkey::Relation::User.def(),
+        )
+        .filter(models::user::Column::IsDisabled.eq(false))
         .one(&*db)
         .await
         .map_err(internal_server_error)?
@@ -109,12 +114,16 @@ pub async fn register_start(
     let random = Uuid::new_v4();
 
     let invite = models::invite::Entity::find_by_id(&body.invite)
+        .find_also_related(models::user::Entity)
         .one(&*db)
         .await
         .map_err(internal_server_error)?;
 
-    let Some(invite) = invite else {
-        return Err(error::ErrorNotFound(""));
+    let (invite, _) = match invite {
+        Some((invite, Some(user))) if !user.is_disabled => (invite, user),
+        _ => {
+            return Err(error::ErrorNotFound(""));
+        }
     };
 
     let (rr, state) = simple_webauthn::start_registration(

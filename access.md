@@ -22,7 +22,7 @@ graphql query:
 graphql mutation:
 
 - `createUser` can only be run by admins.
-- `addUserEmail`, `deleteUserEmail` and `deleteUser` can be run by the user themself or by admins.
+- `updateUser` can be run by the user themself or by admins, with the exception is_disabled can only be set by admins.
 - `createBoard` can only be run by admins.
 - `updateBoard` and `deleteBoard` can be run by board moderators or admins.
 - `createTask` can be run by all users with access to the board or admins. `Author` must be one of the emails associated with the user.
@@ -37,3 +37,7 @@ Invites may only be used once.
 The frontend doesn't really store any data therefore can by default be loaded by everyone.
 
 Everything is using HTTP as the only option, to use HTTPS you should put some proxy in front of the servers.
+
+Disabled accounts:
+Admins can disable or enable all accounts except these of other admins.
+Disabling an account will keep all its data but immediately block all access like if the account didn't exist.

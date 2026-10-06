@@ -3,7 +3,7 @@ import { parseOneAddress } from "email-addresses";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
 import Email from "../components/Email";
-import { useMe } from "../contexts/meContext";
+import { Me, useMe } from "../contexts/meContext";
 import { useAlert } from "../contexts/alertContext";
 import { useModal } from "../contexts/modalContext";
 import { TrashIcon } from "lucide-solid";
@@ -30,12 +30,15 @@ export default function Settings() {
 
         try {
             const result = await gqlClient.mutation<{
-                addUserEmail: { emails: string[] };
+                updateUser: Me;
             }>(
                 gql`
-                    mutation AddUserEmail($userId: UUID!, $email: String!) {
-                        addUserEmail(userId: $userId, email: $email) {
+                    mutation updateUser($userId: UUID!, $email: String!) {
+                        updateUser(userId: $userId, addEmails: [$email]) {
+                            id
+                            isAdmin
                             emails
+                            handle
                         }
                     }
                 `,
@@ -49,7 +52,7 @@ export default function Settings() {
                 throw result.error;
             }
 
-            setMe("emails", result.data!.addUserEmail.emails);
+            setMe(result.data!.updateUser);
             setEmail("");
         } catch (err) {
             addAlert(err instanceof Error ? err.message : "Failed to add email.", "error");
@@ -64,26 +67,30 @@ export default function Settings() {
 
         try {
             const result = await gqlClient.mutation<{
-                setUserHandle: { handle: string | null };
+                updateUser: Me;
             }>(
                 gql`
-                    mutation SetUserHandle($userId: UUID!, $handle: String) {
-                        setUserHandle(userId: $userId, handle: $handle) {
+                    mutation updateUser($userId: UUID!, $handle: String!) {
+                        updateUser(userId: $userId, handle: $handle) {
+                            id
+                            isAdmin
+                            emails
                             handle
                         }
                     }
                 `,
-                { userId: me.id, handle: handle() || null }
+                {
+                    userId: me.id,
+                    handle: handle() || null,
+                }
             );
 
             if (result.error) {
                 throw result.error;
             }
 
-            let new_handle = result.data!.setUserHandle.handle;
-
-            setMe("handle", new_handle ?? undefined);
-            setHandle(new_handle ?? "");
+            setMe(result.data!.updateUser);
+            setHandle(me.handle ?? "");
         } catch (err) {
             addAlert(err instanceof Error ? err.message : "Failed to set handle.", "error");
         }
@@ -93,22 +100,30 @@ export default function Settings() {
 
     async function deleteEmail() {
         try {
-            const result = await gqlClient.mutation<{ deleteUserEmail: { emails: string[] } }>(
+            const result = await gqlClient.mutation<{
+                updateUser: Me;
+            }>(
                 gql`
-                    mutation DeleteUserEmail($userId: UUID!, $email: String!) {
-                        deleteUserEmail(userId: $userId, email: $email) {
+                    mutation updateUser($userId: UUID!, $email: String!) {
+                        updateUser(userId: $userId, deleteEmails: [$email]) {
+                            id
+                            isAdmin
                             emails
+                            handle
                         }
                     }
                 `,
-                { userId: me.id, email: emailDelete() }
+                {
+                    userId: me.id,
+                    email: emailDelete(),
+                }
             );
 
             if (result.error) {
                 throw result.error;
             }
 
-            setMe("emails", result.data!.deleteUserEmail.emails);
+            setMe(result.data!.updateUser);
         } catch (err) {
             addAlert(err instanceof Error ? err.message : "Failed to delete email.", "error");
         }

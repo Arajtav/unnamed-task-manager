@@ -33,7 +33,6 @@ impl QueryRoot {
 
     async fn user(&self, ctx: &Context<'_>, id: Uuid) -> Result<Option<User>> {
         let db = get_db(ctx);
-
         let user = models::user::Entity::find_by_id(id).one(db).await?;
 
         Ok(user.map(User::from))
@@ -107,28 +106,5 @@ impl QueryRoot {
         }
 
         Ok(Some(Task::from(task)))
-    }
-
-    async fn tasks(&self, ctx: &Context<'_>, title: Option<String>) -> Result<Vec<Task>> {
-        let db = get_db(ctx);
-        let user = get_user(ctx);
-
-        let mut query = models::task::Entity::find().filter(
-            models::task::Column::BoardId.in_subquery(
-                models::board_access::Entity::find()
-                    .select_only()
-                    .column(models::board_access::Column::BoardId)
-                    .filter(models::board_access::Column::UserId.eq(user.id))
-                    .into_query(),
-            ),
-        );
-
-        if let Some(title) = title {
-            query = query.filter(models::task::Column::Title.contains(title));
-        }
-
-        let tasks = query.all(db).await?;
-
-        Ok(vec_map(tasks))
     }
 }

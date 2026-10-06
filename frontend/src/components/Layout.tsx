@@ -60,6 +60,7 @@ export default function Layout(props: RouteSectionProps) {
                         handle
                         emails
                         isAdmin
+                        isDisabled
                     }
                 }
             `,

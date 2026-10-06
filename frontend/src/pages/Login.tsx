@@ -57,8 +57,13 @@ export default function Login() {
         try {
             await client.loginFinish(cred);
         } catch (error) {
-            console.error(error);
-            addAlert("Server error. This shouldn't have happened.", "error");
+            if (error instanceof Error && error.message.startsWith("HTTP 500")) {
+                addAlert("Server error. This shouldn't have happened.", "error");
+            } else if (error instanceof Error && error.message.startsWith("HTTP 401")) {
+                addAlert("This account does not exist or is disabled.", "warning");
+            } else {
+                addAlert("Something went wrong.", "error");
+            }
             setLoading(false);
             return;
         }

@@ -16,6 +16,8 @@ pub struct Model {
     pub emails: HasMany<super::email::Entity>,
 
     pub is_admin: bool,
+
+    pub is_disabled: bool,
 }
 
 #[async_trait::async_trait]

@@ -94,66 +94,63 @@ impl MutationRoot {
         Ok(User::from(user))
     }
 
-    async fn set_user_handle(
+    async fn update_user(
         &self,
         ctx: &Context<'_>,
         user_id: Uuid,
-        handle: Option<String>,
+        handle: MaybeUndefined<String>,
+        #[graphql(default)] delete_emails: Vec<String>,
+        #[graphql(default)] add_emails: Vec<String>,
+        #[graphql(default)] is_disabled: Option<bool>,
     ) -> Result<User> {
         let db = get_db(ctx);
-        let user = get_user(ctx);
+        let current = get_user(ctx);
 
-        if !(user.is_admin || user.id == user_id) {
+        if !(current.is_admin || (current.id == user_id && is_disabled == None)) {
             return Err(Error::new("FORBIDDEN"));
         }
 
-        let user = models::user::Entity::find_by_id(user_id)
-            .one(db)
-            .await?
-            .ok_or_else(|| Error::new("User not found"))?;
-
-        let mut user: models::user::ActiveModel = user.into();
-        user.handle = Set(handle.map(|h| h.to_lowercase()));
-
-        let user = match user.update(db).await {
-            Ok(user) => user,
-            Err(err) => {
-                if let Some(SqlErr::UniqueConstraintViolation(_)) = err.sql_err() {
-                    return Err(Error::new("Handle already taken"));
-                }
-
-                return Err(Error::new("Failed to update user"));
-            }
-        };
-
-        Ok(User::from(user))
-    }
-
-    async fn add_user_email(
-        &self,
-        ctx: &Context<'_>,
-        user_id: Uuid,
-        email: String,
-    ) -> Result<User> {
-        let db = get_db(ctx);
-        let user = get_user(ctx);
-
-        if !(user.is_admin || user.id == user_id) {
-            return Err(Error::new("FORBIDDEN"));
-        }
+        let tx = db.begin().await?;
 
         let user = models::user::Entity::find_by_id(user_id)
-            .require_one(db)
+            .require_one(&tx)
             .await?;
 
-        let email_model = models::email::ActiveModel {
-            user_id: Set(user_id),
-            email: Set(email.clone()),
+        let mut user = user.into_active_model();
+
+        user.handle = match &handle {
+            MaybeUndefined::Value(handle) => Set(Some(handle.to_lowercase())),
+            MaybeUndefined::Null => Set(None),
+            MaybeUndefined::Undefined => NotSet,
         };
 
-        match email_model.insert(db).await {
-            Ok(_) => Ok(User::from(user)),
-            Err(err) => {
+        if let Some(is_disabled) = is_disabled {
+            user.is_disabled = Set(is_disabled);
+        }
+
+        let user = user.update(&tx).await.map_err(|err| {
+            if let Some(SqlErr::UniqueConstraintViolation(_)) = err.sql_err() {
+                Error::new("Handle already taken")
+            } else {
+                Error::new("Failed to update user")
+            }
+        })?;
+
+        if !delete_emails.is_empty() {
+            models::email::Entity::delete_many()
+                .filter(models::email::Column::UserId.eq(user_id))
+                .filter(models::email::Column::Email.is_in(delete_emails))
+                .exec(&tx)
+                .await?;
+        }
+
+        for email in add_emails {
+            let email_model = models::email::ActiveModel {
+                user_id: Set(user_id),
+                email: Set(email.clone()),
+            };
+
+            if let Err(err) = email_model.insert(&tx).await {
                 if let Some(SqlErr::UniqueConstraintViolation(_)) = err.sql_err() {
                     return Err(Error::new(format!("Email already exists: {email}")));
                 }
@@ -164,48 +161,13 @@ impl MutationRoot {
                     return Err(Error::new("Invalid email address"));
                 }
 
-                Err(Error::new("Failed to create email"))
+                return Err(Error::new("Failed to add email"));
             }
         }
-    }
 
-    async fn delete_user_email(
-        &self,
-        ctx: &Context<'_>,
-        user_id: Uuid,
-        email: String,
-    ) -> Result<User> {
-        let db = get_db(ctx);
-        let user = get_user(ctx);
-
-        if !(user.is_admin || user.id == user_id) {
-            return Err(Error::new("FORBIDDEN"));
-        }
-
-        let user = models::user::Entity::find_by_id(user_id)
-            .require_one(db)
-            .await?;
-
-        models::email::Entity::delete_many()
-            .filter(models::email::Column::UserId.eq(user_id))
-            .filter(models::email::Column::Email.eq(&email))
-            .exec(db)
-            .await?;
+        tx.commit().await?;
 
         Ok(User::from(user))
-    }
-
-    async fn delete_user(&self, ctx: &Context<'_>, id: Uuid) -> Result<Option<User>> {
-        let db = get_db(ctx);
-        let user = get_user(ctx);
-
-        if !(user.is_admin || user.id == id) {
-            return Err(Error::new("FORBIDDEN"));
-        }
-
-        models::user::Entity::delete_by_id(id).exec(db).await?;
-
-        Ok(None)
     }
 
     async fn create_board(&self, ctx: &Context<'_>, name: String) -> Result<Board> {
@@ -285,25 +247,6 @@ impl MutationRoot {
         })?;
 
         Ok(Board::from(board))
-    }
-
-    async fn delete_board(&self, ctx: &Context<'_>, id: i32) -> Result<Option<Board>> {
-        let db = get_db(ctx);
-        let user = get_user(ctx);
-
-        if !user.is_admin {
-            let access = models::board_access::Entity::find_by_id((id, user.id))
-                .one(db)
-                .await?;
-
-            if access.is_none_or(|access| !access.is_moderator) {
-                return Err(Error::new("FORBIDDEN"));
-            }
-        }
-
-        models::board::Entity::delete_by_id(id).exec(db).await?;
-
-        Ok(None)
     }
 
     async fn create_task(
@@ -430,29 +373,6 @@ impl MutationRoot {
         }
     }
 
-    async fn delete_task(&self, ctx: &Context<'_>, id: i32) -> Result<Option<Task>> {
-        let db = get_db(ctx);
-        let user = get_user(ctx);
-
-        let Some(task) = models::task::Entity::find_by_id(id).one(db).await? else {
-            return Err(Error::new("TASK NOT FOUND"));
-        };
-
-        if !user.is_admin {
-            let access = models::board_access::Entity::find_by_id((task.board_id, user.id))
-                .one(db)
-                .await?;
-
-            if access.is_none() {
-                return Err(Error::new("FORBIDDEN"));
-            }
-        }
-
-        task.delete(db).await?;
-
-        Ok(None)
-    }
-
     async fn add_access(
         &self,
         ctx: &Context<'_>,
@@ -490,10 +410,7 @@ impl MutationRoot {
                     models::board_access::Column::BoardId,
                     models::board_access::Column::UserId,
                 ])
-                .value(
-                    models::board_access::Column::IsModerator,
-                    Expr::val(is_moderator),
-                )
+                .update_column(models::board_access::Column::IsModerator)
                 .to_owned(),
             )
             .exec(db)
@@ -686,45 +603,6 @@ impl MutationRoot {
         if result.rows_affected == 0 {
             return Err(Error::new("NOT_FOUND"));
         }
-
-        Ok(Board::from(board))
-    }
-
-    async fn remove_task_status(
-        &self,
-        ctx: &Context<'_>,
-        board_id: i32,
-        name: String,
-    ) -> Result<Board> {
-        let db = get_db(ctx);
-        let user = get_user(ctx);
-
-        let board = models::board::Entity::find_by_id(board_id)
-            .one(db)
-            .await?
-            .ok_or_else(|| Error::new("NOT_FOUND"))?;
-
-        if !user.is_admin {
-            let access = models::board_access::Entity::find_by_id((board_id, user.id))
-                .one(db)
-                .await?;
-
-            if access.is_none_or(|access| !access.is_moderator) {
-                return Err(Error::new("FORBIDDEN"));
-            }
-        }
-
-        let target = models::board_task_status::Entity::find()
-            .filter(models::board_task_status::Column::BoardId.eq(board_id))
-            .filter(models::board_task_status::Column::Name.eq(name))
-            .one(db)
-            .await?;
-
-        let Some(target) = target else {
-            return Err(Error::new("NOT_FOUND"));
-        };
-
-        target.delete(db).await?;
 
         Ok(Board::from(board))
     }
