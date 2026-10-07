@@ -1,11 +1,88 @@
 import { For, Show } from "solid-js";
-import { useAppData } from "../contexts/appDataContext";
+import { useAppData, User } from "../contexts/appDataContext";
 import Avatar from "../newComponents/Avatar";
 import Badge from "../newComponents/Badge";
-import { EllipsisVerticalIcon } from "lucide-solid";
+import { EllipsisVerticalIcon, PlusIcon } from "lucide-solid";
+import BadgeButton from "../newComponents/BadgeButton";
+import { gqlClient } from "../graphql";
+import { gql } from "@urql/core";
+import { useAlert } from "../contexts/alertContext";
+import { useModal } from "../contexts/modalContext";
 
 export default function Users() {
-    const [appData] = useAppData();
+    const [appData, setAppData] = useAppData();
+    const { addAlert } = useAlert();
+    const { openModal } = useModal();
+
+    async function addEmail(userId: string, email: string) {
+        try {
+            const result = await gqlClient.mutation<{
+                updateUser: Replace<User, "createdAt", string>;
+            }>(
+                gql`
+                    mutation updateUser($userId: UUID!, $email: String!) {
+                        updateUser(userId: $userId, addEmails: [$email]) {
+                            id
+                            emails
+                            handle
+                            isAdmin
+                            isDisabled
+                            createdAt
+                        }
+                    }
+                `,
+                { userId, email }
+            );
+
+            if (result.error) {
+                throw result.error;
+            }
+
+            let updateUser = result.data!.updateUser;
+
+            setAppData("users", user => user.id == updateUser.id, {
+                ...updateUser,
+                createdAt: new Date(updateUser.createdAt),
+            });
+        } catch (err) {
+            addAlert(err instanceof Error ? err.message : "Failed to add email.", "error");
+        }
+    }
+
+    async function deleteEmail(userId: string, email: string) {
+        try {
+            const result = await gqlClient.mutation<{
+                updateUser: Replace<User, "createdAt", string>;
+            }>(
+                gql`
+                    mutation updateUser($userId: UUID!, $email: String!) {
+                        updateUser(userId: $userId, deleteEmails: [$email]) {
+                            id
+                            emails
+                            handle
+                            isAdmin
+                            isDisabled
+                            createdAt
+                        }
+                    }
+                `,
+                { userId, email }
+            );
+
+            if (result.error) {
+                throw result.error;
+            }
+
+            let updateUser = result.data!.updateUser;
+
+            setAppData("users", user => user.id == updateUser.id, {
+                ...updateUser,
+                createdAt: new Date(updateUser.createdAt),
+            });
+        } catch (err) {
+            addAlert(err instanceof Error ? err.message : "Failed to delete email.", "error");
+        }
+    }
 
     return (
         <table class="table w-full">
@@ -22,7 +99,7 @@ export default function Users() {
             <tbody>
                 <For each={appData.users}>
                     {user => (
-                        <tr class="*:whitespace-nowrap hover:bg-base-200">
+                        <tr class="group *:whitespace-nowrap hover:bg-base-200">
                             <td class="w-px">
                                 <div class="flex flex-row items-center gap-2 font-mono">
                                     <Avatar
@@ -38,13 +115,49 @@ export default function Users() {
                                 <div class="flex flex-wrap gap-2">
                                     <For each={user.emails}>
                                         {email => (
-                                            <Badge text={email} class="border-base-300/50 w-min" />
+                                            <Badge
+                                                text={email}
+                                                class="border-base-300/50 w-min font-mono"
+                                                onClick={() =>
+                                                    openModal({
+                                                        title: "Are you sure?",
+                                                        content: (
+                                                            <p>
+                                                                Are you sure you want to unlink{" "}
+                                                                <span class="text-primary">
+                                                                    {email}
+                                                                </span>
+                                                            </p>
+                                                        ),
+                                                        buttons: [
+                                                            {
+                                                                label: "No",
+                                                                class: "btn-primary",
+                                                            },
+                                                            {
+                                                                label: "Yes",
+                                                                class: "btn-error",
+                                                                onClick: () =>
+                                                                    deleteEmail(user.id, email),
+                                                            },
+                                                        ],
+                                                    })
+                                                }
+                                            />
                                         )}
                                     </For>
+                                    <BadgeButton
+                                        icon={<PlusIcon strokeWidth={1.5} />}
+                                        class="border-base-300/50 w-min invisible group-hover:visible"
+                                        onClick={() => {
+                                            const email = prompt("Email")?.trim();
+                                            if (email) addEmail(user.id, email);
+                                        }}
+                                    />
                                 </div>
                             </td>
 
-                            <td>
+                            <td class="w-px">
                                 <Show when={user.isAdmin}>
                                     <Badge
                                         text="Admin"
