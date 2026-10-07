@@ -32,7 +32,7 @@ export type FullBoard = {
 
 export type User = {
     id: string;
-    handle?: string;
+    handle: string | null;
 };
 
 export type UserFromEmail = {

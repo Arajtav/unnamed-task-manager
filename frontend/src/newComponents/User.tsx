@@ -1,7 +1,7 @@
 import { Show } from "solid-js";
 import Avatar from "./Avatar";
 
-export default function User(props: { user: { emails: string[]; handle?: string } }) {
+export default function User(props: { user: { emails: string[]; handle?: string | null } }) {
     const user = props.user.handle ?? props.user.emails[0];
 
     return (

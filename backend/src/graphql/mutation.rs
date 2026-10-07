@@ -116,6 +116,7 @@ impl MutationRoot {
             .require_one(&tx)
             .await?;
 
+        let is_admin = user.is_admin;
         let mut user = user.into_active_model();
 
         user.handle = match &handle {
@@ -125,6 +126,10 @@ impl MutationRoot {
         };
 
         if let Some(is_disabled) = is_disabled {
+            if is_admin {
+                return Err(Error::new("FORBIDDEN"));
+            }
+
             user.is_disabled = Set(is_disabled);
         }
 

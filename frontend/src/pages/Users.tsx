@@ -84,6 +84,41 @@ export default function Users() {
         }
     }
 
+    async function setDisabled(userId: string, isDisabled: boolean) {
+        try {
+            const result = await gqlClient.mutation<{
+                updateUser: Replace<User, "createdAt", string>;
+            }>(
+                gql`
+                    mutation updateUser($userId: UUID!, $isDisabled: Boolean!) {
+                        updateUser(userId: $userId, isDisabled: $isDisabled) {
+                            id
+                            emails
+                            handle
+                            isAdmin
+                            isDisabled
+                            createdAt
+                        }
+                    }
+                `,
+                { userId, isDisabled }
+            );
+
+            if (result.error) {
+                throw result.error;
+            }
+
+            const updateUser = result.data!.updateUser;
+
+            setAppData("users", user => user.id == updateUser.id, {
+                ...updateUser,
+                createdAt: new Date(updateUser.createdAt),
+            });
+        } catch (err) {
+            addAlert(err instanceof Error ? err.message : "Failed to update user.", "error");
+        }
+    }
+
     return (
         <table class="table w-full">
             <thead>
@@ -174,11 +209,29 @@ export default function Users() {
 
                             <td class="w-px">{user.createdAt.toISOString()}</td>
 
-                            <td class="w-px">
-                                <button class="btn btn-ghost btn-sm btn-square">
-                                    <EllipsisVerticalIcon strokeWidth={1.5} />
-                                </button>
-                            </td>
+                            <Show when={!user.isAdmin}>
+                                <td class="w-px">
+                                    <div class="dropdown dropdown-end">
+                                        <button class="btn btn-ghost btn-sm btn-square">
+                                            <EllipsisVerticalIcon strokeWidth={1.5} />
+                                        </button>
+
+                                        <ul class="dropdown-content menu bg-base-200 rounded-box mt-1 w-max">
+                                            <li>
+                                                <button
+                                                    onClick={() =>
+                                                        setDisabled(user.id, !user.isDisabled)
+                                                    }
+                                                >
+                                                    {user.isDisabled
+                                                        ? "Enable account back"
+                                                        : "Disabled account"}
+                                                </button>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </td>
+                            </Show>
                         </tr>
                     )}
                 </For>

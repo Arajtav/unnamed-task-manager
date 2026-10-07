@@ -27,7 +27,7 @@ export default function BoardMembers() {
 
     type ComputedAccess = {
         permissions: "admin" | "moderator" | "";
-        user: { emails: string[]; id: string; handle?: string };
+        user: { emails: string[]; id: string; handle: string | null };
     };
 
     const computedAccess = createMemo<ComputedAccess[]>(() => {
