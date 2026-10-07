@@ -1,4 +1,4 @@
-use async_graphql::{ComplexObject, Context, Error, Result, SimpleObject};
+use async_graphql::{ComplexObject, Context, Result, SimpleObject};
 use chrono::{DateTime, Utc};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use uuid::Uuid;
@@ -16,6 +16,9 @@ pub struct User {
     pub is_admin: bool,
     pub handle: Option<String>,
     pub is_disabled: bool,
+
+    #[graphql(skip)]
+    pub invite: Option<String>,
 }
 
 impl From<models::user::Model> for User {
@@ -26,6 +29,7 @@ impl From<models::user::Model> for User {
             is_admin: user.is_admin,
             handle: user.handle,
             is_disabled: user.is_disabled,
+            invite: user.invite_code,
         }
     }
 }
@@ -44,25 +48,13 @@ impl User {
     }
 
     async fn invite(&self, ctx: &Context<'_>) -> Result<Option<String>> {
-        let db = get_db(ctx);
         let user = get_user(ctx);
 
         if !(user.is_admin || user.id == self.id) {
-            return Err(Error::new("FORBIDDEN"));
+            return Ok(None);
         }
 
-        let invite = models::invite::Entity::find()
-            .filter(models::invite::Column::UserId.eq(self.id))
-            .one(db)
-            .await?;
-
-        Ok(invite.map(From::from))
-    }
-}
-
-impl From<models::invite::Model> for String {
-    fn from(invite: models::invite::Model) -> Self {
-        invite.code
+        Ok(self.invite.clone())
     }
 }
 

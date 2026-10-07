@@ -32,6 +32,7 @@ export default function YourHandle() {
                             isAdmin
                             emails
                             handle
+                            invite
                         }
                     }
                 `,

@@ -6,8 +6,11 @@ use actix_web::{
     web::{Data, Json, ThinData},
 };
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
-    QuerySelect, RelationTrait, TransactionTrait, sea_query::value::prelude::serde_json,
+    ActiveModelTrait,
+    ActiveValue::Set,
+    ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QuerySelect, RelationTrait,
+    TransactionTrait,
+    sea_query::{Expr, value::prelude::serde_json},
 };
 use serde::Deserialize;
 use simple_webauthn::{
@@ -113,14 +116,14 @@ pub async fn register_start(
     let body = body.into_inner();
     let random = Uuid::new_v4();
 
-    let invite = models::invite::Entity::find_by_id(&body.invite)
-        .find_also_related(models::user::Entity)
+    let user = models::user::Entity::find()
+        .filter(models::user::Column::InviteCode.eq(&body.invite))
         .one(&*db)
         .await
         .map_err(internal_server_error)?;
 
-    let (invite, _) = match invite {
-        Some((invite, Some(user))) if !user.is_disabled => (invite, user),
+    let user = match user {
+        Some(user) if !user.is_disabled => user,
         _ => {
             return Err(error::ErrorNotFound(""));
         }
@@ -130,14 +133,14 @@ pub async fn register_start(
         (*rp.into_inner()).clone(),
         origin.0.clone(),
         User {
-            id: invite.user_id.into(),
+            id: user.id.into(),
             name: body.name.clone(),
             display_name: body.name,
         },
     );
 
     session
-        .insert("webauthn_reg_state", &(random, body.invite, invite.user_id))
+        .insert("webauthn_reg_state", &(random, body.invite, user.id))
         .map_err(internal_server_error)?;
 
     reg.lock().await.insert(random, state);
@@ -177,7 +180,9 @@ pub async fn register_finish(
 
     passkey.insert(&tx).await.map_err(internal_server_error)?;
 
-    let result = models::invite::Entity::delete_by_id(invite)
+    let result = models::user::Entity::update_many()
+        .col_expr(models::user::Column::InviteCode, Expr::null())
+        .filter(models::user::Column::InviteCode.eq(invite))
         .exec(&tx)
         .await
         .map_err(internal_server_error)?;

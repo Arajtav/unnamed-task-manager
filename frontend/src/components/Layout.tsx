@@ -36,6 +36,7 @@ export default function Layout(props: RouteSectionProps) {
                         isAdmin
                         emails
                         handle
+                        invite
                     }
                     boards {
                         id
@@ -48,6 +49,7 @@ export default function Layout(props: RouteSectionProps) {
                         isAdmin
                         isDisabled
                         createdAt
+                        invite
                     }
                 }
             `,

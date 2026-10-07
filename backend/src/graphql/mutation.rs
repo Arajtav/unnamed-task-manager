@@ -13,7 +13,7 @@ use crate::{
         get_db, get_user,
         models::{Board, Task, User},
     },
-    models,
+    models::{self, user::new_invite},
 };
 
 #[derive(Default)]
@@ -24,8 +24,8 @@ impl MutationRoot {
     async fn create_user(
         &self,
         ctx: &Context<'_>,
-        emails: Vec<String>,
-        handle: Option<String>,
+        #[graphql(default)] emails: Vec<String>,
+        #[graphql(default)] handle: Option<String>,
     ) -> Result<User> {
         let db = get_db(ctx);
         let user = get_user(ctx);
@@ -106,7 +106,7 @@ impl MutationRoot {
         let db = get_db(ctx);
         let current = get_user(ctx);
 
-        if !(current.is_admin || (current.id == user_id && is_disabled == None)) {
+        if !(current.is_admin || (current.id == user_id && is_disabled.is_none())) {
             return Err(Error::new("FORBIDDEN"));
         }
 
@@ -461,56 +461,44 @@ impl MutationRoot {
         Ok(Board::from(board))
     }
 
-    async fn add_invite(&self, ctx: &Context<'_>, user_id: Uuid) -> Result<String> {
+    async fn add_invite(&self, ctx: &Context<'_>, user_id: Uuid) -> Result<User> {
         let db = get_db(ctx);
-        let user = get_user(ctx);
+        let current = get_user(ctx);
 
-        if !(user.is_admin || user.id == user_id) {
+        if !(current.is_admin || current.id == user_id) {
             return Err(Error::new("FORBIDDEN"));
         }
 
-        let invite = models::invite::Entity::find()
-            .filter(models::invite::Column::UserId.eq(user_id))
-            .one(db)
-            .await?;
+        let mut user = models::user::Entity::find_by_id(user_id)
+            .require_one(db)
+            .await?
+            .into_active_model();
 
-        let invite = models::invite::ActiveModel {
-            code: invite.map_or_default(|invite| Set(invite.code)),
-            user_id: Set(user_id),
-        };
+        user.invite_code = Set(Some(new_invite()));
 
-        let invite = models::invite::Entity::insert(invite)
-            .on_conflict(
-                OnConflict::column(models::invite::Column::UserId)
-                    .update_column(models::invite::Column::Code)
-                    .to_owned(),
-            )
-            .exec_with_returning(db)
-            .await?;
+        let user = user.update(db).await?;
 
-        Ok(String::from(invite))
+        Ok(User::from(user))
     }
 
-    async fn remove_invite(&self, ctx: &Context<'_>, user_id: Uuid) -> Result<Option<String>> {
+    async fn remove_invite(&self, ctx: &Context<'_>, user_id: Uuid) -> Result<User> {
         let db = get_db(ctx);
-        let user = get_user(ctx);
+        let current = get_user(ctx);
 
-        if !(user.is_admin || user.id == user_id) {
+        if !(current.is_admin || current.id == user_id) {
             return Err(Error::new("FORBIDDEN"));
         }
 
-        let target = models::invite::Entity::find()
-            .filter(models::invite::Column::UserId.eq(user_id))
-            .one(db)
-            .await?;
+        let mut user = models::user::Entity::find_by_id(user_id)
+            .require_one(db)
+            .await?
+            .into_active_model();
 
-        let Some(target) = target else {
-            return Err(Error::new("NOT_FOUND"));
-        };
+        user.invite_code = Set(None);
 
-        target.delete(db).await?;
+        let user = user.update(db).await?;
 
-        Ok(None)
+        Ok(User::from(user))
     }
 
     async fn add_task_status(

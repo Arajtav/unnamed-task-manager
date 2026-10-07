@@ -18,6 +18,8 @@ pub struct Model {
     pub is_admin: bool,
 
     pub is_disabled: bool,
+
+    pub invite_code: Option<String>,
 }
 
 #[async_trait::async_trait]
@@ -32,4 +34,11 @@ impl ActiveModelBehavior for ActiveModel {
 
         Ok(self)
     }
+}
+
+pub fn new_invite() -> String {
+    (0..3)
+        .map(|_| random_string::generate(4, random_string::charsets::ALPHA_UPPER))
+        .collect::<Vec<_>>()
+        .join("-")
 }

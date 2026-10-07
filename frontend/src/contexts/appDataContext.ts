@@ -8,6 +8,7 @@ export type User = {
     isAdmin: boolean;
     isDisabled: boolean;
     createdAt: Date;
+    invite: string | null;
 };
 
 export type Me = {
@@ -15,6 +16,7 @@ export type Me = {
     emails: string[];
     handle: string | null;
     isAdmin: boolean;
+    invite: string | null;
 };
 
 export type AppData = {

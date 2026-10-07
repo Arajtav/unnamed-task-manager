@@ -31,6 +31,7 @@ export default function EmailAddresses() {
                             isAdmin
                             emails
                             handle
+                            invite
                         }
                     }
                 `,
@@ -66,6 +67,7 @@ export default function EmailAddresses() {
                             isAdmin
                             emails
                             handle
+                            invite
                         }
                     }
                 `,

@@ -12,6 +12,7 @@ mod m20260927_174125_add_task_status_and_assignee;
 mod m20261002_181528_add_board_task_status;
 mod m20261004_100937_add_task_is_archived;
 mod m20261006_172840_add_user_is_disabled;
+mod m20261007_183803_move_invite_to_user;
 
 pub struct Migrator;
 
@@ -29,6 +30,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20261002_181528_add_board_task_status::Migration),
             Box::new(m20261004_100937_add_task_is_archived::Migration),
             Box::new(m20261006_172840_add_user_is_disabled::Migration),
+            Box::new(m20261007_183803_move_invite_to_user::Migration),
         ]
     }
 }
