@@ -1,6 +1,7 @@
 import { For, Setter } from "solid-js";
 import { Task as TaskT, TaskStatus } from "../contexts/boardContext";
 import Task from "./Task";
+import Badge from "../newComponents/Badge";
 
 export default function TaskColumn(props: {
     status: TaskStatus;
@@ -29,14 +30,16 @@ export default function TaskColumn(props: {
             onDragOver={handleDragOver}
             onDrop={handleDrop}
         >
-            <div class="w-full flex flex-row gap-1 my-4">
-                <div class="aspect-square h-lh flex items-center justify-center">
-                    <div
-                        class="h-2/3 w-2/3 rounded-full"
-                        style={{ "background-color": props.status.color }}
-                    />
-                </div>
-                <h3 class="capitalize">{props.status.name}</h3>
+            <div class="w-full flex flex-row gap-2 my-4">
+                <Badge
+                    text={props.tasks.length.toString()}
+                    class="proportional-num border-0!"
+                    style={{
+                        "background-color": props.status.color,
+                        color: `oklch(from ${props.status.color} calc((0.88 + (0.1 * l)) - (clamp(0, (l - 0.58) * 1000, 1) * 0.76)) c h)`,
+                    }}
+                />
+                <h3 class="self-center">{props.status.name}</h3>
             </div>
 
             <ul class="list">
