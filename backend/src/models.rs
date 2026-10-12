@@ -4,4 +4,5 @@ pub mod board_task_status;
 pub mod email;
 pub mod passkey;
 pub mod task;
+pub mod time_tracking;
 pub mod user;

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use async_graphql::{ComplexObject, Context, Result, SimpleObject};
 use chrono::{DateTime, Utc};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
@@ -11,14 +13,14 @@ use crate::{
 #[derive(SimpleObject)]
 #[graphql(complex)]
 pub struct User {
-    pub id: Uuid,
-    pub created_at: DateTime<Utc>,
-    pub is_admin: bool,
-    pub handle: Option<String>,
-    pub is_disabled: bool,
+    id: Uuid,
+    created_at: DateTime<Utc>,
+    is_admin: bool,
+    handle: Option<String>,
+    is_disabled: bool,
 
     #[graphql(skip)]
-    pub invite: Option<String>,
+    invite: Option<String>,
 }
 
 impl From<models::user::Model> for User {
@@ -55,6 +57,65 @@ impl User {
         }
 
         Ok(self.invite.clone())
+    }
+}
+
+#[derive(SimpleObject)]
+#[graphql(complex)]
+pub struct TimeTrackingEntry {
+    id: i32,
+    started_at: DateTime<Utc>,
+    finished_at: DateTime<Utc>,
+    description: String,
+
+    #[graphql(skip)]
+    task_id: Option<i32>,
+
+    #[graphql(skip)]
+    user_id: Option<Uuid>,
+}
+
+#[ComplexObject]
+impl TimeTrackingEntry {
+    async fn task(&self, ctx: &Context<'_>) -> Result<Option<Task>> {
+        let db = get_db(ctx);
+
+        let Some(task_id) = self.task_id else {
+            return Ok(None);
+        };
+
+        let task = models::task::Entity::find_by_id(task_id)
+            .require_one(db)
+            .await?;
+
+        Ok(Some(Task::from(task)))
+    }
+
+    async fn user(&self, ctx: &Context<'_>) -> Result<Option<User>> {
+        let db = get_db(ctx);
+
+        let Some(user_id) = self.user_id else {
+            return Ok(None);
+        };
+
+        let user = models::user::Entity::find_by_id(user_id)
+            .require_one(db)
+            .await?;
+
+        Ok(Some(User::from(user)))
+    }
+}
+
+impl From<models::time_tracking::Model> for TimeTrackingEntry {
+    fn from(tt: models::time_tracking::Model) -> Self {
+        Self {
+            id: tt.id,
+            started_at: tt.started_at,
+            finished_at: tt.finished_at,
+            description: tt.description,
+            task_id: tt.task_id,
+            user_id: tt.user_id,
+        }
     }
 }
 
@@ -207,6 +268,57 @@ impl Task {
             .await?;
 
         Ok(Board::from(board))
+    }
+
+    async fn time_logged(&self, ctx: &Context<'_>) -> Result<Vec<TaskUserTime>> {
+        let db = get_db(ctx);
+
+        let entries = models::time_tracking::Entity::find()
+            .filter(models::time_tracking::Column::TaskId.eq(self.id))
+            .all(db)
+            .await?;
+
+        let mut user_times: HashMap<Option<Uuid>, i64> = HashMap::new();
+
+        for entry in entries {
+            *user_times.entry(entry.user_id).or_insert(0) += entry
+                .finished_at
+                .signed_duration_since(entry.started_at)
+                .num_seconds();
+        }
+
+        let time_logged = user_times
+            .into_iter()
+            .map(|(user_id, time)| TaskUserTime { user_id, time })
+            .collect();
+
+        Ok(time_logged)
+    }
+}
+
+#[derive(SimpleObject)]
+#[graphql(complex)]
+pub struct TaskUserTime {
+    #[graphql(skip)]
+    user_id: Option<Uuid>,
+
+    time: i64, // in seconds, chrono::Duration is not supported
+}
+
+#[ComplexObject]
+impl TaskUserTime {
+    pub async fn user(&self, ctx: &Context<'_>) -> Result<Option<User>> {
+        let db = get_db(ctx);
+
+        let Some(user_id) = self.user_id else {
+            return Ok(None);
+        };
+
+        let user = models::user::Entity::find_by_id(user_id)
+            .require_one(db)
+            .await?;
+
+        Ok(Some(User::from(user)))
     }
 }
 

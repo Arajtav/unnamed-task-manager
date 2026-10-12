@@ -41,3 +41,6 @@ Everything is using HTTP as the only option, to use HTTPS you should put some pr
 Disabled accounts:
 Admins can disable or enable all accounts except these of other admins.
 Disabling an account will keep all its data but immediately block all access like if the account didn't exist.
+
+Precise time tracking info can only be accessed by the user, boards admins for their boards or admins.
+Other users can only see it as a part of task.

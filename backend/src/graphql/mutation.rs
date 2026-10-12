@@ -1,4 +1,5 @@
 use async_graphql::{Context, Error, MaybeUndefined, Object, Result};
+use chrono::{DateTime, Utc};
 use sea_orm::{
     ActiveModelTrait,
     ActiveValue::{NotSet, Set},
@@ -11,7 +12,7 @@ use uuid::Uuid;
 use crate::{
     graphql::{
         get_db, get_user,
-        models::{Board, Task, User},
+        models::{Board, Task, TimeTrackingEntry, User},
     },
     models::{self, user::new_invite},
 };
@@ -259,10 +260,10 @@ impl MutationRoot {
         ctx: &Context<'_>,
         board_id: i32,
         title: String,
-        description: Option<String>,
+        #[graphql(default)] description: Option<String>,
         author: String,
         status: String,
-        assignee: Option<String>,
+        #[graphql(default)] assignee: Option<String>,
     ) -> Result<Task> {
         let db = get_db(ctx);
         let user = get_user(ctx);
@@ -599,4 +600,113 @@ impl MutationRoot {
 
         Ok(Board::from(board))
     }
+
+    async fn create_time_tracking_entry(
+        &self,
+        ctx: &Context<'_>,
+        task_id: i32,
+        started_at: DateTime<Utc>,
+        finished_at: DateTime<Utc>,
+        description: String,
+    ) -> Result<TimeTrackingEntry> {
+        let db = get_db(ctx);
+        let user = get_user(ctx);
+
+        let task = models::task::Entity::find_by_id(task_id)
+            .one(db)
+            .await?
+            .ok_or_else(|| Error::new("TASK NOT FOUND"))?;
+
+        if !user.is_admin {
+            let access = models::board_access::Entity::find_by_id((task.board_id, user.id))
+                .one(db)
+                .await?;
+
+            if access.is_none() {
+                return Err(Error::new("FORBIDDEN"));
+            }
+        }
+
+        let entry = models::time_tracking::ActiveModel {
+            started_at: Set(started_at),
+            finished_at: Set(finished_at),
+            description: Set(description),
+            task_id: Set(Some(task_id)),
+            user_id: Set(Some(user.id)),
+            ..Default::default()
+        };
+
+        let entry = entry.insert(db).await?;
+
+        Ok(TimeTrackingEntry::from(entry))
+    }
+
+    async fn update_time_tracking_entry(
+        &self,
+        ctx: &Context<'_>,
+        id: i32,
+        #[graphql(default)] started_at: Option<DateTime<Utc>>,
+        #[graphql(default)] finished_at: Option<DateTime<Utc>>,
+        #[graphql(default)] description: Option<String>,
+    ) -> Result<TimeTrackingEntry> {
+        let db = get_db(ctx);
+        let user = get_user(ctx);
+
+        let Some(entry) = models::time_tracking::Entity::find_by_id(id)
+            .one(db)
+            .await?
+        else {
+            return Err(Error::new("ENTRY NOT FOUND"));
+        };
+
+        if entry.user_id != Some(user.id) {
+            return Err(Error::new("FORBIDDEN"));
+        }
+
+        let mut entry = entry.into_active_model();
+
+        if let Some(started_at) = started_at {
+            entry.started_at = Set(started_at);
+        }
+
+        if let Some(finished_at) = finished_at {
+            entry.finished_at = Set(finished_at);
+        }
+
+        if let Some(description) = description {
+            entry.description = Set(description);
+        }
+
+        let entry = entry.update(db).await?;
+
+        Ok(TimeTrackingEntry::from(entry))
+    }
+
+    async fn remove_time_tracking_entry(
+        &self,
+        ctx: &Context<'_>,
+        id: i32,
+    ) -> Result<Option<TimeTrackingEntry>> {
+        let db = get_db(ctx);
+        let user = get_user(ctx);
+
+        let Some(entry) = models::time_tracking::Entity::find_by_id(id)
+            .one(db)
+            .await?
+        else {
+            return Ok(None);
+        };
+
+        if entry.user_id != Some(user.id) {
+            return Err(Error::new("FORBIDDEN"));
+        }
+
+        let result_entry = TimeTrackingEntry::from(entry.clone());
+        entry.into_active_model().delete(db).await?;
+
+        Ok(Some(result_entry))
+    }
 }
+
+// TODO: user probably should not be able to edit time entries older than idk a month?
+// TODO: user probably should not be able to edit time entries for tasks that they don't have access to anymore.

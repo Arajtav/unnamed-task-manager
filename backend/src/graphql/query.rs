@@ -1,11 +1,12 @@
 use async_graphql::{Context, Error, Object, Result};
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect, QueryTrait};
+use chrono::{DateTime, Utc};
+use sea_orm::{ColumnTrait, Condition, EntityTrait, QueryFilter, QuerySelect, QueryTrait};
 use uuid::Uuid;
 
 use crate::{
     graphql::{
         get_db, get_user,
-        models::{Board, Task, User},
+        models::{Board, Task, TimeTrackingEntry, User},
         vec_map,
     },
     models,
@@ -106,5 +107,61 @@ impl QueryRoot {
         }
 
         Ok(Some(Task::from(task)))
+    }
+
+    async fn time_entries(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(default)] since: Option<DateTime<Utc>>,
+        #[graphql(default)] to: Option<DateTime<Utc>>,
+        #[graphql(default)] user_id: Option<Uuid>,
+    ) -> Result<Vec<TimeTrackingEntry>> {
+        let db = get_db(ctx);
+        let user = get_user(ctx);
+
+        let mut query = models::time_tracking::Entity::find();
+
+        if let Some(since) = since {
+            query = query.filter(models::time_tracking::Column::FinishedAt.gte(since));
+        }
+
+        if let Some(to) = to {
+            query = query.filter(models::time_tracking::Column::StartedAt.lte(to));
+        }
+
+        if !user.is_admin {
+            let task_ids: Vec<i32> = models::task::Entity::find()
+                .select_only()
+                .column(models::task::Column::Id)
+                .filter(
+                    models::task::Column::BoardId.in_subquery(
+                        models::board_access::Entity::find()
+                            .select_only()
+                            .column(models::board_access::Column::BoardId)
+                            .filter(models::board_access::Column::UserId.eq(user.id))
+                            .filter(models::board_access::Column::IsModerator.eq(true))
+                            .into_query(),
+                    ),
+                )
+                .into_tuple::<i32>()
+                .all(db)
+                .await?;
+
+            let mut access_condition =
+                Condition::any().add(models::time_tracking::Column::UserId.eq(user.id));
+
+            access_condition =
+                access_condition.add(models::time_tracking::Column::TaskId.is_in(task_ids));
+
+            query = query.filter(access_condition);
+        }
+
+        if let Some(target_user_id) = user_id {
+            query = query.filter(models::time_tracking::Column::UserId.eq(target_user_id));
+        }
+
+        let entries = query.all(db).await?;
+
+        Ok(vec_map(entries))
     }
 }
