@@ -9,6 +9,7 @@ export type Task = {
     status: string;
     assignee?: UserFromEmail;
     isArchived: boolean;
+    timeLogged: { time: number }[];
 };
 
 export type Access = {

@@ -62,6 +62,9 @@ export default function BoardLayout(props: RouteSectionProps) {
                                     handle
                                 }
                             }
+                            timeLogged {
+                                time
+                            }
                             isArchived
                         }
                         access {

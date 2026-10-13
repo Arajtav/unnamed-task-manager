@@ -39,6 +39,7 @@ export default function TaskEditForm(props: {
                 .filter(userEmail => userEmail.toLowerCase().includes(query))
                 .map(userEmail => ({
                     user: {
+                        id: user.id,
                         emails: [userEmail],
                         handle: user.handle,
                     },

@@ -1,12 +1,25 @@
 import { Show } from "solid-js";
 import Avatar from "./Avatar";
+import { userColor } from "../format";
 
-export default function User(props: { user: { emails: string[]; handle?: string | null } }) {
+export default function User(props: {
+    user?: { id?: string | null; emails: string[]; handle?: string | null } | null;
+}) {
+    return (
+        <Show when={props.user} fallback={<UnknownUser />}>
+            {user => {
+                return <UserInternal user={user()} />;
+            }}
+        </Show>
+    );
+}
+
+function UserInternal(props: { user: { id?: string | null; emails: string[]; handle?: string | null } }) {
     const user = props.user.handle ?? props.user.emails[0];
 
     return (
         <div class="flex flex-row h-12 items-center px-1 gap-2 font-heading">
-            <Avatar user={user ? user[0] : undefined} />
+            <Avatar color={userColor(props.user)} user={user ? user[0] : undefined} />
             <div class="flex flex-col justify-center h-full">
                 <Show when={props.user.handle}>
                     <div class="truncate">{"@" + props.user.handle!}</div>
@@ -28,6 +41,17 @@ export default function User(props: { user: { emails: string[]; handle?: string 
                 <Show when={!props.user.handle && !props.user.emails.length}>
                     <div class="truncate">This user has no name</div>
                 </Show>
+            </div>
+        </div>
+    );
+}
+
+function UnknownUser() {
+    return (
+        <div class="flex flex-row h-12 items-center px-1 gap-2 font-heading">
+            <Avatar />
+            <div class="flex flex-col justify-center h-full">
+                <div class="truncate">Unknown user</div>
             </div>
         </div>
     );

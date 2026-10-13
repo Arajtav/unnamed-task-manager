@@ -1,8 +1,13 @@
-import { Show } from "solid-js";
+import { For, Show } from "solid-js";
 import User from "../newComponents/User";
 import { Task } from "./FullTask";
+import { formatDuration } from "../format";
 
-export default function TaskDetails(props: { task: Task; onEdit: () => void; onClose: () => void }) {
+export default function TaskDetails(props: {
+    task: Task;
+    onEdit: () => void;
+    onClose: () => void;
+}) {
     const task = props.task;
 
     return (
@@ -14,13 +19,16 @@ export default function TaskDetails(props: { task: Task; onEdit: () => void; onC
             <div class="space-y-4">
                 <div>
                     <div class="text-sm font-semibold text-base-content/70">Description</div>
-                    <p class="mt-1 whitespace-pre-wrap">{task.description || "No description provided."}</p>
+                    <p class="mt-1 whitespace-pre-wrap">
+                        {task.description || "No description provided."}
+                    </p>
                 </div>
 
                 <div>
                     <div class="text-sm font-semibold text-base-content/70">Author</div>
                     <User
                         user={{
+                            id: task.author.user?.id,
                             emails: [task.author.email],
                             handle: task.author.user?.handle,
                         }}
@@ -31,10 +39,11 @@ export default function TaskDetails(props: { task: Task; onEdit: () => void; onC
                     <div class="text-sm font-semibold text-base-content/70">Assigned to</div>
                     <div>
                         <Show when={task.assignee} fallback={<p class="mt-2">No one</p>}>
-                            {(assignee) => (
+                            {assignee => (
                                 <>
                                     <User
                                         user={{
+                                            id: assignee().user?.id,
                                             emails: [assignee().email],
                                             handle: assignee().user?.handle,
                                         }}
@@ -53,6 +62,22 @@ export default function TaskDetails(props: { task: Task; onEdit: () => void; onC
                 <div>
                     <div class="text-sm font-semibold text-base-content/70">Created</div>
                     <div class="mt-1">{task.createdAt.toLocaleString()}</div>
+                </div>
+
+                <div>
+                    <div class="text-sm font-semibold text-base-content/70">Time logged</div>
+                    <div class="flex flex-col w-full mt-2">
+                        <For each={task.timeLogged}>
+                            {e => (
+                                <div class="flex flex-row w-full">
+                                    <div class="flex-1">
+                                        <User user={e.user}></User>
+                                    </div>
+                                    <div class="self-center">{formatDuration(e.time)}</div>
+                                </div>
+                            )}
+                        </For>
+                    </div>
                 </div>
             </div>
 

@@ -44,3 +44,7 @@ export function dbg<T>(value: T): T {
 export function todo(s?: string): any {
     console.error(`not yet implemented${s ? ": " + s : ""}`);
 }
+
+export function warn(when: boolean, msg: string) {
+    if (when) console.warn(msg);
+}

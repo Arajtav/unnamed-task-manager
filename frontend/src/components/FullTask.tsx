@@ -17,6 +17,14 @@ export type Task = {
     status: string;
     assignee?: UserFromEmail;
     isArchived: boolean;
+    timeLogged: {
+        time: number;
+        user: {
+            id: string;
+            handle: string | null;
+            emails: string[];
+        } | null;
+    }[];
 };
 
 export default function FullTask({ id, setId }: { id: number; setId: Setter<number | null> }) {
@@ -54,13 +62,21 @@ export default function FullTask({ id, setId }: { id: number; setId: Setter<numb
                                 handle
                             }
                         }
+                        timeLogged {
+                            time
+                            user {
+                                id
+                                handle
+                                emails
+                            }
+                        }
                         isArchived
                     }
                 }
             `,
             { id },
             // I guess if cache is available it should be used while this loads in the background.
-            { requestPolicy: "network-only" },
+            { requestPolicy: "network-only" }
         );
 
         if (handleAuthError(result.error)) {
@@ -78,19 +94,25 @@ export default function FullTask({ id, setId }: { id: number; setId: Setter<numb
         <dialog open class="modal">
             <Show
                 when={!loading()}
-                fallback={<span class="loading loading-spinner loading-lg row-start-1 col-start-1" />}
+                fallback={
+                    <span class="loading loading-spinner loading-lg row-start-1 col-start-1" />
+                }
             >
                 <Show
                     when={editing()}
                     fallback={
                         <div class="modal-box">
-                            <TaskDetails task={task} onEdit={() => setEditing(true)} onClose={() => setId(null)} />
+                            <TaskDetails
+                                task={task}
+                                onEdit={() => setEditing(true)}
+                                onClose={() => setId(null)}
+                            />
                         </div>
                     }
                 >
                     <TaskEditForm
                         task={task}
-                        onSaved={(updated) => {
+                        onSaved={updated => {
                             setTask(updated);
                             setEditing(false);
                         }}

@@ -57,6 +57,9 @@ export default function TaskForm() {
                                 handle
                             }
                         }
+                        timeLogged {
+                            time
+                        }
                         isArchived
                     }
                 }

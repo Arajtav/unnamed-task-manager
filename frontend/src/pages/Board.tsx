@@ -46,6 +46,9 @@ export default function Board() {
                                 handle
                             }
                         }
+                        timeLogged {
+                            time
+                        }
                         isArchived
                     }
                 }
