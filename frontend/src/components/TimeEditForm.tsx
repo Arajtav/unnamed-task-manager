@@ -1,12 +1,14 @@
-import { createSignal, For } from "solid-js";
+import { For, Show } from "solid-js";
 import { useAlert } from "../contexts/alertContext";
 import { Task, TimeEntry } from "./FullTask";
 import { format } from "date-fns";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
 import { handleAuthError } from "../auth";
-import { SetStoreFunction } from "solid-js/store";
+import { createStore, SetStoreFunction } from "solid-js/store";
 import { useBoard } from "../contexts/boardContext";
+import { useModal } from "../contexts/modalContext";
+import { newValueOrUndefined } from "./TaskEditForm";
 
 export default function TimeEditForm(props: {
     time: TimeEntry[];
@@ -18,78 +20,259 @@ export default function TimeEditForm(props: {
     onCancel: () => void;
 }) {
     const { addAlert } = useAlert();
+    const { openModal } = useModal();
     const [_, setBoard] = useBoard();
 
-    const [startedAt, setStartedAt] = createSignal(Date.now());
-    const [finishedAt, setFinishedAt] = createSignal(Date.now());
-    const [description, setDescription] = createSignal("");
+    const [edited, setEdited] = createStore<{
+        id: number | null;
+        startedAt: Date;
+        finishedAt: Date;
+        description: string;
+    }>({
+        id: null,
+        startedAt: new Date(),
+        finishedAt: new Date(),
+        description: "",
+    });
 
-    async function submit(e: SubmitEvent) {
-        e.preventDefault();
+    function startEdit(entry: TimeEntry) {
+        setEdited({
+            id: entry.id,
+            startedAt: new Date(entry.startedAt),
+            finishedAt: new Date(entry.finishedAt),
+            description: entry.description,
+        });
+    }
 
-        // TODO: fetch task too for time logged update
-        const result = await gqlClient.mutation<{
-            createTimeTrackingEntry: Replace<
-                Replace<TimeEntry, "startedAt", string>,
-                "finishedAt",
-                string
-            > & { task: Pick<Task, "timeLogged"> };
+    function cancelEdit() {
+        setEdited({
+            id: null,
+            startedAt: new Date(),
+            finishedAt: new Date(),
+            description: "",
+        });
+    }
+
+    async function deleteEntry(entryId: number) {
+        const mutationResult = await gqlClient.mutation<{
+            removeTimeTrackingEntry: { id: number } | null;
         }>(
             gql`
-                mutation CreateTimeTrackingEntry(
-                    $taskId: Int!
-                    $startedAt: DateTime!
-                    $finishedAt: DateTime!
-                    $description: String!
-                ) {
-                    createTimeTrackingEntry(
-                        taskId: $taskId
-                        startedAt: $startedAt
-                        finishedAt: $finishedAt
-                        description: $description
-                    ) {
+                mutation RemoveTimeTrackingEntry($id: Int!) {
+                    removeTimeTrackingEntry(id: $id) {
                         id
-                        startedAt
-                        finishedAt
-                        description
-                        task {
-                            timeLogged {
-                                time
-                                user {
-                                    id
-                                    handle
-                                    emails
-                                }
+                    }
+                }
+            `,
+            { id: entryId }
+        );
+
+        if (
+            handleAuthError(mutationResult.error) ||
+            !mutationResult.data?.removeTimeTrackingEntry
+        ) {
+            addAlert("Failed to delete entry", "error");
+            return;
+        }
+
+        const queryResult = await gqlClient.query<{
+            task: Pick<Task, "timeLogged">;
+        }>(
+            gql`
+                query GetTaskTimeLogged($taskId: Int!) {
+                    task(id: $taskId) {
+                        timeLogged {
+                            time
+                            user {
+                                id
+                                handle
+                                emails
                             }
                         }
                     }
                 }
             `,
-            {
-                taskId: props.taskId,
-                startedAt: new Date(startedAt()).toISOString(),
-                finishedAt: new Date(finishedAt()).toISOString(),
-                description: description(),
-            }
+            { taskId: props.taskId }
         );
 
-        if (handleAuthError(result.error)) {
-            addAlert("Failed to add entry", "error");
+        if (handleAuthError(queryResult.error) || !queryResult.data?.task) {
+            addAlert("Failed to fetch updated time logged", "error");
             return;
         }
 
-        const entry = result.data!.createTimeTrackingEntry;
+        const timeLogged = queryResult.data.task.timeLogged;
 
-        props.save("time", e => [
-            ...e,
-            {
+        props.save("time", e => e.filter(item => item.id != entryId));
+        props.save("task", "timeLogged", timeLogged);
+        setBoard("tasks", task => task.id == props.taskId, "timeLogged", timeLogged);
+
+        if (edited.id == entryId) {
+            cancelEdit();
+        }
+
+        addAlert("Time entry deleted", "success");
+    }
+
+    async function submit(e: SubmitEvent) {
+        e.preventDefault();
+
+        if (edited.id == null) {
+            const fields = {
+                startedAt: edited.startedAt.toISOString(),
+                finishedAt: edited.finishedAt.toISOString(),
+                description: edited.description,
+            };
+
+            const result = await gqlClient.mutation<{
+                createTimeTrackingEntry: Replace<
+                    Replace<TimeEntry, "startedAt", string>,
+                    "finishedAt",
+                    string
+                > & { task: Pick<Task, "timeLogged"> };
+            }>(
+                gql`
+                    mutation CreateTimeTrackingEntry(
+                        $taskId: Int!
+                        $startedAt: DateTime!
+                        $finishedAt: DateTime!
+                        $description: String!
+                    ) {
+                        createTimeTrackingEntry(
+                            taskId: $taskId
+                            startedAt: $startedAt
+                            finishedAt: $finishedAt
+                            description: $description
+                        ) {
+                            id
+                            startedAt
+                            finishedAt
+                            description
+                            task {
+                                timeLogged {
+                                    time
+                                    user {
+                                        id
+                                        handle
+                                        emails
+                                    }
+                                }
+                            }
+                        }
+                    }
+                `,
+                {
+                    taskId: props.taskId,
+                    ...fields,
+                }
+            );
+
+            if (handleAuthError(result.error) || !result.data?.createTimeTrackingEntry) {
+                addAlert("Failed to add entry", "error");
+                return;
+            }
+
+            const entry = result.data.createTimeTrackingEntry;
+
+            props.save("time", e => [
+                ...e,
+                {
+                    ...entry,
+                    startedAt: new Date(entry.startedAt),
+                    finishedAt: new Date(entry.finishedAt),
+                },
+            ]);
+
+            props.save("task", "timeLogged", entry.task.timeLogged);
+            setBoard("tasks", task => task.id == props.taskId, "timeLogged", entry.task.timeLogged);
+
+            addAlert("Time entry added", "success");
+            cancelEdit();
+        } else {
+            const originalEntry = props.time.find(item => item.id == edited.id);
+
+            const fields = {
+                startedAt: newValueOrUndefined(
+                    edited.startedAt.toISOString(),
+                    originalEntry ? new Date(originalEntry.startedAt).toISOString() : ""
+                ),
+                finishedAt: newValueOrUndefined(
+                    edited.finishedAt.toISOString(),
+                    originalEntry ? new Date(originalEntry.finishedAt).toISOString() : ""
+                ),
+                description: newValueOrUndefined(
+                    edited.description,
+                    originalEntry ? originalEntry.description : ""
+                ),
+            };
+
+            if (Object.values(fields).every(value => value === undefined)) {
+                cancelEdit();
+                return;
+            }
+
+            const result = await gqlClient.mutation<{
+                updateTimeTrackingEntry: {
+                    id: number;
+                    startedAt: string;
+                    finishedAt: string;
+                    description: string;
+                    task: Pick<Task, "timeLogged">;
+                };
+            }>(
+                gql`
+                    mutation UpdateTimeTrackingEntry(
+                        $id: Int!
+                        $startedAt: DateTime
+                        $finishedAt: DateTime
+                        $description: String
+                    ) {
+                        updateTimeTrackingEntry(
+                            id: $id
+                            startedAt: $startedAt
+                            finishedAt: $finishedAt
+                            description: $description
+                        ) {
+                            id
+                            startedAt
+                            finishedAt
+                            description
+                            task {
+                                timeLogged {
+                                    time
+                                    user {
+                                        id
+                                        handle
+                                        emails
+                                    }
+                                }
+                            }
+                        }
+                    }
+                `,
+                {
+                    id: edited.id,
+                    ...fields,
+                }
+            );
+
+            if (handleAuthError(result.error) || !result.data?.updateTimeTrackingEntry) {
+                addAlert("Failed to update entry", "error");
+                return;
+            }
+
+            const entry = result.data.updateTimeTrackingEntry;
+
+            props.save("time", e => e.id == entry.id, {
                 ...entry,
                 startedAt: new Date(entry.startedAt),
                 finishedAt: new Date(entry.finishedAt),
-            },
-        ]);
-        props.save("task", "timeLogged", entry.task.timeLogged);
-        setBoard("tasks", task => task.id == props.taskId, "timeLogged", entry.task.timeLogged);
+            });
+            props.save("task", "timeLogged", entry.task.timeLogged);
+            setBoard("tasks", task => task.id == props.taskId, "timeLogged", entry.task.timeLogged);
+
+            addAlert("Time entry updated", "success");
+            cancelEdit();
+        }
     }
 
     return (
@@ -97,52 +280,98 @@ export default function TimeEditForm(props: {
             <div class="card-body">
                 <h2 class="card-title">Time entries</h2>
 
-                <For each={props.time}>
-                    {e => (
-                        <div class="flex flex-col">
-                            <div class="flex flex-row">
-                                <div class="flex-1">Start time</div>
-                                <div>{e.startedAt.toISOString()}</div>
+                <div class="max-h-[50vh] overflow-y-auto flex flex-col gap-2 pr-1">
+                    <For each={props.time}>
+                        {e => (
+                            <div class="flex flex-col border-b border-base-200 pb-2 mb-2 gap-2">
+                                <div class="flex flex-row">
+                                    <div class="flex-1">Start time</div>
+                                    <div>{e.startedAt.toISOString()}</div>
+                                </div>
+                                <div class="flex flex-row">
+                                    <div class="flex-1">End time</div>
+                                    <div>{e.finishedAt.toISOString()}</div>
+                                </div>
+                                <div class="flex flex-col">
+                                    <div>Description:</div>
+                                    <div>{e.description}</div>
+                                </div>
+                                <div class="flex flex-row gap-2 justify-end">
+                                    <div
+                                        class="btn btn-warning btn-sm"
+                                        onClick={() => startEdit(e)}
+                                    >
+                                        Edit
+                                    </div>
+                                    <div
+                                        class="btn btn-error btn-sm"
+                                        onClick={() =>
+                                            openModal({
+                                                title: "Are you sure?",
+                                                content: (
+                                                    <p>
+                                                        Are you sure you want to delete this time
+                                                        entry?
+                                                    </p>
+                                                ),
+                                                buttons: [
+                                                    {
+                                                        label: "No",
+                                                        class: "btn-primary",
+                                                    },
+                                                    {
+                                                        label: "Yes",
+                                                        class: "btn-error",
+                                                        onClick: () => deleteEntry(e.id),
+                                                    },
+                                                ],
+                                            })
+                                        }
+                                    >
+                                        Delete
+                                    </div>
+                                </div>
                             </div>
-                            <div class="flex flex-row">
-                                <div class="flex-1">End time</div>
-                                <div>{e.finishedAt.toISOString()}</div>
-                            </div>
-                            <div class="flex flex-col">
-                                <div>Description:</div>
-                                <div>{e.description}</div>
-                            </div>
-                        </div>
-                    )}
-                </For>
+                        )}
+                    </For>
+                </div>
 
-                <form class="flex flex-col" onSubmit={submit}>
-                    <h3>Add Time Entry</h3>
+                <form class="flex flex-col mt-4 gap-2" onSubmit={submit}>
+                    <div class="flex items-center justify-between">
+                        <h3>{edited.id != null ? "Edit Time Entry" : "Add Time Entry"}</h3>
+                        <Show when={edited.id != null}>
+                            <button type="button" class="btn btn-ghost btn-xs" onClick={cancelEdit}>
+                                Cancel
+                            </button>
+                        </Show>
+                    </div>
                     <div class="flex flex-row">
                         <label class="flex-1">Start Time</label>
                         <input
                             type="datetime-local"
-                            value={format(startedAt(), "yyyy-MM-dd'T'HH:mm")}
-                            onInput={e => setStartedAt(new Date(e.target.value).getTime())}
+                            value={format(edited.startedAt, "yyyy-MM-dd'T'HH:mm")}
+                            onInput={e => setEdited("startedAt", new Date(e.target.value))}
                         />
                     </div>
                     <div class="flex flex-row">
                         <label class="flex-1">End Time</label>
                         <input
                             type="datetime-local"
-                            value={format(finishedAt(), "yyyy-MM-dd'T'HH:mm")}
-                            onInput={e => setFinishedAt(new Date(e.target.value).getTime())}
+                            value={format(edited.finishedAt, "yyyy-MM-dd'T'HH:mm")}
+                            onInput={e => setEdited("finishedAt", new Date(e.target.value))}
                         />
                     </div>
                     <div class="flex flex-col">
                         <label>Description:</label>
                         <textarea
                             placeholder="What did you work on?"
-                            value={description()}
-                            onInput={e => setDescription(e.target.value)}
+                            value={edited.description}
+                            onInput={e => setEdited("description", e.target.value)}
                         />
                     </div>
-                    <button type="submit">Add Entry</button>
+                    <button type="submit" class="btn btn-primary mt-2">
+                        {edited.id != null ? "Save Changes" : "Add Entry"}
+                    </button>
                 </form>
             </div>
         </div>

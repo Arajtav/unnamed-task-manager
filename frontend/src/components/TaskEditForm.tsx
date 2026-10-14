@@ -8,7 +8,7 @@ import { Task } from "./FullTask";
 import User from "../newComponents/User";
 import { useAppData } from "../contexts/appDataContext";
 
-function newValueOrUndefined<T>(value: T, original: T) {
+export function newValueOrUndefined<T>(value: T, original: T) {
     return value !== original ? value : undefined;
 }
 

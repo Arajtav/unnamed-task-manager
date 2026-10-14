@@ -667,6 +667,13 @@ impl MutationRoot {
             return Err(Error::new("FORBIDDEN"));
         }
 
+        let final_started_at = started_at.unwrap_or(entry.started_at);
+        let final_finished_at = finished_at.unwrap_or(entry.finished_at);
+
+        if final_finished_at < final_started_at {
+            return Err(Error::new("FINISHED_BEFORE_STARTED"));
+        }
+
         let mut entry = entry.into_active_model();
 
         if let Some(started_at) = started_at {
