@@ -7,6 +7,8 @@ import { UserFromEmail } from "../contexts/boardContext";
 import { useAlert } from "../contexts/alertContext";
 import TaskDetails from "./TaskDetails";
 import TaskEditForm from "./TaskEditForm";
+import TimeEditForm from "./TimeEditForm";
+import { useAppData } from "../contexts/appDataContext";
 
 export type Task = {
     id: number;
@@ -27,22 +29,30 @@ export type Task = {
     }[];
 };
 
+export type TimeEntry = {
+    id: number;
+    startedAt: Date;
+    finishedAt: Date;
+    description: string;
+};
+
 export default function FullTask({ id, setId }: { id: number; setId: Setter<number | null> }) {
     const { addAlert } = useAlert();
+    const [{ me }] = useAppData();
 
-    const [task, setTask] = createStore({} as Task);
+    const [task, setTask] = createStore({} as { task: Task; time: TimeEntry[] });
     const [loading, setLoading] = createSignal(true);
     const [editing, setEditing] = createSignal(false);
+    const [timeLogging, setTimeLogging] = createSignal(false);
 
     createEffect(async () => {
         const result = await gqlClient.query<{
-            task: Omit<Task, "createdAt"> & {
-                createdAt: string;
-            };
+            task: Replace<Task, "createdAt", string>;
+            timeEntries: Replace<Replace<TimeEntry, "startedAt", string>, "finishedAt", string>[];
         }>(
             gql`
-                query Task($id: Int!) {
-                    task(id: $id) {
+                query TaskAndTimeEntries($userId: UUID!, $taskId: Int!) {
+                    task(id: $taskId) {
                         id
                         title
                         createdAt
@@ -72,9 +82,15 @@ export default function FullTask({ id, setId }: { id: number; setId: Setter<numb
                         }
                         isArchived
                     }
+                    timeEntries(userId: $userId, taskId: $taskId) {
+                        id
+                        startedAt
+                        finishedAt
+                        description
+                    }
                 }
             `,
-            { id },
+            { taskId: id, userId: me.id },
             // I guess if cache is available it should be used while this loads in the background.
             { requestPolicy: "network-only" }
         );
@@ -85,8 +101,16 @@ export default function FullTask({ id, setId }: { id: number; setId: Setter<numb
         }
 
         const task = result.data!.task;
+        const time = result.data!.timeEntries.map(time => ({
+            ...time,
+            startedAt: new Date(time.startedAt),
+            finishedAt: new Date(time.finishedAt),
+        }));
 
-        setTask({ ...task, createdAt: new Date(task.createdAt) });
+        setTask({
+            task: { ...task, createdAt: new Date(task.createdAt) },
+            time,
+        });
         setLoading(false);
     });
 
@@ -101,19 +125,32 @@ export default function FullTask({ id, setId }: { id: number; setId: Setter<numb
                 <Show
                     when={editing()}
                     fallback={
-                        <div class="modal-box">
-                            <TaskDetails
-                                task={task}
-                                onEdit={() => setEditing(true)}
-                                onClose={() => setId(null)}
+                        <Show
+                            when={timeLogging()}
+                            fallback={
+                                <div class="modal-box">
+                                    <TaskDetails
+                                        task={task.task}
+                                        onEdit={() => setEditing(true)}
+                                        onClose={() => setId(null)}
+                                        onLogTime={() => setTimeLogging(true)}
+                                    />
+                                </div>
+                            }
+                        >
+                            <TimeEditForm
+                                time={task.time}
+                                taskId={task.task.id}
+                                save={setTask}
+                                onCancel={() => setTimeLogging(false)}
                             />
-                        </div>
+                        </Show>
                     }
                 >
                     <TaskEditForm
-                        task={task}
+                        task={task.task}
                         onSaved={updated => {
-                            setTask(updated);
+                            setTask("task", updated);
                             setEditing(false);
                         }}
                         onCancel={() => setEditing(false)}

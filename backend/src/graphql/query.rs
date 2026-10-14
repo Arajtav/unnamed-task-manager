@@ -115,6 +115,7 @@ impl QueryRoot {
         #[graphql(default)] since: Option<DateTime<Utc>>,
         #[graphql(default)] to: Option<DateTime<Utc>>,
         #[graphql(default)] user_id: Option<Uuid>,
+        #[graphql(default)] task_id: Option<i32>,
     ) -> Result<Vec<TimeTrackingEntry>> {
         let db = get_db(ctx);
         let user = get_user(ctx);
@@ -158,6 +159,10 @@ impl QueryRoot {
 
         if let Some(target_user_id) = user_id {
             query = query.filter(models::time_tracking::Column::UserId.eq(target_user_id));
+        }
+
+        if let Some(task_id) = task_id {
+            query = query.filter(models::time_tracking::Column::TaskId.eq(task_id))
         }
 
         let entries = query.all(db).await?;

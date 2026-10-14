@@ -609,6 +609,10 @@ impl MutationRoot {
         finished_at: DateTime<Utc>,
         description: String,
     ) -> Result<TimeTrackingEntry> {
+        if finished_at < started_at {
+            return Err(Error::new("FINISHED_BEFORE_STARTED"));
+        }
+
         let db = get_db(ctx);
         let user = get_user(ctx);
 

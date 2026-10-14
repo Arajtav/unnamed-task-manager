@@ -25,6 +25,7 @@
     "@urql/core": "^6.0.3",
     "color-hash": "^2.0.2",
     "daisyui": "^5.7.37",
+    "date-fns": "^4.4.0",
     "email-addresses": "^5.0.0",
     "graphql": "^17.0.2",
     "lucide-solid": "^1.51.0",

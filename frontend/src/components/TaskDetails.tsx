@@ -7,6 +7,7 @@ export default function TaskDetails(props: {
     task: Task;
     onEdit: () => void;
     onClose: () => void;
+    onLogTime: () => void;
 }) {
     const task = props.task;
 
@@ -83,13 +84,11 @@ export default function TaskDetails(props: {
 
             <div class="flex flex-row gap-2">
                 <div class="modal-action">
-                    <button class="btn btn-warning" onClick={props.onClose}>
-                        Close
-                    </button>
-                </div>
-                <div class="modal-action">
                     <button class="btn btn-primary" onClick={props.onEdit}>
                         Edit
+                    </button>
+                    <button class="btn btn-primary" onClick={props.onLogTime}>
+                        Log time
                     </button>
                 </div>
             </div>
