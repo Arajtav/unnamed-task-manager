@@ -49,6 +49,8 @@ impl User {
         Ok(vec_map(emails))
     }
 
+    #[allow(clippy::unused_async_trait_impl)]
+    #[allow(clippy::unused_async)]
     async fn invite(&self, ctx: &Context<'_>) -> Result<Option<String>> {
         let user = get_user(ctx);
 

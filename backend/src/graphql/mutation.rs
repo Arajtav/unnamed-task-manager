@@ -693,15 +693,17 @@ impl MutationRoot {
         Ok(TimeTrackingEntry::from(entry))
     }
 
-    async fn remove_time_tracking_entry(
+    async fn remove_task_time_tracking_entry(
         &self,
         ctx: &Context<'_>,
+        task_id: i32,
         id: i32,
-    ) -> Result<Option<TimeTrackingEntry>> {
+    ) -> Result<Option<Task>> {
         let db = get_db(ctx);
         let user = get_user(ctx);
 
         let Some(entry) = models::time_tracking::Entity::find_by_id(id)
+            .filter(models::time_tracking::Column::TaskId.eq(task_id))
             .one(db)
             .await?
         else {
@@ -712,10 +714,11 @@ impl MutationRoot {
             return Err(Error::new("FORBIDDEN"));
         }
 
-        let result_entry = TimeTrackingEntry::from(entry.clone());
+        let task = models::task::Entity::find_by_id(task_id).one(db).await?;
+
         entry.into_active_model().delete(db).await?;
 
-        Ok(Some(result_entry))
+        Ok(task.map(Task::from))
     }
 }
 

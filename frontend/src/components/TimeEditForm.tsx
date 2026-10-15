@@ -54,33 +54,12 @@ export default function TimeEditForm(props: {
     }
 
     async function deleteEntry(entryId: number) {
-        const mutationResult = await gqlClient.mutation<{
-            removeTimeTrackingEntry: { id: number } | null;
+        const result = await gqlClient.mutation<{
+            removeTaskTimeTrackingEntry: Pick<Task, "timeLogged"> | null;
         }>(
             gql`
-                mutation RemoveTimeTrackingEntry($id: Int!) {
-                    removeTimeTrackingEntry(id: $id) {
-                        id
-                    }
-                }
-            `,
-            { id: entryId }
-        );
-
-        if (
-            handleAuthError(mutationResult.error) ||
-            !mutationResult.data?.removeTimeTrackingEntry
-        ) {
-            addAlert("Failed to delete entry", "error");
-            return;
-        }
-
-        const queryResult = await gqlClient.query<{
-            task: Pick<Task, "timeLogged">;
-        }>(
-            gql`
-                query GetTaskTimeLogged($taskId: Int!) {
-                    task(id: $taskId) {
+                mutation RemoveTaskTimeTrackingEntry($taskId: Int!, $id: Int!) {
+                    removeTaskTimeTrackingEntry(taskId: $taskId, id: $id) {
                         timeLogged {
                             time
                             user {
@@ -92,15 +71,15 @@ export default function TimeEditForm(props: {
                     }
                 }
             `,
-            { taskId: props.taskId }
+            { taskId: props.taskId, id: entryId }
         );
 
-        if (handleAuthError(queryResult.error) || !queryResult.data?.task) {
-            addAlert("Failed to fetch updated time logged", "error");
+        const timeLogged = result.data?.removeTaskTimeTrackingEntry?.timeLogged;
+
+        if (handleAuthError(result.error) || !timeLogged) {
+            addAlert("Failed to delete entry", "error");
             return;
         }
-
-        const timeLogged = queryResult.data.task.timeLogged;
 
         props.save("time", e => e.filter(item => item.id != entryId));
         props.save("task", "timeLogged", timeLogged);

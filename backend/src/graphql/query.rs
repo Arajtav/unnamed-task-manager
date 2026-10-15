@@ -162,7 +162,7 @@ impl QueryRoot {
         }
 
         if let Some(task_id) = task_id {
-            query = query.filter(models::time_tracking::Column::TaskId.eq(task_id))
+            query = query.filter(models::time_tracking::Column::TaskId.eq(task_id));
         }
 
         let entries = query.all(db).await?;
