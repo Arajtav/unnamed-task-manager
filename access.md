@@ -44,3 +44,5 @@ Disabling an account will keep all its data but immediately block all access lik
 
 Precise time tracking info can only be accessed by the user, boards admins for their boards or admins.
 Other users can only see it as a part of task.
+
+Adding blocks has the same rules as updating a task.

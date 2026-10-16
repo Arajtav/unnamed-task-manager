@@ -27,6 +27,7 @@ export type Task = {
             emails: string[];
         } | null;
     }[];
+    blockedBy: { id: number; title: string; status: string; isArchived: boolean }[];
 };
 
 export type TimeEntry = {
@@ -81,6 +82,12 @@ export default function FullTask({ id, setId }: { id: number; setId: Setter<numb
                             }
                         }
                         isArchived
+                        blockedBy {
+                            id
+                            title
+                            status
+                            isArchived
+                        }
                     }
                     timeEntries(userId: $userId, taskId: $taskId) {
                         id
@@ -131,6 +138,7 @@ export default function FullTask({ id, setId }: { id: number; setId: Setter<numb
                                 <div class="modal-box">
                                     <TaskDetails
                                         task={task.task}
+                                        save={setTask}
                                         onEdit={() => setEditing(true)}
                                         onClose={() => setId(null)}
                                         onLogTime={() => setTimeLogging(true)}

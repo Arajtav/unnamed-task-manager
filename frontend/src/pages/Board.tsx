@@ -50,6 +50,7 @@ export default function Board() {
                             time
                         }
                         isArchived
+                        isBlocked
                     }
                 }
             `,

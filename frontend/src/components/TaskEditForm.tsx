@@ -123,6 +123,12 @@ export default function TaskEditForm(props: {
                             }
                         }
                         isArchived
+                        blockedBy {
+                            id
+                            title
+                            status
+                            isArchived
+                        }
                     }
                 }
             `,

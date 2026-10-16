@@ -61,6 +61,7 @@ export default function TaskForm() {
                             time
                         }
                         isArchived
+                        isBlocked
                     }
                 }
             `,

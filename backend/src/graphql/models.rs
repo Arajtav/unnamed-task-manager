@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 use async_graphql::{ComplexObject, Context, Result, SimpleObject};
 use chrono::{DateTime, Utc};
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
+use sea_orm::{
+    ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, RelationTrait,
+};
 use uuid::Uuid;
 
 use crate::{
@@ -295,6 +297,52 @@ impl Task {
             .collect();
 
         Ok(time_logged)
+    }
+
+    async fn blocking(&self, ctx: &Context<'_>) -> Result<Vec<Task>> {
+        let db = get_db(ctx);
+
+        let tasks = models::task::Entity::find()
+            .join_rev(
+                sea_orm::JoinType::InnerJoin,
+                models::task_block::Relation::BlockedTask.def(),
+            )
+            .filter(models::task_block::Column::Blocking.eq(self.id))
+            .all(db)
+            .await?;
+
+        Ok(vec_map(tasks))
+    }
+
+    async fn blocked_by(&self, ctx: &Context<'_>) -> Result<Vec<Task>> {
+        let db = get_db(ctx);
+
+        let tasks = models::task::Entity::find()
+            .join_rev(
+                sea_orm::JoinType::InnerJoin,
+                models::task_block::Relation::BlockingTask.def(),
+            )
+            .filter(models::task_block::Column::Blocked.eq(self.id))
+            .all(db)
+            .await?;
+
+        Ok(vec_map(tasks))
+    }
+
+    async fn is_blocked(&self, ctx: &Context<'_>) -> Result<bool> {
+        let db = get_db(ctx);
+
+        let count = models::task_block::Entity::find()
+            .join(
+                sea_orm::JoinType::InnerJoin,
+                models::task_block::Relation::BlockingTask.def(),
+            )
+            .filter(models::task_block::Column::Blocked.eq(self.id))
+            .filter(models::task::Column::IsArchived.eq(false))
+            .count(db)
+            .await?;
+
+        Ok(count > 0)
     }
 }
 

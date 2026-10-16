@@ -66,6 +66,7 @@ export default function BoardLayout(props: RouteSectionProps) {
                                 time
                             }
                             isArchived
+                            isBlocked
                         }
                         access {
                             user {

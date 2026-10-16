@@ -56,7 +56,7 @@ export default function TaskColumn(props: {
                 >
                     {task => (
                         <li
-                            class="list-row flex flex-col my-1 bg-base-300"
+                            class={`list-row flex flex-col my-1 ${task.isBlocked && !task.isArchived ? "bg-warning/20" : "bg-base-300"}`}
                             draggable={!task.isArchived}
                             onDragStart={e => {
                                 e.dataTransfer?.setData("text/plain", task.id.toString());

@@ -3,8 +3,8 @@ use chrono::{DateTime, Utc};
 use sea_orm::{
     ActiveModelTrait,
     ActiveValue::{NotSet, Set},
-    ColumnTrait, DbErr, EntityTrait, IntoActiveModel, ModelTrait, QueryFilter, SqlErr,
-    TransactionTrait,
+    ColumnTrait, ConnectionTrait, DbBackend, DbErr, EntityTrait, IntoActiveModel, ModelTrait,
+    QueryFilter, SqlErr, Statement, TransactionTrait,
     sea_query::{Expr, OnConflict},
 };
 use uuid::Uuid;
@@ -719,6 +719,118 @@ impl MutationRoot {
         entry.into_active_model().delete(db).await?;
 
         Ok(task.map(Task::from))
+    }
+
+    async fn add_task_block(
+        &self,
+        ctx: &Context<'_>,
+        task_id: i32,
+        blocked_by: i32,
+    ) -> Result<Option<Task>> {
+        let db = get_db(ctx);
+        let user = get_user(ctx);
+
+        if task_id == blocked_by {
+            return Err(Error::new("SELF BLOCK"));
+        }
+
+        let Some(task) = models::task::Entity::find_by_id(task_id).one(db).await? else {
+            return Err(Error::new("TASK NOT FOUND"));
+        };
+
+        let Some(blocking_task) = models::task::Entity::find_by_id(blocked_by).one(db).await?
+        else {
+            return Err(Error::new("BLOCKING TASK NOT FOUND"));
+        };
+
+        if task.board_id != blocking_task.board_id {
+            return Err(Error::new("DIFFERENT BOARD"));
+        }
+
+        if !user.is_admin {
+            if let Some(access) = models::board_access::Entity::find_by_id((task.board_id, user.id))
+                .one(db)
+                .await?
+            {
+                if (blocking_task.is_archived || task.is_archived) && !access.is_moderator {
+                    return Err(Error::new("TASK ARCHIVED"));
+                }
+            } else {
+                return Err(Error::new("FORBIDDEN"));
+            }
+        }
+
+        // TODO: Why do we even use sea orm it was a terrible decision.
+        let stmt = Statement::from_sql_and_values(
+            DbBackend::Sqlite,
+            r#"
+                WITH RECURSIVE closure(blocked_id) AS (
+                    SELECT blocked FROM task_block WHERE blocking = ?
+                    UNION
+                    SELECT tb.blocked FROM task_block tb
+                    JOIN closure c ON tb.blocking = c.blocked_id
+                )
+                SELECT 1 FROM closure WHERE blocked_id = ?
+            "#,
+            vec![task_id.into(), blocked_by.into()],
+        );
+
+        let cycle_results = db.query_all_raw(stmt).await?;
+        if !cycle_results.is_empty() {
+            return Err(Error::new("CYCLIC DEPENDENCY DETECTED"));
+        }
+
+        let new_block = models::task_block::ActiveModel {
+            blocking: Set(blocked_by),
+            blocked: Set(task_id),
+        };
+
+        match new_block.insert(db).await {
+            Ok(_) => Ok(Some(Task::from(task))),
+            Err(err) => {
+                if let Some(SqlErr::UniqueConstraintViolation(_)) = err.sql_err() {
+                    Ok(Some(Task::from(task)))
+                } else {
+                    Err(Error::new("Failed to add task block"))
+                }
+            }
+        }
+    }
+
+    async fn remove_task_block(
+        &self,
+        ctx: &Context<'_>,
+        task_id: i32,
+        blocked_by: i32,
+    ) -> Result<Task> {
+        let db = get_db(ctx);
+        let user = get_user(ctx);
+
+        let Some(task) = models::task::Entity::find_by_id(task_id).one(db).await? else {
+            return Err(Error::new("TASK NOT FOUND"));
+        };
+
+        if !user.is_admin {
+            if let Some(access) = models::board_access::Entity::find_by_id((task.board_id, user.id))
+                .one(db)
+                .await?
+            {
+                if task.is_archived && !access.is_moderator {
+                    return Err(Error::new("TASK ARCHIVED"));
+                }
+            } else {
+                return Err(Error::new("FORBIDDEN"));
+            }
+        }
+
+        if let Some(block) = models::task_block::Entity::find_by_id((blocked_by, task_id))
+            .one(db)
+            .await?
+        {
+            block.delete(db).await?;
+        }
+
+        Ok(Task::from(task))
     }
 }
 
