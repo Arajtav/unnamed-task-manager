@@ -48,10 +48,18 @@ export default function TaskEditForm(props: {
         );
     });
 
-    const canKeepArchived = () => !task.isArchived || isUserAdminOrModerator();
-
     const isUserAdminOrModerator = () =>
         me.isAdmin || board.access.some(access => access.user.id == me.id && access.isModerator);
+
+    const isEditing = createMemo(
+        () =>
+            title() != task.title ||
+            description() != (task.description ?? "") ||
+            status() != task.status ||
+            assignee() != (task.assignee?.email ?? "")
+    );
+
+    const canKeepArchived = () => isUserAdminOrModerator() || !isEditing();
 
     createEffect(
         on(
