@@ -1,4 +1,4 @@
-import { For, Show } from "solid-js";
+import { createSignal, For, Show } from "solid-js";
 import { useAlert } from "../contexts/alertContext";
 import { Task, TimeEntry } from "./FullTask";
 import { format } from "date-fns";
@@ -9,6 +9,7 @@ import { createStore, SetStoreFunction } from "solid-js/store";
 import { useBoard } from "../contexts/boardContext";
 import { useModal } from "../contexts/modalContext";
 import { newValueOrUndefined } from "./TaskEditForm";
+import { makePersisted } from "@solid-primitives/storage";
 
 export default function TimeEditForm(props: {
     time: TimeEntry[];
@@ -22,6 +23,9 @@ export default function TimeEditForm(props: {
     const { addAlert } = useAlert();
     const { openModal } = useModal();
     const [_, setBoard] = useBoard();
+    const [tracking, setTracking] = makePersisted(createSignal<Date | undefined>(undefined), {
+        name: `tt:${props.taskId}`,
+    });
 
     const [edited, setEdited] = createStore<{
         id: number | null;
@@ -92,80 +96,86 @@ export default function TimeEditForm(props: {
         addAlert("Time entry deleted", "success");
     }
 
-    async function submit(e: SubmitEvent) {
-        e.preventDefault();
+    async function create(startedAt: Date, finishedAt: Date, description: string) {
+        const fields = {
+            startedAt,
+            finishedAt,
+            description,
+        };
 
-        if (edited.id == null) {
-            const fields = {
-                startedAt: edited.startedAt.toISOString(),
-                finishedAt: edited.finishedAt.toISOString(),
-                description: edited.description,
-            };
-
-            const result = await gqlClient.mutation<{
-                createTimeTrackingEntry: Replace<
-                    Replace<TimeEntry, "startedAt", string>,
-                    "finishedAt",
-                    string
-                > & { task: Pick<Task, "timeLogged"> };
-            }>(
-                gql`
-                    mutation CreateTimeTrackingEntry(
-                        $taskId: Int!
-                        $startedAt: DateTime!
-                        $finishedAt: DateTime!
-                        $description: String!
+        const result = await gqlClient.mutation<{
+            createTimeTrackingEntry: Replace<
+                Replace<TimeEntry, "startedAt", string>,
+                "finishedAt",
+                string
+            > & { task: Pick<Task, "timeLogged"> };
+        }>(
+            gql`
+                mutation CreateTimeTrackingEntry(
+                    $taskId: Int!
+                    $startedAt: DateTime!
+                    $finishedAt: DateTime!
+                    $description: String!
+                ) {
+                    createTimeTrackingEntry(
+                        taskId: $taskId
+                        startedAt: $startedAt
+                        finishedAt: $finishedAt
+                        description: $description
                     ) {
-                        createTimeTrackingEntry(
-                            taskId: $taskId
-                            startedAt: $startedAt
-                            finishedAt: $finishedAt
-                            description: $description
-                        ) {
-                            id
-                            startedAt
-                            finishedAt
-                            description
-                            task {
-                                timeLogged {
-                                    time
-                                    user {
-                                        id
-                                        handle
-                                        emails
-                                    }
+                        id
+                        startedAt
+                        finishedAt
+                        description
+                        task {
+                            timeLogged {
+                                time
+                                user {
+                                    id
+                                    handle
+                                    emails
                                 }
                             }
                         }
                     }
-                `,
-                {
-                    taskId: props.taskId,
-                    ...fields,
                 }
-            );
-
-            if (handleAuthError(result.error) || !result.data?.createTimeTrackingEntry) {
-                addAlert("Failed to add entry", "error");
-                return;
+            `,
+            {
+                taskId: props.taskId,
+                ...fields,
             }
+        );
 
-            const entry = result.data.createTimeTrackingEntry;
+        if (handleAuthError(result.error) || !result.data?.createTimeTrackingEntry) {
+            addAlert("Failed to add entry", "error");
+            return false;
+        }
 
-            props.save("time", e => [
-                ...e,
-                {
-                    ...entry,
-                    startedAt: new Date(entry.startedAt),
-                    finishedAt: new Date(entry.finishedAt),
-                },
-            ]);
+        const entry = result.data.createTimeTrackingEntry;
 
-            props.save("task", "timeLogged", entry.task.timeLogged);
-            setBoard("tasks", task => task.id == props.taskId, "timeLogged", entry.task.timeLogged);
+        props.save("time", e => [
+            ...e,
+            {
+                ...entry,
+                startedAt: new Date(entry.startedAt),
+                finishedAt: new Date(entry.finishedAt),
+            },
+        ]);
 
-            addAlert("Time entry added", "success");
-            cancelEdit();
+        props.save("task", "timeLogged", entry.task.timeLogged);
+        setBoard("tasks", task => task.id == props.taskId, "timeLogged", entry.task.timeLogged);
+
+        addAlert("Time entry added", "success");
+        return true;
+    }
+
+    async function submit(e: SubmitEvent) {
+        e.preventDefault();
+
+        if (edited.id == null) {
+            if (await create(edited.startedAt, edited.finishedAt, edited.description)) {
+                cancelEdit();
+            }
         } else {
             const originalEntry = props.time.find(item => item.id == edited.id);
 
@@ -352,6 +362,56 @@ export default function TimeEditForm(props: {
                         {edited.id != null ? "Save Changes" : "Add Entry"}
                     </button>
                 </form>
+                <div class="divider" />
+                <Show
+                    when={!tracking()}
+                    fallback={
+                        <div class="flex flex-row gap-2">
+                            <button
+                                class="btn btn-primary flex-1"
+                                onClick={async () => {
+                                    let descr = prompt("Description");
+                                    if (descr === null) return;
+                                    if (await create(tracking()!, new Date(), descr)) {
+                                        setTracking(undefined);
+                                    }
+                                }}
+                            >
+                                Stop tracking
+                            </button>
+                            <button
+                                class="btn btn-warning"
+                                onClick={() =>
+                                    openModal({
+                                        title: "Are you sure?",
+                                        content: (
+                                            <p>Are you sure you want to cancel this session?</p>
+                                        ),
+                                        buttons: [
+                                            {
+                                                label: "No",
+                                                class: "btn-primary",
+                                            },
+                                            {
+                                                label: "Yes",
+                                                class: "btn-error",
+                                                onClick: () => {
+                                                    setTracking(undefined);
+                                                },
+                                            },
+                                        ],
+                                    })
+                                }
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    }
+                >
+                    <button class="btn btn-primary" onClick={() => setTracking(new Date())}>
+                        Start tracking
+                    </button>
+                </Show>
             </div>
         </div>
     );

@@ -19,6 +19,7 @@
     "vite-plugin-solid": "^2.11.8"
   },
   "dependencies": {
+    "@solid-primitives/storage": "^4.4.0",
     "@solidjs/router": "^1.0.0",
     "@ts-rest/core": "^3.52.1",
     "@types/color-hash": "^2.0.0",
