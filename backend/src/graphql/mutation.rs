@@ -1,4 +1,4 @@
-use async_graphql::{Context, Error, MaybeUndefined, Object, Result};
+use async_graphql::{Context, Error, InputObject, MaybeUndefined, Object, Result};
 use chrono::{DateTime, Utc};
 use sea_orm::{
     ActiveModelTrait,
@@ -16,6 +16,25 @@ use crate::{
     },
     models::{self, user::new_invite},
 };
+
+#[derive(InputObject)]
+pub struct UpdateTaskInput {
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub status: Option<String>,
+    pub assignee: MaybeUndefined<String>,
+    pub is_archived: Option<bool>,
+}
+
+#[derive(InputObject)]
+pub struct UpdateUserInput {
+    pub handle: MaybeUndefined<String>,
+    #[graphql(default)]
+    pub delete_emails: Vec<String>,
+    #[graphql(default)]
+    pub add_emails: Vec<String>,
+    pub is_disabled: Option<bool>,
+}
 
 #[derive(Default)]
 pub struct MutationRoot;
@@ -99,15 +118,12 @@ impl MutationRoot {
         &self,
         ctx: &Context<'_>,
         user_id: Uuid,
-        handle: MaybeUndefined<String>,
-        #[graphql(default)] delete_emails: Vec<String>,
-        #[graphql(default)] add_emails: Vec<String>,
-        #[graphql(default)] is_disabled: Option<bool>,
+        input: UpdateUserInput,
     ) -> Result<User> {
         let db = get_db(ctx);
         let current = get_user(ctx);
 
-        if !(current.is_admin || (current.id == user_id && is_disabled.is_none())) {
+        if !(current.is_admin || (current.id == user_id && input.is_disabled.is_none())) {
             return Err(Error::new("FORBIDDEN"));
         }
 
@@ -120,13 +136,13 @@ impl MutationRoot {
         let is_admin = user.is_admin;
         let mut user = user.into_active_model();
 
-        user.handle = match &handle {
+        user.handle = match &input.handle {
             MaybeUndefined::Value(handle) => Set(Some(handle.to_lowercase())),
             MaybeUndefined::Null => Set(None),
             MaybeUndefined::Undefined => NotSet,
         };
 
-        if let Some(is_disabled) = is_disabled {
+        if let Some(is_disabled) = input.is_disabled {
             if is_admin {
                 return Err(Error::new("FORBIDDEN"));
             }
@@ -142,15 +158,15 @@ impl MutationRoot {
             }
         })?;
 
-        if !delete_emails.is_empty() {
+        if !input.delete_emails.is_empty() {
             models::email::Entity::delete_many()
                 .filter(models::email::Column::UserId.eq(user_id))
-                .filter(models::email::Column::Email.is_in(delete_emails))
+                .filter(models::email::Column::Email.is_in(input.delete_emails))
                 .exec(&tx)
                 .await?;
         }
 
-        for email in add_emails {
+        for email in input.add_emails {
             let email_model = models::email::ActiveModel {
                 user_id: Set(user_id),
                 email: Set(email.clone()),
@@ -317,11 +333,7 @@ impl MutationRoot {
         &self,
         ctx: &Context<'_>,
         id: i32,
-        title: Option<String>,
-        description: Option<String>,
-        status: Option<String>,
-        assignee: MaybeUndefined<String>,
-        is_archived: Option<bool>,
+        input: UpdateTaskInput,
     ) -> Result<Task> {
         let db = get_db(ctx);
         let user = get_user(ctx);
@@ -335,7 +347,7 @@ impl MutationRoot {
                 .one(db)
                 .await?
             {
-                if task.is_archived && is_archived != Some(false) && !access.is_moderator {
+                if task.is_archived && input.is_archived != Some(false) && !access.is_moderator {
                     return Err(Error::new("TASK ARCHIVED"));
                 }
             } else {
@@ -345,25 +357,25 @@ impl MutationRoot {
 
         let mut task = task.into_active_model();
 
-        if let Some(title) = title {
+        if let Some(title) = input.title {
             task.title = Set(title);
         }
 
-        if let Some(description) = description {
+        if let Some(description) = input.description {
             task.description = Set(description);
         }
 
-        if let Some(status) = status {
+        if let Some(status) = input.status {
             task.status = Set(status);
         }
 
-        task.assignee = match assignee {
+        task.assignee = match input.assignee {
             MaybeUndefined::Value(email) => Set(Some(email)),
             MaybeUndefined::Null => Set(None),
             MaybeUndefined::Undefined => NotSet,
         };
 
-        if let Some(is_archived) = is_archived {
+        if let Some(is_archived) = input.is_archived {
             task.is_archived = Set(is_archived);
         }
 

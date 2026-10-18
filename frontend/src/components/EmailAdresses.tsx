@@ -17,74 +17,61 @@ export default function EmailAddresses() {
     const [adding, setAdding] = createSignal(false);
     const [emailValid, setEmailValid] = createSignal(false);
 
+    type UpdateUserInput = {
+        handle?: string | null;
+        deleteEmails?: string[];
+        addEmails?: string[];
+        isDisabled?: boolean;
+    };
+
+    async function updateMe(
+        input: UpdateUserInput,
+        fallbackErrorMsg: string,
+        onSuccess?: () => void
+    ) {
+        try {
+            const result = await gqlClient.mutation<{
+                updateUser: Me;
+            }>(
+                gql`
+                    mutation UpdateUser($userId: UUID!, $input: UpdateUserInput!) {
+                        updateUser(userId: $userId, input: $input) {
+                            id
+                            isAdmin
+                            emails
+                            handle
+                            invite
+                        }
+                    }
+                `,
+                {
+                    userId: appData.me.id,
+                    input,
+                }
+            );
+
+            if (result.error) {
+                throw result.error;
+            }
+
+            setAppData("me", result.data!.updateUser);
+            if (onSuccess) {
+                onSuccess();
+            }
+        } catch (err) {
+            addAlert(err instanceof Error ? err.message : fallbackErrorMsg, "error");
+        }
+    }
+
     async function addEmail() {
         setAdding(true);
 
-        try {
-            const result = await gqlClient.mutation<{
-                updateUser: Me;
-            }>(
-                gql`
-                    mutation updateUser($userId: UUID!, $email: String!) {
-                        updateUser(userId: $userId, addEmails: [$email]) {
-                            id
-                            isAdmin
-                            emails
-                            handle
-                            invite
-                        }
-                    }
-                `,
-                {
-                    userId: appData.me.id,
-                    email: email(),
-                }
-            );
-
-            if (result.error) {
-                throw result.error;
-            }
-
-            setAppData("me", result.data!.updateUser);
+        await updateMe({ addEmails: [email()] }, "Failed to add email.", () => {
             setEmail("");
             setEmailValid(false);
-        } catch (err) {
-            addAlert(err instanceof Error ? err.message : "Failed to add email.", "error");
-        }
+        });
 
         setAdding(false);
-    }
-
-    async function deleteEmail(email: string) {
-        try {
-            const result = await gqlClient.mutation<{
-                updateUser: Me;
-            }>(
-                gql`
-                    mutation updateUser($userId: UUID!, $email: String!) {
-                        updateUser(userId: $userId, deleteEmails: [$email]) {
-                            id
-                            isAdmin
-                            emails
-                            handle
-                            invite
-                        }
-                    }
-                `,
-                {
-                    userId: appData.me.id,
-                    email,
-                }
-            );
-
-            if (result.error) {
-                throw result.error;
-            }
-
-            setAppData("me", result.data!.updateUser);
-        } catch (err) {
-            addAlert(err instanceof Error ? err.message : "Failed to delete email.", "error");
-        }
     }
 
     return (
@@ -125,7 +112,11 @@ export default function EmailAddresses() {
                                                 {
                                                     label: "Yes",
                                                     class: "btn-error",
-                                                    onClick: () => deleteEmail(email),
+                                                    onClick: async () =>
+                                                        await updateMe(
+                                                            { deleteEmails: [email] },
+                                                            "Failed to delete email."
+                                                        ),
                                                 },
                                             ],
                                         });

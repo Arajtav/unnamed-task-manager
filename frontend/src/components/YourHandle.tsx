@@ -26,8 +26,8 @@ export default function YourHandle() {
                 updateUser: Me;
             }>(
                 gql`
-                    mutation updateUser($userId: UUID!, $handle: String!) {
-                        updateUser(userId: $userId, handle: $handle) {
+                    mutation UpdateUser($userId: UUID!, $input: UpdateUserInput!) {
+                        updateUser(userId: $userId, input: $input) {
                             id
                             isAdmin
                             emails
@@ -38,7 +38,9 @@ export default function YourHandle() {
                 `,
                 {
                     userId: appData.me.id,
-                    handle: handle() || null,
+                    input: {
+                        handle: handle() || null,
+                    },
                 }
             );
 

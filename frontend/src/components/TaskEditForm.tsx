@@ -95,22 +95,8 @@ export default function TaskEditForm(props: {
             };
         }>(
             gql`
-                mutation UpdateTask(
-                    $id: Int!
-                    $title: String
-                    $description: String
-                    $status: String
-                    $assignee: String
-                    $isArchived: Boolean
-                ) {
-                    updateTask(
-                        id: $id
-                        title: $title
-                        description: $description
-                        status: $status
-                        assignee: $assignee
-                        isArchived: $isArchived
-                    ) {
+                mutation UpdateTask($id: Int!, $input: UpdateTaskInput!) {
+                    updateTask(id: $id, input: $input) {
                         id
                         title
                         createdAt
@@ -140,7 +126,10 @@ export default function TaskEditForm(props: {
                     }
                 }
             `,
-            { id: task.id, ...fields }
+            {
+                id: task.id,
+                input: fields,
+            }
         );
 
         setSaving(false);

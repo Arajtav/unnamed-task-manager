@@ -14,14 +14,21 @@ export default function Users() {
     const { addAlert } = useAlert();
     const { openModal } = useModal();
 
-    async function addEmail(userId: string, email: string) {
+    type UpdateUserInput = {
+        handle?: string | null;
+        deleteEmails?: string[];
+        addEmails?: string[];
+        isDisabled?: boolean;
+    };
+
+    async function updateUser(userId: string, input: UpdateUserInput, fallbackErrorMsg: string) {
         try {
             const result = await gqlClient.mutation<{
                 updateUser: Replace<User, "createdAt", string>;
             }>(
                 gql`
-                    mutation updateUser($userId: UUID!, $email: String!) {
-                        updateUser(userId: $userId, addEmails: [$email]) {
+                    mutation UpdateUser($userId: UUID!, $input: UpdateUserInput!) {
+                        updateUser(userId: $userId, input: $input) {
                             id
                             emails
                             handle
@@ -32,115 +39,7 @@ export default function Users() {
                         }
                     }
                 `,
-                { userId, email }
-            );
-
-            if (result.error) {
-                throw result.error;
-            }
-
-            let updateUser = result.data!.updateUser;
-
-            setAppData("users", user => user.id == updateUser.id, {
-                ...updateUser,
-                createdAt: new Date(updateUser.createdAt),
-            });
-        } catch (err) {
-            addAlert(err instanceof Error ? err.message : "Failed to add email.", "error");
-        }
-    }
-
-    async function setHandle(userId: string, handle: string | null) {
-        try {
-            const result = await gqlClient.mutation<{
-                updateUser: Replace<User, "createdAt", string>;
-            }>(
-                gql`
-                    mutation updateUser($userId: UUID!, $handle: String) {
-                        updateUser(userId: $userId, handle: $handle) {
-                            id
-                            emails
-                            handle
-                            isAdmin
-                            isDisabled
-                            createdAt
-                            invite
-                        }
-                    }
-                `,
-                { userId, handle }
-            );
-
-            if (result.error) {
-                throw result.error;
-            }
-
-            let updateUser = result.data!.updateUser;
-
-            setAppData("users", user => user.id == updateUser.id, {
-                ...updateUser,
-                createdAt: new Date(updateUser.createdAt),
-            });
-        } catch (err) {
-            addAlert(err instanceof Error ? err.message : "Failed to add email.", "error");
-        }
-    }
-
-    async function deleteEmail(userId: string, email: string) {
-        try {
-            const result = await gqlClient.mutation<{
-                updateUser: Replace<User, "createdAt", string>;
-            }>(
-                gql`
-                    mutation updateUser($userId: UUID!, $email: String!) {
-                        updateUser(userId: $userId, deleteEmails: [$email]) {
-                            id
-                            emails
-                            handle
-                            isAdmin
-                            isDisabled
-                            createdAt
-                            invite
-                        }
-                    }
-                `,
-                { userId, email }
-            );
-
-            if (result.error) {
-                throw result.error;
-            }
-
-            let updateUser = result.data!.updateUser;
-
-            setAppData("users", user => user.id == updateUser.id, {
-                ...updateUser,
-                createdAt: new Date(updateUser.createdAt),
-            });
-        } catch (err) {
-            addAlert(err instanceof Error ? err.message : "Failed to delete email.", "error");
-        }
-    }
-
-    async function setDisabled(userId: string, isDisabled: boolean) {
-        try {
-            const result = await gqlClient.mutation<{
-                updateUser: Replace<User, "createdAt", string>;
-            }>(
-                gql`
-                    mutation updateUser($userId: UUID!, $isDisabled: Boolean!) {
-                        updateUser(userId: $userId, isDisabled: $isDisabled) {
-                            id
-                            emails
-                            handle
-                            isAdmin
-                            isDisabled
-                            createdAt
-                            invite
-                        }
-                    }
-                `,
-                { userId, isDisabled }
+                { userId, input }
             );
 
             if (result.error) {
@@ -154,7 +53,7 @@ export default function Users() {
                 createdAt: new Date(updateUser.createdAt),
             });
         } catch (err) {
-            addAlert(err instanceof Error ? err.message : "Failed to update user.", "error");
+            addAlert(err instanceof Error ? err.message : fallbackErrorMsg, "error");
         }
     }
 
@@ -339,8 +238,16 @@ export default function Users() {
                                                                 {
                                                                     label: "Yes",
                                                                     class: "btn-error",
-                                                                    onClick: () =>
-                                                                        deleteEmail(user.id, email),
+                                                                    onClick: async () =>
+                                                                        await updateUser(
+                                                                            user.id,
+                                                                            {
+                                                                                deleteEmails: [
+                                                                                    email,
+                                                                                ],
+                                                                            },
+                                                                            "Failed to delete email."
+                                                                        ),
                                                                 },
                                                             ],
                                                         })
@@ -351,9 +258,15 @@ export default function Users() {
                                         <BadgeButton
                                             icon={<PlusIcon strokeWidth={1.5} />}
                                             class="border-base-300/50 w-min invisible group-hover:visible"
-                                            onClick={() => {
+                                            onClick={async () => {
                                                 const email = prompt("Email")?.trim();
-                                                if (email) addEmail(user.id, email);
+                                                if (email) {
+                                                    await updateUser(
+                                                        user.id,
+                                                        { addEmails: [email] },
+                                                        "Failed to add email."
+                                                    );
+                                                }
                                             }}
                                         />
                                     </div>
@@ -396,10 +309,14 @@ export default function Users() {
 
                                             <li>
                                                 <button
-                                                    onClick={() => {
+                                                    onClick={async () => {
                                                         const handle = prompt("new handle")?.trim();
                                                         if (handle !== undefined) {
-                                                            setHandle(user.id, handle || null);
+                                                            await updateUser(
+                                                                user.id,
+                                                                { handle: handle || null },
+                                                                "Failed to update handle."
+                                                            );
                                                         }
                                                     }}
                                                 >
@@ -429,8 +346,12 @@ export default function Users() {
                                             <Show when={!user.isAdmin}>
                                                 <li>
                                                     <button
-                                                        onClick={() =>
-                                                            setDisabled(user.id, !user.isDisabled)
+                                                        onClick={async () =>
+                                                            await updateUser(
+                                                                user.id,
+                                                                { isDisabled: !user.isDisabled },
+                                                                "Failed to update user."
+                                                            )
                                                         }
                                                     >
                                                         {user.isDisabled

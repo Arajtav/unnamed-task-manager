@@ -26,8 +26,8 @@ export default function Board() {
             updateTask: Replace<Task, "createdAt", string>;
         }>(
             gql`
-                mutation UpdateTask($id: Int!, $status: String) {
-                    updateTask(id: $id, status: $status) {
+                mutation UpdateTask($id: Int!, $input: UpdateTaskInput!) {
+                    updateTask(id: $id, input: $input) {
                         id
                         title
                         createdAt
@@ -56,7 +56,9 @@ export default function Board() {
             `,
             {
                 id: task.id,
-                status,
+                input: {
+                    status,
+                },
             }
         );
 
