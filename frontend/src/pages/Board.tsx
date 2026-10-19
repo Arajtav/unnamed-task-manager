@@ -10,8 +10,11 @@ import { useAlert } from "../contexts/alertContext";
 import SearchString from "search-string";
 import Fuse from "fuse.js";
 import { dbg } from "../debug";
+import { useNavigate, useParams } from "@solidjs/router";
 
 export default function Board() {
+    const params = useParams();
+    const navigate = useNavigate();
     const [board, setBoard] = useBoard();
     const [boardNav] = useBoardNav();
     const { addAlert } = useAlert();
@@ -122,7 +125,15 @@ export default function Board() {
         return filtered;
     });
 
-    const [viewTask, setViewTask] = createSignal<number | null>(null);
+    const viewTask = createMemo(() => (params.taskId ? Number(params.taskId) : null));
+
+    function setViewTask(id: number | null) {
+        if (id !== null) {
+            navigate(`/boards/${params.id}/${id}`);
+        } else {
+            navigate(`/boards/${params.id}`);
+        }
+    }
 
     async function moveTask(taskId: number, status: string) {
         let task = board.tasks.find(task => task.id == taskId);

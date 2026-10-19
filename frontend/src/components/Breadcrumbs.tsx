@@ -5,7 +5,9 @@ import { useAppData } from "../contexts/appDataContext";
 type Crumb = { label: string; href: string };
 
 type RouteData =
-    | { place: "boards"; id: number; settings: boolean }
+    | { place: "boards"; id: number }
+    | { place: "boards"; id: number; settings: true }
+    | { place: "boards"; id: number; task: number }
     | { place: "boards"; id: "new" }
     | { place: "settings" }
     | { place: "users" }
@@ -13,7 +15,7 @@ type RouteData =
 
 export default function Breadcrumbs() {
     const location = useLocation();
-    const params = useParams<{ id?: string }>();
+    const params = useParams<{ id?: string; taskId?: string }>();
     const [{ boards }] = useAppData();
 
     const routeData = createMemo((): RouteData => {
@@ -24,11 +26,18 @@ export default function Breadcrumbs() {
         if (path == "/boards/create") return { place: "boards", id: "new" };
 
         if (path.startsWith("/boards/")) {
-            return {
-                place: "boards",
-                id: Number(params.id),
-                settings: path.endsWith("/settings"),
-            };
+            const boardId = Number(params.id);
+
+            if (path.endsWith("/settings")) {
+                return { place: "boards", id: boardId, settings: true };
+            }
+
+            const task = Number(params.taskId);
+            if (Number.isInteger(task) && task >= 0) {
+                return { place: "boards", id: boardId, task };
+            }
+
+            return { place: "boards", id: boardId };
         }
 
         return { place: "home" };
@@ -47,11 +56,18 @@ export default function Breadcrumbs() {
                 items.push({ label: "Create Board", href: "/boards/create" });
             } else {
                 const board = boards.get(data.id);
+
                 if (board !== undefined) {
                     items.push({ label: board, href: `/boards/${data.id}` });
                 }
-                if (data.settings) {
+
+                if ("settings" in data) {
                     items.push({ label: "Settings", href: `/boards/${data.id}/settings` });
+                } else if ("task" in data) {
+                    items.push({
+                        label: String(data.task),
+                        href: `/boards/${data.id}/${data.task}`,
+                    });
                 }
             }
         }

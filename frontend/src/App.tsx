@@ -17,7 +17,7 @@ export default function App() {
             <Route path="/login" component={Login} />
             <Route path="/join" component={Join} />
             <Route path="/boards/:id" component={BoardLayout}>
-                <Route path="/" component={Board} />
+                <Route path="/:taskId?" component={Board} />
                 <Route path="/settings" component={BoardSettings} />
             </Route>
             <Route path="/boards/create" component={BoardForm} />

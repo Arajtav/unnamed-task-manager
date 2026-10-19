@@ -37,7 +37,7 @@ export type TimeEntry = {
     description: string;
 };
 
-export default function FullTask({ id, setId }: { id: number; setId: Setter<number | null> }) {
+export default function FullTask({ id, setId }: { id: number; setId: (id: number | null) => any }) {
     const { addAlert } = useAlert();
     const [{ me }] = useAppData();
 
