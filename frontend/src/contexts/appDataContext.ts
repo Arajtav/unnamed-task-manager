@@ -20,7 +20,7 @@ export type Me = {
 };
 
 export type AppData = {
-    boards: Map<string, string>;
+    boards: Map<number, string>;
     users: User[];
     me: Me;
 };

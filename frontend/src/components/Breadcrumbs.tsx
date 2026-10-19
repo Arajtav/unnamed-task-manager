@@ -4,35 +4,56 @@ import { useAppData } from "../contexts/appDataContext";
 
 type Crumb = { label: string; href: string };
 
+type RouteData =
+    | { place: "boards"; id: number; settings: boolean }
+    | { place: "boards"; id: "new" }
+    | { place: "settings" }
+    | { place: "users" }
+    | { place: "home" };
+
 export default function Breadcrumbs() {
     const location = useLocation();
     const params = useParams<{ id?: string }>();
     const [{ boards }] = useAppData();
 
-    const boardId = createMemo(() =>
-        location.pathname.startsWith("/boards/") ? params.id : undefined
-    );
+    const routeData = createMemo((): RouteData => {
+        const path = location.pathname;
 
-    const board = createMemo(() => {
-        let id = boardId();
+        if (path == "/settings") return { place: "settings" };
+        if (path == "/users") return { place: "users" };
+        if (path == "/boards/create") return { place: "boards", id: "new" };
 
-        if (id) {
-            return boards.get(id);
-        } else {
-            return undefined;
+        if (path.startsWith("/boards/")) {
+            return {
+                place: "boards",
+                id: Number(params.id),
+                settings: path.endsWith("/settings"),
+            };
         }
+
+        return { place: "home" };
     });
 
-    const crumbs = createMemo<Crumb[]>(() => {
-        const path = location.pathname;
+    const crumbs = createMemo(() => {
+        const data = routeData();
         const items: Crumb[] = [{ label: "Home", href: "/" }];
 
-        if (path == "/login") {
-            items.push({ label: "Login", href: "/login" });
-        } else if (path == "/boards/create") {
-            items.push({ label: "Create Board", href: "boards/create" });
-        } else if (boardId()) {
-            items.push({ label: board() ?? boardId()!, href: path });
+        if (data.place == "settings") {
+            items.push({ label: "Settings", href: "/settings" });
+        } else if (data.place == "users") {
+            items.push({ label: "Users", href: "/users" });
+        } else if (data.place == "boards") {
+            if (data.id == "new") {
+                items.push({ label: "Create Board", href: "/boards/create" });
+            } else {
+                const board = boards.get(data.id);
+                if (board !== undefined) {
+                    items.push({ label: board, href: `/boards/${data.id}` });
+                }
+                if (data.settings) {
+                    items.push({ label: "Settings", href: `/boards/${data.id}/settings` });
+                }
+            }
         }
 
         return items;
@@ -52,7 +73,3 @@ export default function Breadcrumbs() {
         </div>
     );
 }
-
-// TODO: show /settings or something or at least make it so you can go back from them
-// TODO: what did I even do a CR, make it show board name not id.
-// TODO: well now what tasks can be open display them too.

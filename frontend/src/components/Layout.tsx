@@ -24,7 +24,7 @@ export default function Layout(props: RouteSectionProps) {
         const result = await gqlClient.query<{
             me: Me;
             boards: {
-                id: string;
+                id: number;
                 name: string;
             }[];
             users: Replace<User, "createdAt", string>[];
