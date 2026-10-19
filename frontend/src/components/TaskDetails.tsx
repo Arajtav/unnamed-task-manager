@@ -9,6 +9,7 @@ import { gql } from "@urql/core";
 import { handleAuthError } from "../auth";
 import { useAlert } from "../contexts/alertContext";
 import { SetStoreFunction } from "solid-js/store";
+import DateTime from "./DateTime";
 
 export default function TaskDetails(props: {
     task: Task;
@@ -135,7 +136,9 @@ export default function TaskDetails(props: {
 
                 <div>
                     <div class="text-sm font-semibold text-base-content/70">Created</div>
-                    <div class="mt-1">{task.createdAt.toLocaleString()}</div>
+                    <div class="mt-1">
+                        <DateTime datetime={task.createdAt} />
+                    </div>
                 </div>
 
                 <div>

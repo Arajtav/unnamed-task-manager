@@ -8,6 +8,7 @@ import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
 import { useAlert } from "../contexts/alertContext";
 import { useModal } from "../contexts/modalContext";
+import DateTime from "../components/DateTime";
 
 export default function Users() {
     const [appData, setAppData] = useAppData();
@@ -283,7 +284,9 @@ export default function Users() {
                                     </Show>
                                 </td>
 
-                                <td class="w-px">{user.createdAt.toISOString()}</td>
+                                <td class="w-px">
+                                    <DateTime datetime={user.createdAt} seconds={true} />
+                                </td>
 
                                 <td class="w-px">
                                     <div class="dropdown dropdown-end">

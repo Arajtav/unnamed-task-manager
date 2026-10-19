@@ -2,6 +2,7 @@ import { createMemo, Show } from "solid-js";
 import { Task as TaskT } from "../contexts/boardContext";
 import { formatDuration } from "../format";
 import Avatar from "../newComponents/Avatar";
+import DateTime from "./DateTime";
 
 export default function Task({ task }: { task: TaskT }) {
     const timeTracked = createMemo(() => task.timeLogged.reduce((acc, e) => acc + e.time, 0));
@@ -19,7 +20,10 @@ export default function Task({ task }: { task: TaskT }) {
                     </p>
                 )}
             </Show>
-            <p>Created at: {task.createdAt.toISOString()}</p>
+            <div class="flex flex-row gap-[1ch]">
+                <span>Created:</span>
+                <DateTime datetime={task.createdAt} imprecise={true} />
+            </div>
             <p>Time logged: {formatDuration(timeTracked())}</p>
         </div>
     );

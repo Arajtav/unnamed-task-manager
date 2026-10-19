@@ -10,6 +10,7 @@ import { useBoard } from "../contexts/boardContext";
 import { useModal } from "../contexts/modalContext";
 import { newValueOrUndefined } from "./TaskEditForm";
 import { makePersisted } from "@solid-primitives/storage";
+import DateTime from "./DateTime";
 
 export default function TimeEditForm(props: {
     time: TimeEntry[];
@@ -275,11 +276,11 @@ export default function TimeEditForm(props: {
                             <div class="flex flex-col border-b border-base-200 pb-2 mb-2 gap-2">
                                 <div class="flex flex-row">
                                     <div class="flex-1">Start time</div>
-                                    <div>{e.startedAt.toISOString()}</div>
+                                    <DateTime datetime={e.startedAt} />
                                 </div>
                                 <div class="flex flex-row">
                                     <div class="flex-1">End time</div>
-                                    <div>{e.finishedAt.toISOString()}</div>
+                                    <DateTime datetime={e.finishedAt} />
                                 </div>
                                 <div class="flex flex-col">
                                     <div>Description:</div>
