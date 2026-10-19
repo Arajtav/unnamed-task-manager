@@ -17,7 +17,7 @@ export default function BoardLayout(props: RouteSectionProps) {
     const store = createStore({} as FullBoard);
     const [loading, setLoading] = createSignal<"yes" | "no" | "error">("yes");
 
-    const bnDefault = { createTask: false, showArchived: false };
+    const bnDefault = { createTask: false, search: "archived:false" };
     const boardNavStore = createStore<BoardNavSettings>({ ...bnDefault });
 
     // Actually when going to settings createTask should close to false TODO.

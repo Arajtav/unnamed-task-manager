@@ -15,21 +15,18 @@ export default function BoardNavbar() {
     );
 
     return (
-        <div class="navbar flex flex-row justify-between bg-base-200">
-            <div class="flex flex-row gap-4">
+        <div class="navbar flex flex-row justify-between bg-base-200 gap-4">
+            <div class="flex flex-row gap-4 flex-1">
                 <div class="btn btn-accent" onClick={() => setBoardNav("createTask", true)}>
                     <PlusIcon strokeWidth={1.5} />
                     Add task
                 </div>
-                <div class="flex items-center gap-2">
-                    Show archived
-                    <input
-                        type="checkbox"
-                        checked={boardNav.showArchived}
-                        class="toggle"
-                        onChange={e => setBoardNav("showArchived", e.currentTarget.checked)}
-                    />
-                </div>
+                <input
+                    class="w-full input"
+                    value={boardNav.search}
+                    placeholder="Search..."
+                    onInput={e => setBoardNav("search", e.currentTarget.value)}
+                ></input>
             </div>
 
             <A

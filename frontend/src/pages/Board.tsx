@@ -1,4 +1,4 @@
-import { createSignal, For, Setter, Show } from "solid-js";
+import { createMemo, createSignal, For, Setter, Show } from "solid-js";
 import FullTask from "../components/FullTask";
 import { Task, useBoard } from "../contexts/boardContext";
 import { useBoardNav } from "../contexts/boardNavContext";
@@ -7,11 +7,120 @@ import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
 import { handleAuthError } from "../auth";
 import { useAlert } from "../contexts/alertContext";
+import SearchString from "search-string";
+import Fuse from "fuse.js";
+import { dbg } from "../debug";
 
 export default function Board() {
     const [board, setBoard] = useBoard();
     const [boardNav] = useBoardNav();
     const { addAlert } = useAlert();
+
+    // TODO: This won't accept some cursed emails but we probably should not allow them anyways, it was a mistake.
+    const filters = createMemo(() => {
+        const parsed = SearchString.parse(boardNav.search);
+
+        let archived: boolean | undefined;
+        const authors = new Set<string>();
+        const notAuthors = new Set<string>();
+        const assignees = new Set<string>();
+        const notAssignees = new Set<string>();
+
+        for (const cond of parsed.getConditionArray()) {
+            switch (cond.keyword.toLowerCase()) {
+                case "archived": {
+                    const val = cond.value.toLowerCase() === "true";
+                    archived = val != cond.negated;
+                    break;
+                }
+                case "author":
+                    if (cond.negated) {
+                        notAuthors.add(cond.value);
+                    } else {
+                        authors.add(cond.value);
+                    }
+                    break;
+                case "assignee":
+                    if (cond.negated) {
+                        notAssignees.add(cond.value);
+                    } else {
+                        assignees.add(cond.value);
+                    }
+                    break;
+            }
+        }
+
+        const textSegments = parsed.getTextSegments();
+        const searchTerm = textSegments
+            .filter(seg => !seg.negated)
+            .map(seg => seg.text)
+            .join(" ");
+
+        const excludedTerms = textSegments.filter(seg => seg.negated).map(seg => seg.text);
+
+        return {
+            archived,
+            authors,
+            notAuthors,
+            assignees,
+            notAssignees,
+            searchTerm,
+            excludedTerms,
+        };
+    });
+
+    const filteredTasks = createMemo(() => {
+        let filtered = board.tasks;
+        let f = dbg(filters());
+
+        if (f.archived !== undefined) {
+            filtered = filtered.filter(t => t.isArchived == f.archived);
+        }
+
+        for (const author of f.authors) {
+            filtered = filtered.filter(
+                t => t.author.email.includes(author) || t.author.user?.handle?.includes(author)
+            );
+        }
+
+        for (const author of f.notAuthors) {
+            filtered = filtered.filter(
+                t => !t.author.email.includes(author) && !t.author.user?.handle?.includes(author)
+            );
+        }
+
+        for (const assignee of f.assignees) {
+            filtered = filtered.filter(
+                t =>
+                    t.assignee?.email.includes(assignee) ||
+                    t.assignee?.user?.handle?.includes(assignee)
+            );
+        }
+
+        for (const assignee of f.notAssignees) {
+            filtered = filtered.filter(
+                t =>
+                    !t.assignee?.email.includes(assignee) &&
+                    !t.assignee?.user?.handle?.includes(assignee)
+            );
+        }
+
+        if (f.searchTerm) {
+            const fuse = new Fuse(filtered, { keys: ["title"], threshold: 0.4 });
+            filtered = fuse.search(f.searchTerm).map(result => result.item);
+        }
+
+        if (f.excludedTerms.length > 0) {
+            filtered = filtered.filter(
+                t =>
+                    !f.excludedTerms.some(term =>
+                        t.title.toLowerCase().includes(term.toLowerCase())
+                    )
+            );
+        }
+
+        return filtered;
+    });
 
     const [viewTask, setViewTask] = createSignal<number | null>(null);
 
@@ -86,11 +195,7 @@ export default function Board() {
                             status={status}
                             setViewTask={setViewTask as Setter<number>}
                             onMoveTask={moveTask}
-                            tasks={board.tasks.filter(
-                                task =>
-                                    task.status == status.name &&
-                                    (boardNav.showArchived || !task.isArchived)
-                            )}
+                            tasks={filteredTasks().filter(task => task.status == status.name)}
                         />
                     )}
                 </For>

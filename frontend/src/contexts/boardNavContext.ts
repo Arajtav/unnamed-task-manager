@@ -3,7 +3,7 @@ import { createStore } from "solid-js/store";
 
 export type BoardNavSettings = {
     createTask: boolean;
-    showArchived: boolean;
+    search: string;
 };
 
 export type BoardNavStore = ReturnType<typeof createStore<BoardNavSettings>>;
