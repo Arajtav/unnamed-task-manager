@@ -1,7 +1,7 @@
 import { createMemo, Show } from "solid-js";
-import Avatar from "./Avatar";
 import { Task as TaskT } from "../contexts/boardContext";
 import { formatDuration } from "../format";
+import Avatar from "../newComponents/Avatar";
 
 export default function Task({ task }: { task: TaskT }) {
     const timeTracked = createMemo(() => task.timeLogged.reduce((acc, e) => acc + e.time, 0));
@@ -10,14 +10,15 @@ export default function Task({ task }: { task: TaskT }) {
         <div class={task.isArchived ? "opacity-50" : ""}>
             <p class="font-bold">{task.title}</p>
             <p>
-                Author: <Avatar user={task.author.user?.handle ?? task.author.email} />
+                Author: <Avatar user={task.author} title={{ option: "auto" }} />
             </p>
-            <p>
-                Assignee:{" "}
-                <Show when={task.assignee} fallback={"No one is assigned to this task"}>
-                    {assignee => <Avatar user={assignee().user?.handle ?? assignee().email} />}
-                </Show>
-            </p>
+            <Show when={task.assignee}>
+                {assignee => (
+                    <p>
+                        Assignee: <Avatar user={assignee()} title={{ option: "auto" }} />
+                    </p>
+                )}
+            </Show>
             <p>Created at: {task.createdAt.toISOString()}</p>
             <p>Time logged: {formatDuration(timeTracked())}</p>
         </div>

@@ -26,7 +26,7 @@ const colorHash = new ColorHash({
     lightness: [0.6, 0.65, 0.7],
 });
 
-export function userColor(user: { id?: string | null }) {
-    if (!user.id) return "#6F6F6F";
-    return colorHash.hex(user.id);
+export function userColor(id?: string | null) {
+    if (!id) return "#6F6F6F";
+    return colorHash.hex(id);
 }

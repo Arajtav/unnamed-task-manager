@@ -1,7 +1,7 @@
 import { A } from "@solidjs/router";
 import { client } from "../auth";
-import Avatar from "./Avatar";
 import { useAppData } from "../contexts/appDataContext";
+import Avatar from "../newComponents/Avatar";
 
 export default function MeIcon() {
     const [{ me }] = useAppData();
@@ -18,7 +18,10 @@ export default function MeIcon() {
     return (
         <div>
             <button popovertarget="avatar-settings" style="anchor-name: --avatar-anchor">
-                <Avatar user={me.handle ?? me.emails[0] ?? me.id} alt="You" />
+                <Avatar
+                    user={me}
+                    title={{ option: "custom", value: "You" }}
+                />
             </button>
 
             <ul

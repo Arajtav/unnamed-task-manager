@@ -199,11 +199,7 @@ export default function Users() {
 
                                 <td class="w-px">
                                     <div class="flex flex-row items-center gap-2 font-mono">
-                                        <Avatar
-                                            user={
-                                                user.handle?.charAt(0) ?? user.emails[0]?.charAt(0)
-                                            }
-                                        />
+                                        <Avatar user={user} />
                                         <div>
                                             {user.handle
                                                 ? `@${user.handle}`

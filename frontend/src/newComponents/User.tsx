@@ -1,6 +1,5 @@
 import { Show } from "solid-js";
 import Avatar from "./Avatar";
-import { userColor } from "../format";
 
 export default function User(props: {
     user?: { id?: string | null; emails: string[]; handle?: string | null } | null;
@@ -14,12 +13,12 @@ export default function User(props: {
     );
 }
 
-function UserInternal(props: { user: { id?: string | null; emails: string[]; handle?: string | null } }) {
-    const user = props.user.handle ?? props.user.emails[0];
-
+function UserInternal(props: {
+    user: { id?: string | null; emails: string[]; handle?: string | null };
+}) {
     return (
         <div class="flex flex-row h-12 items-center px-1 gap-2 font-heading">
-            <Avatar color={userColor(props.user)} user={user ? user[0] : undefined} />
+            <Avatar user={props.user} />
             <div class="flex flex-col justify-center h-full">
                 <Show when={props.user.handle}>
                     <div class="truncate">{"@" + props.user.handle!}</div>
