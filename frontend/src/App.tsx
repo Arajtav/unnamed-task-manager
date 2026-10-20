@@ -9,20 +9,24 @@ import Join from "./pages/Join";
 import Settings from "./pages/Settings";
 import BoardSettings from "./pages/BoardSettings";
 import Users from "./pages/Users";
+import { MetaProvider, Title } from "@solidjs/meta";
 
 export default function App() {
     return (
-        <Router root={Layout}>
-            <Route path="/" component={Home} />
-            <Route path="/login" component={Login} />
-            <Route path="/join" component={Join} />
-            <Route path="/boards/:id" component={BoardLayout}>
-                <Route path="/:taskId?" component={Board} />
-                <Route path="/settings" component={BoardSettings} />
-            </Route>
-            <Route path="/boards/create" component={BoardForm} />
-            <Route path="/settings" component={Settings} />
-            <Route path="/users" component={Users} />
-        </Router>
+        <MetaProvider>
+            <Router root={Layout}>
+                <Route path="/" component={Home} />
+                <Route path="/login" component={Login} />
+                <Route path="/join" component={Join} />
+                <Route path="/boards/:id" component={BoardLayout}>
+                    <Route path="/:taskId?" component={Board} />
+                    <Route path="/settings" component={BoardSettings} />
+                </Route>
+                <Route path="/boards/create" component={BoardForm} />
+                <Route path="/settings" component={Settings} />
+                <Route path="/users" component={Users} />
+                <Route path="*" component={() => <Title>Not Found</Title>} />
+            </Router>
+        </MetaProvider>
     );
 }

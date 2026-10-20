@@ -9,6 +9,7 @@ import TaskForm from "../components/TaskForm";
 import { BoardContext, FullBoard, Task } from "../contexts/boardContext";
 import { useAlert } from "../contexts/alertContext";
 import { BoardNavContext, BoardNavSettings } from "../contexts/boardNavContext";
+import { Title } from "@solidjs/meta";
 
 export default function BoardLayout(props: RouteSectionProps) {
     const params = useParams<{ id: string }>();
@@ -112,6 +113,10 @@ export default function BoardLayout(props: RouteSectionProps) {
 
     return (
         <div class="flex flex-col h-full">
+            <Show when={loading() == "error"}>
+                <Title>Something went wrong</Title>
+            </Show>
+
             <Show when={loading() == "yes"}>
                 <div class="w-full h-full items-center justify-center flex">
                     <span class="loading loading-spinner loading-lg" />

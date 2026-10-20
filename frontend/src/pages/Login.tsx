@@ -2,6 +2,7 @@ import { createSignal, Match, onMount, Show, Switch } from "solid-js";
 import { client } from "../auth";
 import { A } from "@solidjs/router";
 import { useAlert } from "../contexts/alertContext";
+import { Title } from "@solidjs/meta";
 
 export default function Login() {
     const { addAlert } = useAlert();
@@ -86,6 +87,7 @@ export default function Login() {
 
     return (
         <main class="h-full flex items-center justify-center">
+            <Title>Login</Title>
             <div class="card w-full max-w-md bg-base-100 border border-base-200">
                 <div class="card-body items-center text-center">
                     <h1 class="card-title text-2xl mb-4">Sign in</h1>

@@ -1,4 +1,4 @@
-import { createMemo, createSignal, For, Setter, Show } from "solid-js";
+import { createMemo, For, Setter, Show } from "solid-js";
 import FullTask from "../components/FullTask";
 import { Task, useBoard } from "../contexts/boardContext";
 import { useBoardNav } from "../contexts/boardNavContext";
@@ -11,6 +11,7 @@ import SearchString from "search-string";
 import Fuse from "fuse.js";
 import { dbg } from "../debug";
 import { useNavigate, useParams } from "@solidjs/router";
+import { Title } from "@solidjs/meta";
 
 export default function Board() {
     const params = useParams();
@@ -197,8 +198,23 @@ export default function Board() {
         setBoard("tasks", task => task.id == saved.id, saved);
     }
 
+    const title = () => {
+        const taskId = viewTask();
+
+        if (taskId) {
+            const task = board.tasks.find(t => t.id == taskId);
+
+            if (task) {
+                return `${board.name} - ${task.title}`;
+            }
+        }
+
+        return board.name;
+    };
+
     return (
         <>
+            <Title>{title()}</Title>
             <div class="flex flex-row w-full h-auto gap-4 m-4">
                 <For each={board.taskStatus}>
                     {status => (

@@ -9,6 +9,7 @@ import { gql } from "@urql/core";
 import { useAlert } from "../contexts/alertContext";
 import { useModal } from "../contexts/modalContext";
 import DateTime from "../components/DateTime";
+import { Title } from "@solidjs/meta";
 
 export default function Users() {
     const [appData, setAppData] = useAppData();
@@ -171,6 +172,7 @@ export default function Users() {
 
     return (
         <>
+            <Title>Users</Title>
             <div class="navbar flex flex-row justify-end bg-base-200">
                 <button class="btn btn-accent" onClick={() => addUser()}>
                     Create account

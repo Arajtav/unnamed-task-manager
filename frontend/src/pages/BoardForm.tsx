@@ -3,11 +3,12 @@ import { useNavigate } from "@solidjs/router";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
 import { useAppData } from "../contexts/appDataContext";
+import { Title } from "@solidjs/meta";
 
 async function createBoard(name: string) {
     const result = await gqlClient.mutation<{
         createBoard: {
-            id: string;
+            id: number;
             name: string;
         };
     }>(
@@ -50,6 +51,7 @@ export default function BoardForm() {
 
     return (
         <div class="flex w-full h-full items-center justify-center">
+            <Title>New Board</Title>
             <div class="card card-border bg-base-100 border border-base-200">
                 <div class="card-body">
                     <h2 class="card-title">Create Board</h2>

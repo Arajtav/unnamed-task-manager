@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@solid-primitives/storage": "^4.4.0",
+    "@solidjs/meta": "^0.29.4",
     "@solidjs/router": "^1.0.0",
     "@ts-rest/core": "^3.52.1",
     "@types/color-hash": "^2.0.0",

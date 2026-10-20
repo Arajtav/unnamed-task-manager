@@ -1,9 +1,11 @@
 import YourHandle from "../components/YourHandle";
 import EmailAddresses from "../components/EmailAdresses";
+import { Title } from "@solidjs/meta";
 
 export default function Settings() {
     return (
         <>
+            <Title>Settings</Title>
             <div class="w-full h-full flex flex-row">
                 <ul class="menu bg-base-200 w-56 h-full">
                     <li>
