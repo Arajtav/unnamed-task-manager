@@ -344,6 +344,23 @@ impl Task {
 
         Ok(count > 0)
     }
+
+    async fn labels(&self, ctx: &Context<'_>) -> Result<Vec<String>> {
+        let db = get_db(ctx);
+
+        let labels = models::task_label::Entity::find()
+            .filter(models::task_label::Column::TaskId.eq(self.id))
+            .all(db)
+            .await?;
+
+        Ok(vec_map(labels))
+    }
+}
+
+impl From<models::task_label::Model> for String {
+    fn from(label: models::task_label::Model) -> Self {
+        label.name
+    }
 }
 
 #[derive(SimpleObject)]

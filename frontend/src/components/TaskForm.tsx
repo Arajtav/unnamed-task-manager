@@ -5,8 +5,13 @@ import { gql } from "@urql/core";
 import { Task, useBoard } from "../contexts/boardContext";
 import { useBoardNav } from "../contexts/boardNavContext";
 import { useAppData } from "../contexts/appDataContext";
+import { useAlert } from "../contexts/alertContext";
+import Badge from "../newComponents/Badge";
+import BadgeButton from "../newComponents/BadgeButton";
+import { PlusIcon } from "lucide-solid";
 
 export default function TaskForm() {
+    const { addAlert } = useAlert();
     const [{ me }] = useAppData();
     const [board, setBoard] = useBoard();
     const [_, setBoardNav] = useBoardNav();
@@ -15,6 +20,27 @@ export default function TaskForm() {
     const [description, setDescription] = createSignal("");
     const [author, setAuthor] = createSignal(me.emails[0] ?? "");
     const [status, setStatus] = createSignal(board.taskStatus[0]?.name ?? "");
+    const [labels, setLabels] = createSignal(new Set<string>());
+
+    function addLabel() {
+        const name = prompt("Label")?.trim().toLowerCase();
+        if (!name) return;
+
+        if ([...name].length > 64) {
+            addAlert("Label can be at most 64 characters", "error");
+            return;
+        }
+
+        setLabels(prev => new Set(prev).add(name));
+    }
+
+    function removeLabel(label: string) {
+        setLabels(prev => {
+            const next = new Set(prev);
+            next.delete(label);
+            return next;
+        });
+    }
 
     async function submit(e: SubmitEvent) {
         e.preventDefault();
@@ -31,6 +57,7 @@ export default function TaskForm() {
                     $description: String
                     $author: String!
                     $status: String!
+                    $labels: [String!]
                 ) {
                     createTask(
                         boardId: $boardId
@@ -38,6 +65,7 @@ export default function TaskForm() {
                         description: $description
                         author: $author
                         status: $status
+                        labels: $labels
                     ) {
                         id
                         title
@@ -62,6 +90,7 @@ export default function TaskForm() {
                         }
                         isArchived
                         isBlocked
+                        labels
                     }
                 }
             `,
@@ -71,6 +100,7 @@ export default function TaskForm() {
                 description: description() || null,
                 author: author(),
                 status: status(),
+                labels: [...labels()],
             }
         );
 
@@ -84,6 +114,7 @@ export default function TaskForm() {
         setTitle("");
         setDescription("");
         setAuthor("");
+        setLabels(new Set<string>());
         setBoard("tasks", tasks => [...tasks, { ...task, createdAt: new Date(task.createdAt) }]);
         setBoardNav("createTask", false);
     }
@@ -156,6 +187,24 @@ export default function TaskForm() {
                                         )}
                                     </For>
                                 </select>
+
+                                <label class="label">Labels</label>
+                                <div class="flex flex-wrap gap-2">
+                                    <For each={[...labels()]}>
+                                        {label => (
+                                            <Badge
+                                                text={label}
+                                                class="border-base-300/50"
+                                                onClick={() => removeLabel(label)}
+                                            />
+                                        )}
+                                    </For>
+                                    <BadgeButton
+                                        icon={<PlusIcon strokeWidth={1.5} />}
+                                        class="border-base-300/50"
+                                        onClick={addLabel}
+                                    />
+                                </div>
                             </fieldset>
                         </form>
                     </Show>

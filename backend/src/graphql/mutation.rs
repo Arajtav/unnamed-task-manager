@@ -17,6 +17,14 @@ use crate::{
     models::{self, user::new_invite},
 };
 
+fn normalize_label(raw: &str) -> Result<String> {
+    let name = raw.trim();
+    if name.is_empty() || name.chars().count() > 64 {
+        return Err(Error::new("Invalid label"));
+    }
+    Ok(name.to_lowercase())
+}
+
 #[derive(InputObject)]
 pub struct UpdateTaskInput {
     pub title: Option<String>,
@@ -24,6 +32,10 @@ pub struct UpdateTaskInput {
     pub status: Option<String>,
     pub assignee: MaybeUndefined<String>,
     pub is_archived: Option<bool>,
+    #[graphql(default)]
+    pub add_labels: Vec<String>,
+    #[graphql(default)]
+    pub remove_labels: Vec<String>,
 }
 
 #[derive(InputObject)]
@@ -280,13 +292,21 @@ impl MutationRoot {
         author: String,
         status: String,
         #[graphql(default)] assignee: Option<String>,
+        #[graphql(default)] labels: Vec<String>,
     ) -> Result<Task> {
         let db = get_db(ctx);
         let user = get_user(ctx);
 
+        let labels = labels
+            .iter()
+            .map(|l| normalize_label(l))
+            .collect::<Result<Vec<_>>>()?;
+
+        let tx = db.begin().await?;
+
         if !user.is_admin {
             let access = models::board_access::Entity::find_by_id((board_id, user.id))
-                .one(db)
+                .one(&tx)
                 .await?;
 
             if access.is_none() {
@@ -296,7 +316,7 @@ impl MutationRoot {
 
         let owns_email = models::email::Entity::find_by_id(&author)
             .filter(models::email::Column::UserId.eq(user.id))
-            .one(db)
+            .one(&tx)
             .await?
             .is_some();
 
@@ -314,7 +334,7 @@ impl MutationRoot {
             ..Default::default()
         };
 
-        let task = task.insert(db).await.map_err(|err| {
+        let task = task.insert(&tx).await.map_err(|err| {
             if let Some(SqlErr::UniqueConstraintViolation(_)) = err.sql_err() {
                 return Error::new("TITLE");
             }
@@ -325,6 +345,24 @@ impl MutationRoot {
 
             Error::new("Failed to create task")
         })?;
+
+        if !labels.is_empty() {
+            models::task_label::Entity::insert_many(labels.into_iter().map(|name| {
+                models::task_label::ActiveModel {
+                    task_id: Set(task.id),
+                    name: Set(name),
+                }
+            }))
+            .on_conflict_do_nothing_on([
+                models::task_label::Column::TaskId,
+                models::task_label::Column::Name,
+            ])
+            .exec(&tx)
+            .await
+            .map_err(|_| Error::new("Failed to add label"))?;
+        }
+
+        tx.commit().await?;
 
         Ok(Task::from(task))
     }
@@ -338,13 +376,27 @@ impl MutationRoot {
         let db = get_db(ctx);
         let user = get_user(ctx);
 
-        let Some(task) = models::task::Entity::find_by_id(id).one(db).await? else {
+        let add_labels = input
+            .add_labels
+            .iter()
+            .map(|l| normalize_label(l))
+            .collect::<Result<Vec<_>>>()?;
+
+        let remove_labels = input
+            .remove_labels
+            .iter()
+            .map(|l| normalize_label(l))
+            .collect::<Result<Vec<_>>>()?;
+
+        let tx = db.begin().await?;
+
+        let Some(task) = models::task::Entity::find_by_id(id).one(&tx).await? else {
             return Err(Error::new("TASK NOT FOUND"));
         };
 
         if !user.is_admin {
             if let Some(access) = models::board_access::Entity::find_by_id((task.board_id, user.id))
-                .one(db)
+                .one(&tx)
                 .await?
             {
                 if task.is_archived && input.is_archived != Some(false) && !access.is_moderator {
@@ -379,16 +431,43 @@ impl MutationRoot {
             task.is_archived = Set(is_archived);
         }
 
-        match task.update(db).await {
-            Ok(task) => Ok(Task::from(task)),
+        let task = match task.update(&tx).await {
+            Ok(task) => task,
             Err(err) => {
-                if let Some(SqlErr::UniqueConstraintViolation(_)) = err.sql_err() {
+                return if let Some(SqlErr::UniqueConstraintViolation(_)) = err.sql_err() {
                     Err(Error::new("TITLE"))
                 } else {
                     Err(Error::new("Failed to update task"))
+                };
+            }
+        };
+
+        if !remove_labels.is_empty() {
+            models::task_label::Entity::delete_many()
+                .filter(models::task_label::Column::TaskId.eq(id))
+                .filter(models::task_label::Column::Name.is_in(remove_labels))
+                .exec(&tx)
+                .await?;
+        }
+
+        for name in add_labels {
+            let label = models::task_label::ActiveModel {
+                task_id: Set(id),
+                name: Set(name),
+            };
+
+            if let Err(err) = label.insert(&tx).await {
+                if let Some(SqlErr::UniqueConstraintViolation(_)) = err.sql_err() {
+                    continue;
                 }
+
+                return Err(Error::new("Failed to add label"));
             }
         }
+
+        tx.commit().await?;
+
+        Ok(Task::from(task))
     }
 
     async fn add_access(

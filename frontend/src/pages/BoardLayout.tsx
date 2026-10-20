@@ -68,6 +68,7 @@ export default function BoardLayout(props: RouteSectionProps) {
                             }
                             isArchived
                             isBlocked
+                            labels
                         }
                         access {
                             user {

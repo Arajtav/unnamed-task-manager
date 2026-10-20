@@ -29,6 +29,8 @@ export default function Board() {
         const notAuthors = new Set<string>();
         const assignees = new Set<string>();
         const notAssignees = new Set<string>();
+        const labels = new Set<string>();
+        const notLabels = new Set<string>();
 
         for (const cond of parsed.getConditionArray()) {
             switch (cond.keyword.toLowerCase()) {
@@ -51,6 +53,13 @@ export default function Board() {
                         assignees.add(cond.value);
                     }
                     break;
+                case "label":
+                    if (cond.negated) {
+                        notLabels.add(cond.value);
+                    } else {
+                        labels.add(cond.value);
+                    }
+                    break;
             }
         }
 
@@ -68,6 +77,8 @@ export default function Board() {
             notAuthors,
             assignees,
             notAssignees,
+            labels,
+            notLabels,
             searchTerm,
             excludedTerms,
         };
@@ -91,6 +102,14 @@ export default function Board() {
             filtered = filtered.filter(
                 t => !t.author.email.includes(author) && !t.author.user?.handle?.includes(author)
             );
+        }
+
+        for (const label of f.labels) {
+            filtered = filtered.filter(t => t.labels.some(l => l == label));
+        }
+
+        for (const label of f.notLabels) {
+            filtered = filtered.filter(t => !t.labels.some(l => l == label));
         }
 
         for (const assignee of f.assignees) {
@@ -172,6 +191,7 @@ export default function Board() {
                         }
                         isArchived
                         isBlocked
+                        labels
                     }
                 }
             `,

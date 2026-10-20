@@ -12,6 +12,7 @@ export type Task = {
     timeLogged: { time: number }[];
     // TODO: this goes stale, but I'd have to refetch all the tasks every time a block is added or removed otherwise. Requires a deeper refactor.
     isBlocked: boolean;
+    labels: string[];
 };
 
 export type Access = {

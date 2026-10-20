@@ -1,8 +1,9 @@
-import { createMemo, Show } from "solid-js";
+import { createMemo, For, Show } from "solid-js";
 import { Task as TaskT } from "../contexts/boardContext";
 import { formatDuration } from "../format";
 import Avatar from "../newComponents/Avatar";
 import DateTime from "./DateTime";
+import Badge from "../newComponents/Badge";
 
 export default function Task({ task }: { task: TaskT }) {
     const timeTracked = createMemo(() => task.timeLogged.reduce((acc, e) => acc + e.time, 0));
@@ -10,6 +11,9 @@ export default function Task({ task }: { task: TaskT }) {
     return (
         <div class={task.isArchived ? "opacity-50" : ""}>
             <p class="font-bold">{task.title}</p>
+            <For each={task.labels}>
+                {label => <Badge text={label} class="border-base-300/50" />}
+            </For>
             <p>
                 Author: <Avatar user={task.author} title={{ option: "auto" }} />
             </p>

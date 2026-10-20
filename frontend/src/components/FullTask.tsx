@@ -1,5 +1,5 @@
 import { createStore } from "solid-js/store";
-import { createEffect, createSignal, Setter, Show } from "solid-js";
+import { createEffect, createSignal, Show } from "solid-js";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
 import { handleAuthError } from "../auth";
@@ -28,6 +28,7 @@ export type Task = {
         } | null;
     }[];
     blockedBy: { id: number; title: string; status: string; isArchived: boolean }[];
+    labels: string[];
 };
 
 export type TimeEntry = {
@@ -88,6 +89,7 @@ export default function FullTask({ id, setId }: { id: number; setId: (id: number
                             status
                             isArchived
                         }
+                        labels
                     }
                     timeEntries(userId: $userId, taskId: $taskId) {
                         id

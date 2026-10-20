@@ -1,12 +1,15 @@
-import { createEffect, createMemo, createSignal, For, on, Show } from "solid-js";
-import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
+import { createEffect, createMemo, createSignal, For, on, Show } from "solid-js";
 import { handleAuthError } from "../auth";
-import { useBoard } from "../contexts/boardContext";
 import { useAlert } from "../contexts/alertContext";
-import { Task } from "./FullTask";
-import User from "../newComponents/User";
 import { useAppData } from "../contexts/appDataContext";
+import { useBoard } from "../contexts/boardContext";
+import { gqlClient } from "../graphql";
+import User from "../newComponents/User";
+import { Task } from "./FullTask";
+import Badge from "../newComponents/Badge";
+import BadgeButton from "../newComponents/BadgeButton";
+import { PlusIcon } from "lucide-solid";
 
 export function newValueOrUndefined<T>(value: T, original: T) {
     return value !== original ? value : undefined;
@@ -28,6 +31,35 @@ export default function TaskEditForm(props: {
     const [assignee, setAssignee] = createSignal(task.assignee?.email ?? "");
     const [isArchived, setIsArchived] = createSignal(task.isArchived);
     const [saving, setSaving] = createSignal(false);
+    const originalLabels = new Set(task.labels.map(l => l.trim().toLowerCase()));
+    const [labels, setLabels] = createSignal(new Set(originalLabels));
+
+    const labelDiff = createMemo(() => ({
+        add: [...labels()].filter(l => !originalLabels.has(l)),
+        remove: [...originalLabels].filter(l => !labels().has(l)),
+    }));
+
+    const hasLabelChanges = () => labelDiff().add.length > 0 || labelDiff().remove.length > 0;
+
+    function addLabel() {
+        const name = prompt("Label")?.trim().toLowerCase();
+        if (!name) return;
+
+        if ([...name].length > 64) {
+            addAlert("Label can be at most 64 characters", "error");
+            return;
+        }
+
+        setLabels(prev => new Set(prev).add(name));
+    }
+
+    function removeLabel(label: string) {
+        setLabels(prev => {
+            const next = new Set(prev);
+            next.delete(label);
+            return next;
+        });
+    }
 
     const filteredEmails = createMemo(() => {
         const query = assignee().trim().toLowerCase();
@@ -56,14 +88,15 @@ export default function TaskEditForm(props: {
             title() != task.title ||
             description() != (task.description ?? "") ||
             status() != task.status ||
-            assignee() != (task.assignee?.email ?? "")
+            assignee() != (task.assignee?.email ?? "") ||
+            hasLabelChanges()
     );
 
     const canKeepArchived = () => isUserAdminOrModerator() || !isEditing();
 
     createEffect(
         on(
-            [title, description, status, assignee],
+            [title, description, status, assignee, labelDiff],
             () => {
                 if (!canKeepArchived()) setIsArchived(false);
             },
@@ -74,12 +107,16 @@ export default function TaskEditForm(props: {
     async function submit(e: SubmitEvent) {
         e.preventDefault();
 
+        const { add, remove } = labelDiff();
+
         const fields = {
             title: newValueOrUndefined(title(), task.title),
             description: newValueOrUndefined(description(), task.description),
             status: newValueOrUndefined(status(), task.status),
             assignee: newValueOrUndefined(assignee() || null, task.assignee?.email ?? null),
             isArchived: newValueOrUndefined(isArchived(), task.isArchived),
+            addLabels: add.length > 0 ? add : undefined,
+            removeLabels: remove.length > 0 ? remove : undefined,
         };
 
         if (Object.values(fields).every(value => value === undefined)) {
@@ -123,6 +160,7 @@ export default function TaskEditForm(props: {
                             status
                             isArchived
                         }
+                        labels
                     }
                 }
             `,
@@ -208,6 +246,24 @@ export default function TaskEditForm(props: {
                                 {status => <option value={status.name}>{status.name}</option>}
                             </For>
                         </select>
+
+                        <label class="label">Labels</label>
+                        <div class="flex flex-wrap gap-2">
+                            <For each={[...labels()]}>
+                                {label => (
+                                    <Badge
+                                        text={label}
+                                        class="border-base-300/50"
+                                        onClick={() => removeLabel(label)}
+                                    />
+                                )}
+                            </For>
+                            <BadgeButton
+                                icon={<PlusIcon strokeWidth={1.5} />}
+                                class="border-base-300/50"
+                                onClick={addLabel}
+                            />
+                        </div>
 
                         <label class="label mt-2">
                             <input
