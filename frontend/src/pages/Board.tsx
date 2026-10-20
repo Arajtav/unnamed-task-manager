@@ -92,9 +92,13 @@ export default function Board() {
             filtered = filtered.filter(t => t.isArchived == f.archived);
         }
 
-        for (const author of f.authors) {
-            filtered = filtered.filter(
-                t => t.author.email.includes(author) || t.author.user?.handle?.includes(author)
+        if (f.authors.size > 0) {
+            const authors = [...f.authors];
+            filtered = filtered.filter(t =>
+                authors.some(
+                    author =>
+                        t.author.email.includes(author) || t.author.user?.handle?.includes(author)
+                )
             );
         }
 
@@ -112,11 +116,14 @@ export default function Board() {
             filtered = filtered.filter(t => !t.labels.some(l => l == label));
         }
 
-        for (const assignee of f.assignees) {
-            filtered = filtered.filter(
-                t =>
-                    t.assignee?.email.includes(assignee) ||
-                    t.assignee?.user?.handle?.includes(assignee)
+        if (f.assignees.size > 0) {
+            const assignees = [...f.assignees];
+            filtered = filtered.filter(t =>
+                assignees.some(
+                    assignee =>
+                        t.assignee?.email.includes(assignee) ||
+                        t.assignee?.user?.handle?.includes(assignee)
+                )
             );
         }
 
