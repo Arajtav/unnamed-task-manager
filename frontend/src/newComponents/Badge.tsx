@@ -4,7 +4,7 @@ export default function Badge(props: {
     text: string;
     class?: string;
     style?: string | JSX.CSSProperties;
-    onClick?: () => void;
+    onClick?: (e: MouseEvent) => void;
 }) {
     return (
         <div

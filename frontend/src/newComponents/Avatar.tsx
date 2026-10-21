@@ -13,7 +13,11 @@ type TitleOptions =
 type FlexibleUser =
     { id?: string | null; emails: string[]; handle?: string | null } | UserFromEmail;
 
-export default function Avatar(props: { user?: FlexibleUser; title?: TitleOptions }) {
+export default function Avatar(props: {
+    user?: FlexibleUser;
+    title?: TitleOptions;
+    onClick?: (e: MouseEvent) => void;
+}) {
     const user = props.user
         ? "emails" in props.user
             ? { id: props.user.id, handle: props.user.handle, fallback: props.user.emails[0] }
@@ -38,11 +42,12 @@ export default function Avatar(props: { user?: FlexibleUser; title?: TitleOption
     return (
         <div class="avatar avatar-placeholder h-8 text-base aspect-square font-body" title={title}>
             <div
-                class="rounded-full h-full w-full text-center uppercase select-none"
+                class={`rounded-full h-full w-full text-center uppercase select-none ${props.onClick ? "cursor-pointer" : ""}`}
                 style={{
                     "background-color": color,
                     color: `oklch(from ${color} clamp(0, (0.6 + (0.8 * l)) + (clamp(0, (l - 0.55) * 1000, 1) * ((0.1 + (0.8 * (l - 0.55))) - (0.6 + (0.8 * l)))), 1) c h)`,
                 }}
+                onClick={props.onClick}
             >
                 <Show when={character} fallback={<UserRoundIcon strokeWidth={1.5} />}>
                     {user => <>{user()}</>}

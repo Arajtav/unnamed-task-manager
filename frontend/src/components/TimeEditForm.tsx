@@ -1,4 +1,4 @@
-import { createSignal, For, Show } from "solid-js";
+import { For, Show } from "solid-js";
 import { useAlert } from "../contexts/alertContext";
 import { Task, TimeEntry } from "./FullTask";
 import { format } from "date-fns";

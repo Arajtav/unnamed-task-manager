@@ -171,12 +171,14 @@ export default function TaskDetails(props: {
                                 Select a task...
                             </option>
                             <For
-                                each={tasks.filter(
-                                    t =>
-                                        !t.isArchived &&
-                                        t.id != task.id &&
-                                        !task.blockedBy.some(b => b.id == t.id)
-                                )}
+                                each={tasks
+                                    .filter(
+                                        t =>
+                                            !t.isArchived &&
+                                            t.id != task.id &&
+                                            !task.blockedBy.some(b => b.id == t.id)
+                                    )
+                                    .toSorted((a, b) => a.title.localeCompare(b.title))}
                             >
                                 {t => <option value={t.id}>{t.title}</option>}
                             </For>
