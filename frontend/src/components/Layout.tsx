@@ -9,6 +9,7 @@ import { AlertContext, AlertType } from "../contexts/alertContext";
 import { ModalContext, ModalOptions } from "../contexts/modalContext";
 import { dbg } from "../debug";
 import { AppData, AppDataContext, Me, User } from "../contexts/appDataContext";
+import { ClientAppDataContext, createClientAppData } from "../contexts/clientAppDataContext";
 
 export default function Layout(props: RouteSectionProps) {
     const location = useLocation();
@@ -147,8 +148,14 @@ export default function Layout(props: RouteSectionProps) {
                             }
                         >
                             <AppDataContext.Provider value={appData}>
-                                <Navbar></Navbar>
-                                <div class="flex-1 overflow-scroll h-full">{props.children}</div>
+                                <ClientAppDataContext.Provider
+                                    value={createClientAppData(appData[0].me.id)}
+                                >
+                                    <Navbar></Navbar>
+                                    <div class="flex-1 overflow-scroll h-full">
+                                        {props.children}
+                                    </div>
+                                </ClientAppDataContext.Provider>
                             </AppDataContext.Provider>
                         </Show>
                     </Show>

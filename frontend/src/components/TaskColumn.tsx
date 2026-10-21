@@ -26,7 +26,7 @@ export default function TaskColumn(props: {
 
     return (
         <div
-            class="flex flex-col w-80 min-w-80 rounded-xl p-2 bg-base-200"
+            class="flex flex-col flex-1 min-w-80 rounded-xl p-2 bg-base-200"
             onDragOver={handleDragOver}
             onDrop={handleDrop}
         >

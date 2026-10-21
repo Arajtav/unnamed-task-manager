@@ -14,7 +14,7 @@ export function useBoardNav() {
     const context = useContext(BoardNavContext);
 
     if (!context) {
-        throw new Error("useBoardNav must be used inside BoardLayout");
+        throw new Error("useBoardNav must be used inside BoardNavContext.Provider");
     }
 
     return context;

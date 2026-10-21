@@ -9,8 +9,8 @@ import { createStore, SetStoreFunction } from "solid-js/store";
 import { useBoard } from "../contexts/boardContext";
 import { useModal } from "../contexts/modalContext";
 import { newValueOrUndefined } from "./TaskEditForm";
-import { makePersisted } from "@solid-primitives/storage";
 import DateTime from "./DateTime";
+import { useTimeTracking } from "../contexts/clientAppDataContext";
 
 export default function TimeEditForm(props: {
     time: TimeEntry[];
@@ -24,9 +24,7 @@ export default function TimeEditForm(props: {
     const { addAlert } = useAlert();
     const { openModal } = useModal();
     const [_, setBoard] = useBoard();
-    const [tracking, setTracking] = makePersisted(createSignal<Date | undefined>(undefined), {
-        name: `tt:${props.taskId}`,
-    });
+    const timeTracking = useTimeTracking();
 
     const [edited, setEdited] = createStore<{
         id: number | null;
@@ -365,7 +363,7 @@ export default function TimeEditForm(props: {
                 </form>
                 <div class="divider" />
                 <Show
-                    when={!tracking()}
+                    when={!timeTracking.isTracking(props.taskId)}
                     fallback={
                         <div class="flex flex-row gap-2">
                             <button
@@ -373,8 +371,11 @@ export default function TimeEditForm(props: {
                                 onClick={async () => {
                                     let descr = prompt("Description");
                                     if (descr === null) return;
-                                    if (await create(tracking()!, new Date(), descr)) {
-                                        setTracking(undefined);
+
+                                    const startedAt = timeTracking.startedAt(props.taskId)!;
+
+                                    if (await create(startedAt, new Date(), descr)) {
+                                        timeTracking.clear(props.taskId);
                                     }
                                 }}
                             >
@@ -396,9 +397,7 @@ export default function TimeEditForm(props: {
                                             {
                                                 label: "Yes",
                                                 class: "btn-error",
-                                                onClick: () => {
-                                                    setTracking(undefined);
-                                                },
+                                                onClick: () => timeTracking.clear(props.taskId),
                                             },
                                         ],
                                     })
@@ -409,7 +408,10 @@ export default function TimeEditForm(props: {
                         </div>
                     }
                 >
-                    <button class="btn btn-primary" onClick={() => setTracking(new Date())}>
+                    <button
+                        class="btn btn-primary"
+                        onClick={() => timeTracking.start(props.taskId)}
+                    >
                         Start tracking
                     </button>
                 </Show>

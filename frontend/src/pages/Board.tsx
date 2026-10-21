@@ -12,6 +12,7 @@ import Fuse from "fuse.js";
 import { dbg } from "../debug";
 import { useNavigate, useParams } from "@solidjs/router";
 import { Title } from "@solidjs/meta";
+import { useTimeTracking } from "../contexts/clientAppDataContext";
 
 export default function Board() {
     const params = useParams();
@@ -19,12 +20,14 @@ export default function Board() {
     const [board, setBoard] = useBoard();
     const [boardNav] = useBoardNav();
     const { addAlert } = useAlert();
+    const { isTracking } = useTimeTracking();
 
     // TODO: This won't accept some cursed emails but we probably should not allow them anyways, it was a mistake.
     const filters = createMemo(() => {
         const parsed = SearchString.parse(boardNav.search);
 
         let archived: boolean | undefined;
+        let tracking: boolean | undefined;
         const authors = new Set<string>();
         const notAuthors = new Set<string>();
         const assignees = new Set<string>();
@@ -37,6 +40,11 @@ export default function Board() {
                 case "archived": {
                     const val = cond.value.toLowerCase() === "true";
                     archived = val != cond.negated;
+                    break;
+                }
+                case "tracking": {
+                    const val = cond.value.toLowerCase() === "true";
+                    tracking = val != cond.negated;
                     break;
                 }
                 case "author":
@@ -73,6 +81,7 @@ export default function Board() {
 
         return {
             archived,
+            tracking,
             authors,
             notAuthors,
             assignees,
@@ -90,6 +99,10 @@ export default function Board() {
 
         if (f.archived !== undefined) {
             filtered = filtered.filter(t => t.isArchived == f.archived);
+        }
+
+        if (f.tracking !== undefined) {
+            filtered = filtered.filter(t => isTracking(t.id) == f.tracking);
         }
 
         if (f.authors.size > 0) {
@@ -240,9 +253,9 @@ export default function Board() {
     };
 
     return (
-        <>
+        <div class="w-full h-auto flex">
             <Title>{title()}</Title>
-            <div class="flex flex-row w-full h-auto gap-4 m-4">
+            <div class="flex flex-row flex-1 gap-4 p-4">
                 <For each={board.taskStatus}>
                     {status => (
                         <TaskColumn
@@ -258,7 +271,7 @@ export default function Board() {
             <Show when={viewTask() != null}>
                 {_ => <FullTask id={viewTask()!} setId={setViewTask} />}
             </Show>
-        </>
+        </div>
     );
 }
 
