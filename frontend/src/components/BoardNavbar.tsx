@@ -1,6 +1,6 @@
 import { A } from "@solidjs/router";
 import { useBoard } from "../contexts/boardContext";
-import { PlusIcon, SettingsIcon } from "lucide-solid";
+import { SettingsIcon } from "lucide-solid";
 import { useBoardNav } from "../contexts/boardNavContext";
 import { createMemo } from "solid-js";
 import { useAppData } from "../contexts/appDataContext";
@@ -17,10 +17,6 @@ export default function BoardNavbar() {
     return (
         <div class="navbar flex flex-row justify-between bg-base-200 gap-4">
             <div class="flex flex-row gap-4 flex-1">
-                <div class="btn btn-accent" onClick={() => setBoardNav("createTask", true)}>
-                    <PlusIcon strokeWidth={1.5} />
-                    Add task
-                </div>
                 <input
                     class="w-full input"
                     value={boardNav.search}

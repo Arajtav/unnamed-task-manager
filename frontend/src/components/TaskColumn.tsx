@@ -2,6 +2,8 @@ import { For, Setter } from "solid-js";
 import { Task as TaskT, TaskStatus } from "../contexts/boardContext";
 import Task from "./Task";
 import Badge from "../newComponents/Badge";
+import { PlusIcon } from "lucide-solid";
+import { useBoardNav } from "../contexts/boardNavContext";
 
 export default function TaskColumn(props: {
     status: TaskStatus;
@@ -9,6 +11,8 @@ export default function TaskColumn(props: {
     setViewTask: Setter<number>;
     onMoveTask: (id: number, status: string) => void;
 }) {
+    const [_, setBoardNav] = useBoardNav();
+
     const handleDragOver = (e: DragEvent) => {
         e.preventDefault();
         e.dataTransfer!.dropEffect = "move";
@@ -30,16 +34,24 @@ export default function TaskColumn(props: {
             onDragOver={handleDragOver}
             onDrop={handleDrop}
         >
-            <div class="w-full flex flex-row gap-2 my-4">
-                <Badge
-                    text={props.tasks.length.toString()}
-                    class="proportional-num border-0!"
-                    style={{
-                        "background-color": props.status.color,
-                        color: `oklch(from ${props.status.color} clamp(0, (0.6 + (0.8 * l)) + (clamp(0, (l - 0.55) * 1000, 1) * ((0.1 + (0.8 * (l - 0.55))) - (0.6 + (0.8 * l)))), 1) c h)`,
-                    }}
-                />
-                <h3 class="self-center">{props.status.name}</h3>
+            <div class="w-full flex flex-row gap-2">
+                <div class="flex flex-1 flex-row gap-2 my-4">
+                    <Badge
+                        text={props.tasks.length.toString()}
+                        class="proportional-num border-0!"
+                        style={{
+                            "background-color": props.status.color,
+                            color: `oklch(from ${props.status.color} clamp(0, (0.6 + (0.8 * l)) + (clamp(0, (l - 0.55) * 1000, 1) * ((0.1 + (0.8 * (l - 0.55))) - (0.6 + (0.8 * l)))), 1) c h)`,
+                        }}
+                    />
+                    <h3 class="self-center">{props.status.name}</h3>
+                </div>
+                <div
+                    class="btn btn-ghost"
+                    onClick={() => setBoardNav("createTask", props.status.name)}
+                >
+                    <PlusIcon strokeWidth={1.5} />
+                </div>
             </div>
 
             <ul class="list">

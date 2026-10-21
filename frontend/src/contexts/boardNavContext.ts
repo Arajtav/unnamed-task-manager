@@ -2,7 +2,7 @@ import { createContext, useContext } from "solid-js";
 import { createStore } from "solid-js/store";
 
 export type BoardNavSettings = {
-    createTask: boolean;
+    createTask: string;
     search: string;
 };
 

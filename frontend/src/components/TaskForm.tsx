@@ -14,12 +14,11 @@ export default function TaskForm() {
     const { addAlert } = useAlert();
     const [{ me }] = useAppData();
     const [board, setBoard] = useBoard();
-    const [_, setBoardNav] = useBoardNav();
+    const [boardNav, setBoardNav] = useBoardNav();
 
     const [title, setTitle] = createSignal("");
     const [description, setDescription] = createSignal("");
     const [author, setAuthor] = createSignal(me.emails[0] ?? "");
-    const [status, setStatus] = createSignal(board.taskStatus[0]?.name ?? "");
     const [labels, setLabels] = createSignal(new Set<string>());
 
     function addLabel() {
@@ -99,7 +98,7 @@ export default function TaskForm() {
                 title: title(),
                 description: description() || null,
                 author: author(),
-                status: status(),
+                status: boardNav.createTask,
                 labels: [...labels()],
             }
         );
@@ -116,7 +115,7 @@ export default function TaskForm() {
         setAuthor("");
         setLabels(new Set<string>());
         setBoard("tasks", tasks => [...tasks, { ...task, createdAt: new Date(task.createdAt) }]);
-        setBoardNav("createTask", false);
+        setBoardNav("createTask", "");
     }
 
     return (
@@ -125,98 +124,93 @@ export default function TaskForm() {
                 <h2 class="card-title">Create Task</h2>
 
                 <Show
-                    when={board.taskStatus.length}
+                    when={me.emails.length}
                     fallback={
-                        <div class="text-error text-sm">
-                            The board is configured improperly, at least one Status is required.
-                        </div>
+                        <A href="/settings" class="text-warning text-sm">
+                            You need to link an email first.
+                        </A>
                     }
                 >
-                    <Show
-                        when={me.emails.length}
-                        fallback={
-                            <A href="/settings" class="text-warning text-sm">
-                                You need to link an email first.
-                            </A>
-                        }
-                    >
-                        <form onSubmit={submit} id="create-task-form">
-                            <fieldset class="fieldset">
-                                <label class="label">Title</label>
-                                <input
-                                    class="input"
-                                    type="text"
-                                    placeholder="Title"
-                                    value={title()}
-                                    onInput={e => setTitle(e.currentTarget.value)}
-                                    required
+                    <form onSubmit={submit} id="create-task-form">
+                        <fieldset class="fieldset">
+                            <label class="label">Title</label>
+                            <input
+                                class="input"
+                                type="text"
+                                placeholder="Title"
+                                value={title()}
+                                onInput={e => setTitle(e.currentTarget.value)}
+                                required
+                            />
+
+                            <label class="label">Description</label>
+                            <textarea
+                                class="textarea"
+                                placeholder="Description"
+                                value={description()}
+                                onInput={e => setDescription(e.currentTarget.value)}
+                            />
+
+                            <label class="label">Author email</label>
+                            <select
+                                class="select w-full"
+                                value={author()}
+                                onChange={e => setAuthor(e.currentTarget.value)}
+                                disabled={me.emails.length == 1}
+                                required
+                            >
+                                <For each={me.emails}>
+                                    {email => <option value={email}>{email}</option>}
+                                </For>
+                            </select>
+
+                            <label class="label">Status</label>
+                            <select
+                                class="select w-full"
+                                onChange={e => setBoardNav("createTask", e.currentTarget.value)}
+                                disabled={board.taskStatus.length == 1}
+                                required
+                            >
+                                <For each={board.taskStatus}>
+                                    {status => (
+                                        <option
+                                            value={status.name}
+                                            selected={status.name == boardNav.createTask}
+                                        >
+                                            {status.name}
+                                        </option>
+                                    )}
+                                </For>
+                            </select>
+
+                            <label class="label">Labels</label>
+                            <div class="flex flex-wrap gap-2">
+                                <For each={[...labels()]}>
+                                    {label => (
+                                        <Badge
+                                            text={label}
+                                            class="border-base-300/50"
+                                            onClick={() => removeLabel(label)}
+                                        />
+                                    )}
+                                </For>
+                                <BadgeButton
+                                    icon={<PlusIcon strokeWidth={1.5} />}
+                                    class="border-base-300/50"
+                                    onClick={addLabel}
                                 />
-
-                                <label class="label">Description</label>
-                                <textarea
-                                    class="textarea"
-                                    placeholder="Description"
-                                    value={description()}
-                                    onInput={e => setDescription(e.currentTarget.value)}
-                                />
-
-                                <label class="label">Author email</label>
-                                <select
-                                    class="select w-full"
-                                    value={author()}
-                                    onChange={e => setAuthor(e.currentTarget.value)}
-                                    disabled={me.emails.length == 1}
-                                    required
-                                >
-                                    <For each={me.emails}>
-                                        {email => <option value={email}>{email}</option>}
-                                    </For>
-                                </select>
-
-                                <label class="label">Status</label>
-                                <select
-                                    class="select w-full"
-                                    value={status()}
-                                    onChange={e => setStatus(e.currentTarget.value)}
-                                    disabled={board.taskStatus.length == 1}
-                                    required
-                                >
-                                    <For each={board.taskStatus}>
-                                        {status => (
-                                            <option value={status.name}>{status.name}</option>
-                                        )}
-                                    </For>
-                                </select>
-
-                                <label class="label">Labels</label>
-                                <div class="flex flex-wrap gap-2">
-                                    <For each={[...labels()]}>
-                                        {label => (
-                                            <Badge
-                                                text={label}
-                                                class="border-base-300/50"
-                                                onClick={() => removeLabel(label)}
-                                            />
-                                        )}
-                                    </For>
-                                    <BadgeButton
-                                        icon={<PlusIcon strokeWidth={1.5} />}
-                                        class="border-base-300/50"
-                                        onClick={addLabel}
-                                    />
-                                </div>
-                            </fieldset>
-                        </form>
-                    </Show>
+                            </div>
+                        </fieldset>
+                    </form>
                 </Show>
                 <div class="card-actions">
                     <button
                         class="btn btn-warning mt-4"
-                        onClick={() => setBoardNav("createTask", false)}
+                        onClick={() => setBoardNav("createTask", "")}
                     >
                         Cancel
                     </button>
-                    <Show when={me.emails.length && board.taskStatus.length}>
+                    <Show when={me.emails.length}>
                         <button class="btn btn-primary mt-4" type="submit" form="create-task-form">
                             Create
                         </button>
