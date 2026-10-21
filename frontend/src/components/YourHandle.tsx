@@ -1,8 +1,9 @@
 import { createMemo, createSignal } from "solid-js";
 import { useAlert } from "../contexts/alertContext";
-import { Me, useAppData } from "../contexts/appDataContext";
+import { useAppData } from "../contexts/appDataContext";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
+import { Me } from "../gqlTypes";
 
 export default function YourHandle() {
     const [appData, setAppData] = useAppData();

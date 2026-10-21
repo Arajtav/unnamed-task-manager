@@ -2,13 +2,14 @@ import { createSignal, For, Show } from "solid-js";
 import { A } from "@solidjs/router";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
-import { Task, TaskRaw, useBoard } from "../contexts/boardContext";
+import { useBoard } from "../contexts/boardContext";
 import { useBoardNav } from "../contexts/boardNavContext";
 import { useAppData } from "../contexts/appDataContext";
 import { useAlert } from "../contexts/alertContext";
 import Badge from "../newComponents/Badge";
 import BadgeButton from "../newComponents/BadgeButton";
 import { PlusIcon } from "lucide-solid";
+import { PreviewTaskRaw, PRIORITIES, processPreviewTask } from "../gqlTypes";
 
 export default function TaskForm() {
     const { addAlert } = useAlert();
@@ -20,6 +21,7 @@ export default function TaskForm() {
     const [description, setDescription] = createSignal("");
     const [author, setAuthor] = createSignal(appData.me.emails[0] ?? "");
     const [labels, setLabels] = createSignal(new Set<string>());
+    const [priority, setPriority] = createSignal(0);
 
     function addLabel() {
         const name = prompt("Label")?.trim().toLowerCase();
@@ -45,7 +47,7 @@ export default function TaskForm() {
         e.preventDefault();
 
         const result = await gqlClient.mutation<{
-            createTask: TaskRaw;
+            createTask: PreviewTaskRaw;
         }>(
             gql`
                 mutation CreateTask(
@@ -55,6 +57,7 @@ export default function TaskForm() {
                     $author: String!
                     $status: String!
                     $labels: [String!]
+                    $priority: Int!
                 ) {
                     createTask(
                         boardId: $boardId
@@ -63,6 +66,7 @@ export default function TaskForm() {
                         author: $author
                         status: $status
                         labels: $labels
+                        priority: $priority
                     ) {
                         id
                         title
@@ -88,6 +92,7 @@ export default function TaskForm() {
                         archivedAt
                         isBlocked
                         labels
+                        priority
                     }
                 }
             `,
@@ -98,6 +103,7 @@ export default function TaskForm() {
                 author: author(),
                 status: boardNav.createTask,
                 labels: [...labels()],
+                priority: priority(),
             }
         );
 
@@ -112,15 +118,9 @@ export default function TaskForm() {
         setDescription("");
         setAuthor("");
         setLabels(new Set<string>());
-        setBoard("tasks", tasks => [
-            ...tasks,
-            {
-                ...task,
-                createdAt: new Date(task.createdAt),
-                archivedAt: task.archivedAt === null ? null : new Date(task.archivedAt),
-            },
-        ]);
+        setBoard("tasks", tasks => [...tasks, processPreviewTask(task)]);
         setBoardNav("createTask", "");
+        setPriority(0);
     }
 
     return (
@@ -183,6 +183,21 @@ export default function TaskForm() {
                                             selected={status.name == boardNav.createTask}
                                         >
                                             {status.name}
+                                        </option>
+                                    )}
+                                </For>
+                            </select>
+
+                            <label class="label">Priority</label>
+                            <select
+                                class="select w-full"
+                                value={priority()}
+                                onChange={e => setPriority(Number(e.currentTarget.value))}
+                            >
+                                <For each={PRIORITIES}>
+                                    {p => (
+                                        <option value={p.value} selected={p.value == priority()}>
+                                            {p.label}
                                         </option>
                                     )}
                                 </For>

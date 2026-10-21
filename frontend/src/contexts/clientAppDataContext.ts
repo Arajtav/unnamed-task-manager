@@ -29,7 +29,7 @@ export function createClientAppData(userId: string) {
     };
 }
 
-export type ClientAppDataStore = ReturnType<typeof createClientAppData>;
+type ClientAppDataStore = ReturnType<typeof createClientAppData>;
 
 export const ClientAppDataContext = createContext<ClientAppDataStore>();
 

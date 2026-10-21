@@ -36,6 +36,8 @@ pub struct UpdateTaskInput {
     pub add_labels: Vec<String>,
     #[graphql(default)]
     pub remove_labels: Vec<String>,
+    #[graphql(default)]
+    pub priority: Option<i32>,
 }
 
 #[derive(InputObject)]
@@ -293,9 +295,14 @@ impl MutationRoot {
         status: String,
         #[graphql(default)] assignee: Option<String>,
         #[graphql(default)] labels: Vec<String>,
+        #[graphql(default)] priority: i32,
     ) -> Result<Task> {
         let db = get_db(ctx);
         let user = get_user(ctx);
+
+        if !(-3..=3).contains(&priority) {
+            return Err(Error::new("PRIORITY"));
+        }
 
         let labels = labels
             .iter()
@@ -331,6 +338,7 @@ impl MutationRoot {
             author: Set(author),
             status: Set(status),
             assignee: assignee.map_or(NotSet, |a| Set(Some(a))),
+            priority: Set(priority),
             ..Default::default()
         };
 
@@ -425,6 +433,14 @@ impl MutationRoot {
             task.status = Set(status);
         }
 
+        if let Some(priority) = input.priority {
+            if !(-3..=3).contains(&priority) {
+                return Err(Error::new("PRIORITY"));
+            }
+
+            task.priority = Set(priority);
+        }
+
         task.assignee = match input.assignee {
             MaybeUndefined::Value(email) => Set(Some(email)),
             MaybeUndefined::Null => Set(None),
@@ -435,7 +451,7 @@ impl MutationRoot {
             if !is_archived {
                 task.archived_at = Set(None);
             } else if !was_archived {
-                task.archived_at = Set(Some(Utc::now()))
+                task.archived_at = Set(Some(Utc::now()));
             }
         }
 

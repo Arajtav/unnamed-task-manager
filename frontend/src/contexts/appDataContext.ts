@@ -1,29 +1,10 @@
 import { createContext, useContext } from "solid-js";
 import { createStore } from "solid-js/store";
-
-export type User = {
-    id: string;
-    emails: string[];
-    handle: string | null;
-    isAdmin: boolean;
-    isDisabled: boolean;
-    createdAt: Date;
-    invite: string | null;
-};
-
-export type UserRaw = Replace<User, "createdAt", string>;
-
-export type Me = {
-    id: string;
-    emails: string[];
-    handle: string | null;
-    isAdmin: boolean;
-    invite: string | null;
-};
+import { FullUser, Me } from "../gqlTypes";
 
 export type AppData = {
     boards: Map<number, string>;
-    users: User[];
+    users: FullUser[];
     me: Me;
 };
 

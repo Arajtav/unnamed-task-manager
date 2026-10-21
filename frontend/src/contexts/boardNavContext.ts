@@ -6,7 +6,7 @@ export type BoardNavSettings = {
     search: string;
 };
 
-export type BoardNavStore = ReturnType<typeof createStore<BoardNavSettings>>;
+type BoardNavStore = ReturnType<typeof createStore<BoardNavSettings>>;
 
 export const BoardNavContext = createContext<BoardNavStore>();
 

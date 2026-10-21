@@ -3,69 +3,32 @@ import { createEffect, createSignal, Show } from "solid-js";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
 import { handleAuthError } from "../auth";
-import { UserFromEmail } from "../contexts/boardContext";
 import { useAlert } from "../contexts/alertContext";
 import TaskDetails from "./TaskDetails";
 import TaskEditForm from "./TaskEditForm";
 import TimeEditForm from "./TimeEditForm";
 import { useAppData } from "../contexts/appDataContext";
-
-export type Task = {
-    id: number;
-    title: string;
-    description: string;
-    createdAt: Date;
-    author: UserFromEmail;
-    status: string;
-    assignee?: UserFromEmail;
-    archivedAt: Date | null;
-    timeLogged: {
-        time: number;
-        user: {
-            id: string;
-            handle: string | null;
-            emails: string[];
-        } | null;
-    }[];
-    blockedBy: { id: number; title: string; status: string; archivedAt: Date | null }[];
-    labels: string[];
-};
-
-export type TaskRaw = Replace<
-    Replace<
-        Replace<
-            Task,
-            "blockedBy",
-            Replace<Task["blockedBy"][number], "archivedAt", string | null>[]
-        >,
-        "archivedAt",
-        string | null
-    >,
-    "createdAt",
-    string
->;
-
-export type TimeEntry = {
-    id: number;
-    startedAt: Date;
-    finishedAt: Date;
-    description: string;
-};
-
-export type TimeEntryRaw = Replace<Replace<TimeEntry, "startedAt", string>, "finishedAt", string>;
+import {
+    CompleteTask,
+    CompleteTaskRaw,
+    processCompleteTask,
+    processTimeEntry,
+    TimeEntry,
+    TimeEntryRaw,
+} from "../gqlTypes";
 
 export default function FullTask(props: { id: number; setId: (id: number | null) => any }) {
     const { addAlert } = useAlert();
     const [appData] = useAppData();
 
-    const [task, setTask] = createStore({} as { task: Task; time: TimeEntry[] });
+    const [task, setTask] = createStore({} as { task: CompleteTask; time: TimeEntry[] });
     const [loading, setLoading] = createSignal(true);
     const [editing, setEditing] = createSignal(false);
     const [timeLogging, setTimeLogging] = createSignal(false);
 
     createEffect(async () => {
         const result = await gqlClient.query<{
-            task: TaskRaw;
+            task: CompleteTaskRaw;
             timeEntries: TimeEntryRaw[];
         }>(
             gql`
@@ -106,6 +69,7 @@ export default function FullTask(props: { id: number; setId: (id: number | null)
                             archivedAt
                         }
                         labels
+                        priority
                     }
                     timeEntries(userId: $userId, taskId: $taskId) {
                         id
@@ -126,22 +90,10 @@ export default function FullTask(props: { id: number; setId: (id: number | null)
         }
 
         const task = result.data!.task;
-        const time = result.data!.timeEntries.map(time => ({
-            ...time,
-            startedAt: new Date(time.startedAt),
-            finishedAt: new Date(time.finishedAt),
-        }));
+        const time = result.data!.timeEntries.map(time => processTimeEntry(time));
 
         setTask({
-            task: {
-                ...task,
-                createdAt: new Date(task.createdAt),
-                archivedAt: task.archivedAt === null ? null : new Date(task.archivedAt),
-                blockedBy: task.blockedBy.map(b => ({
-                    ...b,
-                    archivedAt: b.archivedAt === null ? null : new Date(b.archivedAt),
-                })),
-            },
+            task: processCompleteTask(task),
             time,
         });
         setLoading(false);

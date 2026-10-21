@@ -1,9 +1,10 @@
 import { gql } from "@urql/core";
 import { useAlert } from "../contexts/alertContext";
-import { TaskStatus, useBoard } from "../contexts/boardContext";
+import { useBoard } from "../contexts/boardContext";
 import { gqlClient } from "../graphql";
 import { createSignal, For, Show } from "solid-js";
 import { GripVerticalIcon, PencilIcon } from "lucide-solid";
+import { TaskStatus } from "../gqlTypes";
 
 // TODO: Block everything with a spinner while stuff saves.
 export default function TaskStatuses() {

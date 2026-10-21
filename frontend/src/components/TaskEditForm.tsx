@@ -6,18 +6,18 @@ import { useAppData } from "../contexts/appDataContext";
 import { useBoard } from "../contexts/boardContext";
 import { gqlClient } from "../graphql";
 import User from "../newComponents/User";
-import { Task, TaskRaw } from "./FullTask";
 import Badge from "../newComponents/Badge";
 import BadgeButton from "../newComponents/BadgeButton";
 import { PlusIcon } from "lucide-solid";
+import { CompleteTask, CompleteTaskRaw, PRIORITIES, processCompleteTask } from "../gqlTypes";
 
 export function newValueOrUndefined<T>(value: T, original: T) {
     return value !== original ? value : undefined;
 }
 
 export default function TaskEditForm(props: {
-    task: Task;
-    onSaved: (task: Task) => void;
+    task: CompleteTask;
+    onSaved: (task: CompleteTask) => void;
     onCancel: () => void;
 }) {
     const { addAlert } = useAlert();
@@ -33,6 +33,7 @@ export default function TaskEditForm(props: {
     const [saving, setSaving] = createSignal(false);
     const originalLabels = new Set(task.labels.map(l => l.trim().toLowerCase()));
     const [labels, setLabels] = createSignal(new Set(originalLabels));
+    const [priority, setPriority] = createSignal(task.priority);
 
     const labelDiff = createMemo(() => ({
         add: [...labels()].filter(l => !originalLabels.has(l)),
@@ -90,6 +91,7 @@ export default function TaskEditForm(props: {
             description() != (task.description ?? "") ||
             status() != task.status ||
             assignee() != (task.assignee?.email ?? "") ||
+            priority() != task.priority ||
             hasLabelChanges()
     );
 
@@ -97,7 +99,7 @@ export default function TaskEditForm(props: {
 
     createEffect(
         on(
-            [title, description, status, assignee, labelDiff],
+            [title, description, status, assignee, priority, labelDiff],
             () => {
                 if (!canKeepArchived()) setIsArchived(false);
             },
@@ -115,6 +117,7 @@ export default function TaskEditForm(props: {
             description: newValueOrUndefined(description(), task.description),
             status: newValueOrUndefined(status(), task.status),
             assignee: newValueOrUndefined(assignee() || null, task.assignee?.email ?? null),
+            priority: newValueOrUndefined(priority(), task.priority),
             isArchived: newValueOrUndefined(isArchived(), task.archivedAt != null),
             addLabels: add.length > 0 ? add : undefined,
             removeLabels: remove.length > 0 ? remove : undefined,
@@ -128,7 +131,7 @@ export default function TaskEditForm(props: {
         setSaving(true);
 
         const result = await gqlClient.mutation<{
-            updateTask: TaskRaw;
+            updateTask: CompleteTaskRaw;
         }>(
             gql`
                 mutation UpdateTask($id: Int!, $input: UpdateTaskInput!) {
@@ -160,6 +163,7 @@ export default function TaskEditForm(props: {
                             archivedAt
                         }
                         labels
+                        priority
                     }
                 }
             `,
@@ -178,15 +182,7 @@ export default function TaskEditForm(props: {
         }
 
         const updated = result.data!.updateTask;
-        const saved = {
-            ...updated,
-            createdAt: new Date(updated.createdAt),
-            archivedAt: updated.archivedAt === null ? null : new Date(updated.archivedAt),
-            blockedBy: updated.blockedBy.map(b => ({
-                ...b,
-                archivedAt: b.archivedAt === null ? null : new Date(b.archivedAt),
-            })),
-        };
+        const saved = processCompleteTask(updated);
 
         setBoard("tasks", task => task.id == saved.id, saved);
         props.onSaved(saved);
@@ -251,6 +247,21 @@ export default function TaskEditForm(props: {
                         >
                             <For each={board.taskStatus}>
                                 {status => <option value={status.name}>{status.name}</option>}
+                            </For>
+                        </select>
+
+                        <label class="label">Priority</label>
+                        <select
+                            class="select w-full"
+                            value={priority()}
+                            onChange={e => setPriority(Number(e.currentTarget.value))}
+                        >
+                            <For each={PRIORITIES}>
+                                {p => (
+                                    <option value={p.value} selected={p.value === priority()}>
+                                        {p.label}
+                                    </option>
+                                )}
                             </For>
                         </select>
 

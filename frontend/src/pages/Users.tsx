@@ -1,5 +1,5 @@
 import { For, Show } from "solid-js";
-import { useAppData, User, UserRaw } from "../contexts/appDataContext";
+import { useAppData } from "../contexts/appDataContext";
 import Avatar from "../newComponents/Avatar";
 import Badge from "../newComponents/Badge";
 import { EllipsisVerticalIcon, PlusIcon } from "lucide-solid";
@@ -10,6 +10,7 @@ import { useAlert } from "../contexts/alertContext";
 import { useModal } from "../contexts/modalContext";
 import DateTime from "../components/DateTime";
 import { Title } from "@solidjs/meta";
+import { FullUserRaw, processFullUser } from "../gqlTypes";
 
 export default function Users() {
     const [appData, setAppData] = useAppData();
@@ -26,7 +27,7 @@ export default function Users() {
     async function updateUser(userId: string, input: UpdateUserInput, fallbackErrorMsg: string) {
         try {
             const result = await gqlClient.mutation<{
-                updateUser: UserRaw;
+                updateUser: FullUserRaw;
             }>(
                 gql`
                     mutation UpdateUser($userId: UUID!, $input: UpdateUserInput!) {
@@ -50,10 +51,7 @@ export default function Users() {
 
             const updateUser = result.data!.updateUser;
 
-            setAppData("users", user => user.id == updateUser.id, {
-                ...updateUser,
-                createdAt: new Date(updateUser.createdAt),
-            });
+            setAppData("users", user => user.id == updateUser.id, processFullUser(updateUser));
         } catch (err) {
             addAlert(err instanceof Error ? err.message : fallbackErrorMsg, "error");
         }
@@ -62,7 +60,7 @@ export default function Users() {
     async function addUser() {
         try {
             const result = await gqlClient.mutation<{
-                createUser: UserRaw;
+                createUser: FullUserRaw;
             }>(
                 gql`
                     mutation createUser {
@@ -86,13 +84,7 @@ export default function Users() {
 
             const user = result.data!.createUser;
 
-            setAppData("users", users => [
-                ...users,
-                {
-                    ...user,
-                    createdAt: new Date(user.createdAt),
-                },
-            ]);
+            setAppData("users", users => [...users, processFullUser(user)]);
         } catch (err) {
             addAlert(err instanceof Error ? err.message : "Failed to create user.", "error");
         }
@@ -101,7 +93,7 @@ export default function Users() {
     async function addInvite(userId: string) {
         try {
             const result = await gqlClient.mutation<{
-                addInvite: UserRaw;
+                addInvite: FullUserRaw;
             }>(
                 gql`
                     mutation addInvite($userId: UUID!) {
@@ -125,10 +117,7 @@ export default function Users() {
 
             let user = result.data!.addInvite;
 
-            setAppData("users", user => user.id == userId, {
-                ...user,
-                createdAt: new Date(user.createdAt),
-            });
+            setAppData("users", user => user.id == userId, processFullUser(user));
         } catch (err) {
             addAlert(err instanceof Error ? err.message : "Failed to generate invite.", "error");
         }
@@ -137,7 +126,7 @@ export default function Users() {
     async function removeInvite(userId: string) {
         try {
             const result = await gqlClient.mutation<{
-                removeInvite: UserRaw;
+                removeInvite: FullUserRaw;
             }>(
                 gql`
                     mutation removeInvite($userId: UUID!) {
@@ -161,10 +150,7 @@ export default function Users() {
 
             let user = result.data!.removeInvite;
 
-            setAppData("users", user => user.id == userId, {
-                ...user,
-                createdAt: new Date(user.createdAt),
-            });
+            setAppData("users", user => user.id == userId, processFullUser(user));
         } catch (err) {
             addAlert(err instanceof Error ? err.message : "Failed to remove invite.", "error");
         }

@@ -1,6 +1,6 @@
 import { createMemo, For, Setter, Show } from "solid-js";
 import FullTask from "../components/FullTask";
-import { Task, TaskRaw, useBoard } from "../contexts/boardContext";
+import { useBoard } from "../contexts/boardContext";
 import { useBoardNav } from "../contexts/boardNavContext";
 import TaskColumn from "../components/TaskColumn";
 import { gqlClient } from "../graphql";
@@ -13,6 +13,7 @@ import { dbg } from "../debug";
 import { useNavigate, useParams } from "@solidjs/router";
 import { Title } from "@solidjs/meta";
 import { useTimeTracking } from "../contexts/clientAppDataContext";
+import { PreviewTaskRaw, processPreviewTask } from "../gqlTypes";
 
 export default function Board() {
     const params = useParams();
@@ -183,7 +184,7 @@ export default function Board() {
         }
 
         const result = await gqlClient.mutation<{
-            updateTask: TaskRaw;
+            updateTask: PreviewTaskRaw;
         }>(
             gql`
                 mutation UpdateTask($id: Int!, $input: UpdateTaskInput!) {
@@ -212,6 +213,7 @@ export default function Board() {
                         archivedAt
                         isBlocked
                         labels
+                        priority
                     }
                 }
             `,
@@ -230,13 +232,7 @@ export default function Board() {
 
         const updated = result.data!.updateTask;
 
-        const saved = {
-            ...updated,
-            createdAt: new Date(updated.createdAt),
-            archivedAt: updated.archivedAt === null ? null : new Date(updated.archivedAt),
-        };
-
-        setBoard("tasks", task => task.id == saved.id, saved);
+        setBoard("tasks", task => task.id == updated.id, processPreviewTask(updated));
     }
 
     const title = () => {
@@ -254,7 +250,7 @@ export default function Board() {
     };
 
     return (
-        <div class="w-full h-auto flex">
+        <div class="w-full min-h-full flex">
             <Title>{title()}</Title>
             <div class="flex flex-row flex-1 gap-4 p-4">
                 <For each={board.taskStatus}>

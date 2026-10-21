@@ -1,54 +1,8 @@
 import { createContext, useContext } from "solid-js";
 import { createStore } from "solid-js/store";
+import { FullBoard } from "../gqlTypes";
 
-export type Task = {
-    id: number;
-    title: string;
-    createdAt: Date;
-    author: UserFromEmail;
-    status: string;
-    assignee?: UserFromEmail;
-    archivedAt: Date | null;
-    timeLogged: { time: number }[];
-    // TODO: this goes stale, but I'd have to refetch all the tasks every time a block is added or removed otherwise. Requires a deeper refactor.
-    isBlocked: boolean;
-    labels: string[];
-};
-
-export type TaskRaw = Replace<Replace<Task, "archivedAt", string | null>, "createdAt", string>;
-
-export type Access = {
-    user: User & { emails: string[] };
-    isModerator: boolean;
-};
-
-export type TaskStatus = {
-    name: string;
-    color: string;
-    priority: number;
-};
-
-export type FullBoard = {
-    id: number;
-    name: string;
-    tasks: Task[];
-    access: Access[];
-    taskStatus: TaskStatus[];
-};
-
-export type FullBoardRaw = Replace<FullBoard, "tasks", TaskRaw[]>;
-
-export type User = {
-    id: string;
-    handle: string | null;
-};
-
-export type UserFromEmail = {
-    email: string;
-    user?: User;
-};
-
-export type BoardStore = ReturnType<typeof createStore<FullBoard>>;
+type BoardStore = ReturnType<typeof createStore<FullBoard>>;
 
 export const BoardContext = createContext<BoardStore>();
 

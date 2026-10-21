@@ -4,13 +4,11 @@ import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
 import { useAppData } from "../contexts/appDataContext";
 import { Title } from "@solidjs/meta";
+import { BaseBoard } from "../gqlTypes";
 
 async function createBoard(name: string) {
     const result = await gqlClient.mutation<{
-        createBoard: {
-            id: number;
-            name: string;
-        };
+        createBoard: BaseBoard;
     }>(
         gql`
             mutation CreateBoard($name: String!) {

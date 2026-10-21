@@ -1,6 +1,5 @@
 import { For, Show } from "solid-js";
 import { useAlert } from "../contexts/alertContext";
-import { Task, TimeEntry, TimeEntryRaw } from "./FullTask";
 import { format } from "date-fns";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
@@ -11,12 +10,13 @@ import { useModal } from "../contexts/modalContext";
 import { newValueOrUndefined } from "./TaskEditForm";
 import DateTime from "./DateTime";
 import { useTimeTracking } from "../contexts/clientAppDataContext";
+import { CompleteTask, processTimeEntry, TimeEntry, TimeEntryRaw, TimeLogged } from "../gqlTypes";
 
 export default function TimeEditForm(props: {
     time: TimeEntry[];
     taskId: number;
     save: SetStoreFunction<{
-        task: Task;
+        task: CompleteTask;
         time: TimeEntry[];
     }>;
     onCancel: () => void;
@@ -58,7 +58,7 @@ export default function TimeEditForm(props: {
 
     async function deleteEntry(entryId: number) {
         const result = await gqlClient.mutation<{
-            removeTaskTimeTrackingEntry: Pick<Task, "timeLogged"> | null;
+            removeTaskTimeTrackingEntry: { timeLogged: TimeLogged | null };
         }>(
             gql`
                 mutation RemoveTaskTimeTrackingEntry($taskId: Int!, $id: Int!) {
@@ -103,7 +103,7 @@ export default function TimeEditForm(props: {
         };
 
         const result = await gqlClient.mutation<{
-            createTimeTrackingEntry: TimeEntryRaw & { task: Pick<Task, "timeLogged"> };
+            createTimeTrackingEntry: TimeEntryRaw & { task: { timeLogged: TimeLogged } };
         }>(
             gql`
                 mutation CreateTimeTrackingEntry(
@@ -148,14 +148,7 @@ export default function TimeEditForm(props: {
 
         const entry = result.data.createTimeTrackingEntry;
 
-        props.save("time", e => [
-            ...e,
-            {
-                ...entry,
-                startedAt: new Date(entry.startedAt),
-                finishedAt: new Date(entry.finishedAt),
-            },
-        ]);
+        props.save("time", e => [...e, processTimeEntry(entry)]);
 
         props.save("task", "timeLogged", entry.task.timeLogged);
         setBoard("tasks", task => task.id == props.taskId, "timeLogged", entry.task.timeLogged);
@@ -200,7 +193,7 @@ export default function TimeEditForm(props: {
                     startedAt: string;
                     finishedAt: string;
                     description: string;
-                    task: Pick<Task, "timeLogged">;
+                    task: { timeLogged: TimeLogged };
                 };
             }>(
                 gql`
@@ -246,11 +239,7 @@ export default function TimeEditForm(props: {
 
             const entry = result.data.updateTimeTrackingEntry;
 
-            props.save("time", e => e.id == entry.id, {
-                ...entry,
-                startedAt: new Date(entry.startedAt),
-                finishedAt: new Date(entry.finishedAt),
-            });
+            props.save("time", e => e.id == entry.id, processTimeEntry(entry));
             props.save("task", "timeLogged", entry.task.timeLogged);
             setBoard("tasks", task => task.id == props.taskId, "timeLogged", entry.task.timeLogged);
 

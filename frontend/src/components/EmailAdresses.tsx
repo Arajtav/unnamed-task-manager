@@ -1,12 +1,13 @@
 import { createSignal, For, Show } from "solid-js";
 import { useAlert } from "../contexts/alertContext";
-import { Me, useAppData } from "../contexts/appDataContext";
+import { useAppData } from "../contexts/appDataContext";
 import { useModal } from "../contexts/modalContext";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
 import Email from "./Email";
 import { parseOneAddress } from "email-addresses";
 import { TrashIcon } from "lucide-solid";
+import { Me } from "../gqlTypes";
 
 export default function EmailAddresses() {
     const [appData, setAppData] = useAppData();

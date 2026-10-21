@@ -1,6 +1,5 @@
 import { createSignal, For, Show } from "solid-js";
 import User from "../newComponents/User";
-import { Task, TimeEntry } from "./FullTask";
 import { formatDuration } from "../format";
 import { XIcon } from "lucide-solid";
 import { useBoard } from "../contexts/boardContext";
@@ -10,14 +9,21 @@ import { handleAuthError } from "../auth";
 import { useAlert } from "../contexts/alertContext";
 import { SetStoreFunction } from "solid-js/store";
 import DateTime from "./DateTime";
+import {
+    CompleteTask,
+    MinimalTaskRaw,
+    priorityLabel,
+    processMinimalTask,
+    TimeEntry,
+} from "../gqlTypes";
 
 export default function TaskDetails(props: {
-    task: Task;
+    task: CompleteTask;
     onEdit: () => void;
     onClose: () => void;
     onLogTime: () => void;
     save: SetStoreFunction<{
-        task: Task;
+        task: CompleteTask;
         time: TimeEntry[];
     }>;
 }) {
@@ -28,7 +34,7 @@ export default function TaskDetails(props: {
 
     async function block(by: number) {
         const result = await gqlClient.mutation<{
-            addTaskBlock: Pick<Task, "blockedBy">;
+            addTaskBlock: { blockedBy: MinimalTaskRaw[] };
         }>(
             gql`
                 mutation AddTaskBlock($taskId: Int!, $blockedBy: Int!) {
@@ -52,12 +58,16 @@ export default function TaskDetails(props: {
 
         const updated = result.data.addTaskBlock.blockedBy;
 
-        props.save("task", "blockedBy", updated);
+        props.save(
+            "task",
+            "blockedBy",
+            updated.map(m => processMinimalTask(m))
+        );
     }
 
     async function unblock(by: number) {
         const result = await gqlClient.mutation<{
-            removeTaskBlock: Pick<Task, "blockedBy">;
+            removeTaskBlock: { blockedBy: MinimalTaskRaw[] };
         }>(
             gql`
                 mutation RemoveTaskBlock($taskId: Int!, $blockedBy: Int!) {
@@ -81,7 +91,11 @@ export default function TaskDetails(props: {
 
         const updated = result.data.removeTaskBlock.blockedBy;
 
-        props.save("task", "blockedBy", updated);
+        props.save(
+            "task",
+            "blockedBy",
+            updated.map(m => processMinimalTask(m))
+        );
     }
 
     return (
@@ -131,6 +145,11 @@ export default function TaskDetails(props: {
                 <div>
                     <div class="text-sm font-semibold text-base-content/70">Status</div>
                     <div class="mt-1">{props.task.status}</div>
+                </div>
+
+                <div>
+                    <div class="text-sm font-semibold text-base-content/70">Priority</div>
+                    <div class="mt-1">{priorityLabel(props.task.priority)}</div>
                 </div>
 
                 <div>

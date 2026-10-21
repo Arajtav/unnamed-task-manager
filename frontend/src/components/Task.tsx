@@ -1,13 +1,13 @@
 import { createMemo, For, Show } from "solid-js";
-import { Task as TaskT } from "../contexts/boardContext";
 import { formatDuration } from "../format";
 import Avatar from "../newComponents/Avatar";
 import DateTime from "./DateTime";
 import Badge from "../newComponents/Badge";
 import { useTimeTracking } from "../contexts/clientAppDataContext";
 import { useBoardNav } from "../contexts/boardNavContext";
+import { PreviewTask, priorityLabel } from "../gqlTypes";
 
-export default function Task({ task }: { task: TaskT }) {
+export default function Task({ task }: { task: PreviewTask }) {
     const timeTracked = createMemo(() => task.timeLogged.reduce((acc, e) => acc + e.time, 0));
     const timeTracking = useTimeTracking();
 
@@ -64,6 +64,7 @@ export default function Task({ task }: { task: TaskT }) {
                         </p>
                     )}
                 </Show>
+                <p>Priority: {priorityLabel(task.priority)}</p>
                 <div class="flex flex-row gap-[1ch]">
                     <span>Created:</span>
                     <DateTime datetime={task.createdAt} imprecise={true} />

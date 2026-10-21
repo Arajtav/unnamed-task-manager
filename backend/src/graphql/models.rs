@@ -241,6 +241,7 @@ pub struct Task {
     status: String,
     assignee: Option<Email>,
     archived_at: Option<DateTime<Utc>>,
+    priority: i32,
 
     #[graphql(skip)]
     board_id: i32,
@@ -258,6 +259,7 @@ impl From<models::task::Model> for Task {
             status: task.status,
             assignee: task.assignee.map(|email| Email { email }),
             archived_at: task.archived_at,
+            priority: task.priority,
         }
     }
 }

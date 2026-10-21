@@ -24,6 +24,8 @@ pub struct Model {
     pub assignee: Option<String>,
 
     pub archived_at: Option<DateTime<Utc>>,
+
+    pub priority: i32,
 }
 
 impl ActiveModelBehavior for ActiveModel {}

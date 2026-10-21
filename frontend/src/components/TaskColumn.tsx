@@ -1,5 +1,5 @@
 import { For, Setter } from "solid-js";
-import { Task as TaskT, TaskStatus } from "../contexts/boardContext";
+import { PreviewTask as TaskT, TaskStatus } from "../contexts/boardContext";
 import Task from "./Task";
 import Badge from "../newComponents/Badge";
 import { PlusIcon } from "lucide-solid";
@@ -62,7 +62,17 @@ export default function TaskColumn(props: {
                             return a.archivedAt == null ? -1 : 1;
                         }
 
-                        // Oldest on top.
+                        // Archived: most recently archived on top.
+                        if (a.archivedAt != null && b.archivedAt != null) {
+                            return b.archivedAt.getTime() - a.archivedAt.getTime();
+                        }
+
+                        // Unarchived: highest priority on top.
+                        if (a.priority != b.priority) {
+                            return b.priority - a.priority;
+                        }
+
+                        // Same priority: oldest on top.
                         return a.createdAt.getTime() - b.createdAt.getTime();
                     })}
                 >

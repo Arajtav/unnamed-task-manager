@@ -6,10 +6,11 @@ import { createStore } from "solid-js/store";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
 import TaskForm from "../components/TaskForm";
-import { BoardContext, FullBoard, Task } from "../contexts/boardContext";
+import { BoardContext } from "../contexts/boardContext";
 import { useAlert } from "../contexts/alertContext";
 import { BoardNavContext, BoardNavSettings } from "../contexts/boardNavContext";
 import { Title } from "@solidjs/meta";
+import { FullBoard, FullBoardRaw, processFullBoard } from "../gqlTypes";
 
 export default function BoardLayout(props: RouteSectionProps) {
     const params = useParams<{ id: string }>();
@@ -33,11 +34,7 @@ export default function BoardLayout(props: RouteSectionProps) {
 
     async function fetchBoard(id: number) {
         const result = await gqlClient.query<{
-            board?: Replace<
-                FullBoard,
-                "tasks",
-                Replace<Replace<Task, "archivedAt", string | null>, "createdAt", string>[]
-            >;
+            board?: FullBoardRaw;
         }>(
             gql`
                 query Board($id: Int!) {
@@ -69,6 +66,7 @@ export default function BoardLayout(props: RouteSectionProps) {
                             archivedAt
                             isBlocked
                             labels
+                            priority
                         }
                         access {
                             user {
@@ -103,16 +101,7 @@ export default function BoardLayout(props: RouteSectionProps) {
             return;
         }
 
-        const fullBoard: FullBoard = {
-            ...board,
-            tasks: board.tasks.map(task => ({
-                ...task,
-                createdAt: new Date(task.createdAt),
-                archivedAt: task.archivedAt === null ? null : new Date(task.archivedAt),
-            })),
-        };
-
-        store[1](fullBoard);
+        store[1](processFullBoard(board));
         setLoading("no");
     }
 

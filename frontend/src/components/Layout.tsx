@@ -8,8 +8,9 @@ import { gql } from "@urql/core";
 import { AlertContext, AlertType } from "../contexts/alertContext";
 import { ModalContext, ModalOptions } from "../contexts/modalContext";
 import { dbg } from "../debug";
-import { AppData, AppDataContext, Me, User } from "../contexts/appDataContext";
+import { AppData, AppDataContext } from "../contexts/appDataContext";
 import { ClientAppDataContext, createClientAppData } from "../contexts/clientAppDataContext";
+import { BaseBoard, FullUserRaw, Me, processFullUser } from "../gqlTypes";
 
 export default function Layout(props: RouteSectionProps) {
     const location = useLocation();
@@ -24,11 +25,8 @@ export default function Layout(props: RouteSectionProps) {
 
         const result = await gqlClient.query<{
             me: Me;
-            boards: {
-                id: number;
-                name: string;
-            }[];
-            users: UserRaw[];
+            boards: BaseBoard[];
+            users: FullUserRaw[];
         }>(
             gql`
                 query Me {
@@ -67,7 +65,7 @@ export default function Layout(props: RouteSectionProps) {
             dbg({
                 me,
                 boards: new Map(boards.map(board => [board.id, board.name])),
-                users: users.map(user => ({ ...user, createdAt: new Date(user.createdAt) })),
+                users: users.map(user => processFullUser(user)),
             })
         );
 
