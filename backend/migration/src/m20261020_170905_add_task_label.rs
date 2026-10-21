@@ -28,11 +28,7 @@ impl MigrationTrait for Migration {
                             )
                             .extra("COLLATE NOCASE"),
                     )
-                    .primary_key(
-                        Index::create()
-                            .col(TaskLabel::TaskId)
-                            .col(TaskLabel::Name),
-                    )
+                    .primary_key(Index::create().col(TaskLabel::TaskId).col(TaskLabel::Name))
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-task-label-task")

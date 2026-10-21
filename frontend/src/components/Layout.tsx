@@ -28,7 +28,7 @@ export default function Layout(props: RouteSectionProps) {
                 id: number;
                 name: string;
             }[];
-            users: Replace<User, "createdAt", string>[];
+            users: UserRaw[];
         }>(
             gql`
                 query Me {

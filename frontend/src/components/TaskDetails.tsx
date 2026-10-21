@@ -37,7 +37,7 @@ export default function TaskDetails(props: {
                             id
                             title
                             status
-                            isArchived
+                            archivedAt
                         }
                     }
                 }
@@ -66,7 +66,7 @@ export default function TaskDetails(props: {
                             id
                             title
                             status
-                            isArchived
+                            archivedAt
                         }
                     }
                 }
@@ -140,6 +140,17 @@ export default function TaskDetails(props: {
                     </div>
                 </div>
 
+                <Show when={props.task.archivedAt}>
+                    {archivedAt => (
+                        <div>
+                            <div class="text-sm font-semibold text-base-content/70">Archived</div>
+                            <div class="mt-1">
+                                <DateTime datetime={archivedAt()} />
+                            </div>
+                        </div>
+                    )}
+                </Show>
+
                 <div>
                     <div class="text-sm font-semibold text-base-content/70">Blocked by</div>
                     <ul class="mt-1 list bg-base-100 rounded-box mb-4">
@@ -173,7 +184,7 @@ export default function TaskDetails(props: {
                                 each={board.tasks
                                     .filter(
                                         t =>
-                                            !t.isArchived &&
+                                            !t.archivedAt &&
                                             t.id != props.task.id &&
                                             !props.task.blockedBy.some(b => b.id == t.id)
                                     )

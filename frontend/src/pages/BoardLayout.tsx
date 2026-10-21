@@ -33,11 +33,11 @@ export default function BoardLayout(props: RouteSectionProps) {
 
     async function fetchBoard(id: number) {
         const result = await gqlClient.query<{
-            board?: Omit<FullBoard, "tasks"> & {
-                tasks: (Omit<Task, "createdAt"> & {
-                    createdAt: string;
-                })[];
-            };
+            board?: Replace<
+                FullBoard,
+                "tasks",
+                Replace<Replace<Task, "archivedAt", string | null>, "createdAt", string>[]
+            >;
         }>(
             gql`
                 query Board($id: Int!) {
@@ -66,7 +66,7 @@ export default function BoardLayout(props: RouteSectionProps) {
                             timeLogged {
                                 time
                             }
-                            isArchived
+                            archivedAt
                             isBlocked
                             labels
                         }
@@ -105,7 +105,11 @@ export default function BoardLayout(props: RouteSectionProps) {
 
         const fullBoard: FullBoard = {
             ...board,
-            tasks: board.tasks.map(task => ({ ...task, createdAt: new Date(task.createdAt) })),
+            tasks: board.tasks.map(task => ({
+                ...task,
+                createdAt: new Date(task.createdAt),
+                archivedAt: task.archivedAt === null ? null : new Date(task.archivedAt),
+            })),
         };
 
         store[1](fullBoard);

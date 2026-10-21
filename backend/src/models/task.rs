@@ -23,7 +23,7 @@ pub struct Model {
     pub status: String,
     pub assignee: Option<String>,
 
-    pub is_archived: bool,
+    pub archived_at: Option<DateTime<Utc>>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}

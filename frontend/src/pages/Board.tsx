@@ -1,6 +1,6 @@
 import { createMemo, For, Setter, Show } from "solid-js";
 import FullTask from "../components/FullTask";
-import { Task, useBoard } from "../contexts/boardContext";
+import { Task, TaskRaw, useBoard } from "../contexts/boardContext";
 import { useBoardNav } from "../contexts/boardNavContext";
 import TaskColumn from "../components/TaskColumn";
 import { gqlClient } from "../graphql";
@@ -98,7 +98,7 @@ export default function Board() {
         let f = dbg(filters());
 
         if (f.archived !== undefined) {
-            filtered = filtered.filter(t => t.isArchived == f.archived);
+            filtered = filtered.filter(t => (t.archivedAt != null) == f.archived);
         }
 
         if (f.tracking !== undefined) {
@@ -178,12 +178,12 @@ export default function Board() {
     async function moveTask(taskId: number, status: string) {
         let task = board.tasks.find(task => task.id == taskId);
 
-        if (!task || task.status == status || task.isArchived) {
+        if (!task || task.status == status || task.archivedAt != null) {
             return;
         }
 
         const result = await gqlClient.mutation<{
-            updateTask: Replace<Task, "createdAt", string>;
+            updateTask: TaskRaw;
         }>(
             gql`
                 mutation UpdateTask($id: Int!, $input: UpdateTaskInput!) {
@@ -209,7 +209,7 @@ export default function Board() {
                         timeLogged {
                             time
                         }
-                        isArchived
+                        archivedAt
                         isBlocked
                         labels
                     }
@@ -233,6 +233,7 @@ export default function Board() {
         const saved = {
             ...updated,
             createdAt: new Date(updated.createdAt),
+            archivedAt: updated.archivedAt === null ? null : new Date(updated.archivedAt),
         };
 
         setBoard("tasks", task => task.id == saved.id, saved);

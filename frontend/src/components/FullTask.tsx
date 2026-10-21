@@ -18,7 +18,7 @@ export type Task = {
     author: UserFromEmail;
     status: string;
     assignee?: UserFromEmail;
-    isArchived: boolean;
+    archivedAt: Date | null;
     timeLogged: {
         time: number;
         user: {
@@ -27,9 +27,23 @@ export type Task = {
             emails: string[];
         } | null;
     }[];
-    blockedBy: { id: number; title: string; status: string; isArchived: boolean }[];
+    blockedBy: { id: number; title: string; status: string; archivedAt: Date | null }[];
     labels: string[];
 };
+
+export type TaskRaw = Replace<
+    Replace<
+        Replace<
+            Task,
+            "blockedBy",
+            Replace<Task["blockedBy"][number], "archivedAt", string | null>[]
+        >,
+        "archivedAt",
+        string | null
+    >,
+    "createdAt",
+    string
+>;
 
 export type TimeEntry = {
     id: number;
@@ -37,6 +51,8 @@ export type TimeEntry = {
     finishedAt: Date;
     description: string;
 };
+
+export type TimeEntryRaw = Replace<Replace<TimeEntry, "startedAt", string>, "finishedAt", string>;
 
 export default function FullTask(props: { id: number; setId: (id: number | null) => any }) {
     const { addAlert } = useAlert();
@@ -49,8 +65,8 @@ export default function FullTask(props: { id: number; setId: (id: number | null)
 
     createEffect(async () => {
         const result = await gqlClient.query<{
-            task: Replace<Task, "createdAt", string>;
-            timeEntries: Replace<Replace<TimeEntry, "startedAt", string>, "finishedAt", string>[];
+            task: TaskRaw;
+            timeEntries: TimeEntryRaw[];
         }>(
             gql`
                 query TaskAndTimeEntries($userId: UUID!, $taskId: Int!) {
@@ -82,12 +98,12 @@ export default function FullTask(props: { id: number; setId: (id: number | null)
                                 emails
                             }
                         }
-                        isArchived
+                        archivedAt
                         blockedBy {
                             id
                             title
                             status
-                            isArchived
+                            archivedAt
                         }
                         labels
                     }
@@ -117,7 +133,15 @@ export default function FullTask(props: { id: number; setId: (id: number | null)
         }));
 
         setTask({
-            task: { ...task, createdAt: new Date(task.createdAt) },
+            task: {
+                ...task,
+                createdAt: new Date(task.createdAt),
+                archivedAt: task.archivedAt === null ? null : new Date(task.archivedAt),
+                blockedBy: task.blockedBy.map(b => ({
+                    ...b,
+                    archivedAt: b.archivedAt === null ? null : new Date(b.archivedAt),
+                })),
+            },
             time,
         });
         setLoading(false);

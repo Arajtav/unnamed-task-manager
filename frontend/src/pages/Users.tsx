@@ -1,5 +1,5 @@
 import { For, Show } from "solid-js";
-import { useAppData, User } from "../contexts/appDataContext";
+import { useAppData, User, UserRaw } from "../contexts/appDataContext";
 import Avatar from "../newComponents/Avatar";
 import Badge from "../newComponents/Badge";
 import { EllipsisVerticalIcon, PlusIcon } from "lucide-solid";
@@ -26,7 +26,7 @@ export default function Users() {
     async function updateUser(userId: string, input: UpdateUserInput, fallbackErrorMsg: string) {
         try {
             const result = await gqlClient.mutation<{
-                updateUser: Replace<User, "createdAt", string>;
+                updateUser: UserRaw;
             }>(
                 gql`
                     mutation UpdateUser($userId: UUID!, $input: UpdateUserInput!) {
@@ -62,7 +62,7 @@ export default function Users() {
     async function addUser() {
         try {
             const result = await gqlClient.mutation<{
-                createUser: Replace<User, "createdAt", string>;
+                createUser: UserRaw;
             }>(
                 gql`
                     mutation createUser {
@@ -101,7 +101,7 @@ export default function Users() {
     async function addInvite(userId: string) {
         try {
             const result = await gqlClient.mutation<{
-                addInvite: Replace<User, "createdAt", string>;
+                addInvite: UserRaw;
             }>(
                 gql`
                     mutation addInvite($userId: UUID!) {
@@ -137,7 +137,7 @@ export default function Users() {
     async function removeInvite(userId: string) {
         try {
             const result = await gqlClient.mutation<{
-                removeInvite: Replace<User, "createdAt", string>;
+                removeInvite: UserRaw;
             }>(
                 gql`
                     mutation removeInvite($userId: UUID!) {

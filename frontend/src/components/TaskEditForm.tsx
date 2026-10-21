@@ -6,7 +6,7 @@ import { useAppData } from "../contexts/appDataContext";
 import { useBoard } from "../contexts/boardContext";
 import { gqlClient } from "../graphql";
 import User from "../newComponents/User";
-import { Task } from "./FullTask";
+import { Task, TaskRaw } from "./FullTask";
 import Badge from "../newComponents/Badge";
 import BadgeButton from "../newComponents/BadgeButton";
 import { PlusIcon } from "lucide-solid";
@@ -29,7 +29,7 @@ export default function TaskEditForm(props: {
     const [description, setDescription] = createSignal(task.description ?? "");
     const [status, setStatus] = createSignal(task.status);
     const [assignee, setAssignee] = createSignal(task.assignee?.email ?? "");
-    const [isArchived, setIsArchived] = createSignal(task.isArchived);
+    const [isArchived, setIsArchived] = createSignal(task.archivedAt != null);
     const [saving, setSaving] = createSignal(false);
     const originalLabels = new Set(task.labels.map(l => l.trim().toLowerCase()));
     const [labels, setLabels] = createSignal(new Set(originalLabels));
@@ -81,7 +81,8 @@ export default function TaskEditForm(props: {
     });
 
     const isUserAdminOrModerator = () =>
-        appData.me.isAdmin || board.access.some(access => access.user.id == appData.me.id && access.isModerator);
+        appData.me.isAdmin ||
+        board.access.some(access => access.user.id == appData.me.id && access.isModerator);
 
     const isEditing = createMemo(
         () =>
@@ -114,7 +115,7 @@ export default function TaskEditForm(props: {
             description: newValueOrUndefined(description(), task.description),
             status: newValueOrUndefined(status(), task.status),
             assignee: newValueOrUndefined(assignee() || null, task.assignee?.email ?? null),
-            isArchived: newValueOrUndefined(isArchived(), task.isArchived),
+            isArchived: newValueOrUndefined(isArchived(), task.archivedAt != null),
             addLabels: add.length > 0 ? add : undefined,
             removeLabels: remove.length > 0 ? remove : undefined,
         };
@@ -127,9 +128,7 @@ export default function TaskEditForm(props: {
         setSaving(true);
 
         const result = await gqlClient.mutation<{
-            updateTask: Omit<Task, "createdAt"> & {
-                createdAt: string;
-            };
+            updateTask: TaskRaw;
         }>(
             gql`
                 mutation UpdateTask($id: Int!, $input: UpdateTaskInput!) {
@@ -153,12 +152,12 @@ export default function TaskEditForm(props: {
                                 handle
                             }
                         }
-                        isArchived
+                        archivedAt
                         blockedBy {
                             id
                             title
                             status
-                            isArchived
+                            archivedAt
                         }
                         labels
                     }
@@ -179,7 +178,15 @@ export default function TaskEditForm(props: {
         }
 
         const updated = result.data!.updateTask;
-        const saved = { ...updated, createdAt: new Date(updated.createdAt) };
+        const saved = {
+            ...updated,
+            createdAt: new Date(updated.createdAt),
+            archivedAt: updated.archivedAt === null ? null : new Date(updated.archivedAt),
+            blockedBy: updated.blockedBy.map(b => ({
+                ...b,
+                archivedAt: b.archivedAt === null ? null : new Date(b.archivedAt),
+            })),
+        };
 
         setBoard("tasks", task => task.id == saved.id, saved);
         props.onSaved(saved);

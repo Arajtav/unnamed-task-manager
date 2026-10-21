@@ -2,7 +2,7 @@ import { createSignal, For, Show } from "solid-js";
 import { A } from "@solidjs/router";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
-import { Task, useBoard } from "../contexts/boardContext";
+import { Task, TaskRaw, useBoard } from "../contexts/boardContext";
 import { useBoardNav } from "../contexts/boardNavContext";
 import { useAppData } from "../contexts/appDataContext";
 import { useAlert } from "../contexts/alertContext";
@@ -45,9 +45,7 @@ export default function TaskForm() {
         e.preventDefault();
 
         const result = await gqlClient.mutation<{
-            createTask: Omit<Task, "createdAt"> & {
-                createdAt: string;
-            };
+            createTask: TaskRaw;
         }>(
             gql`
                 mutation CreateTask(
@@ -87,7 +85,7 @@ export default function TaskForm() {
                         timeLogged {
                             time
                         }
-                        isArchived
+                        archivedAt
                         isBlocked
                         labels
                     }
@@ -114,7 +112,14 @@ export default function TaskForm() {
         setDescription("");
         setAuthor("");
         setLabels(new Set<string>());
-        setBoard("tasks", tasks => [...tasks, { ...task, createdAt: new Date(task.createdAt) }]);
+        setBoard("tasks", tasks => [
+            ...tasks,
+            {
+                ...task,
+                createdAt: new Date(task.createdAt),
+                archivedAt: task.archivedAt === null ? null : new Date(task.archivedAt),
+            },
+        ]);
         setBoardNav("createTask", "");
     }
 

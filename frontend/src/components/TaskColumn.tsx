@@ -58,8 +58,8 @@ export default function TaskColumn(props: {
                 <For
                     each={props.tasks.toSorted((a, b) => {
                         // Archived below.
-                        if (a.isArchived != b.isArchived) {
-                            return a.isArchived ? 1 : -1;
+                        if ((a.archivedAt != null) != (b.archivedAt != null)) {
+                            return a.archivedAt == null ? -1 : 1;
                         }
 
                         // Oldest on top.
@@ -68,8 +68,8 @@ export default function TaskColumn(props: {
                 >
                     {task => (
                         <li
-                            class={`list-row flex flex-col my-1 ${task.isBlocked && !task.isArchived ? "bg-warning/20" : "bg-base-300"}`}
-                            draggable={!task.isArchived}
+                            class={`list-row flex flex-col my-1 ${task.isBlocked && !task.archivedAt ? "bg-warning/20" : "bg-base-300"}`}
+                            draggable={!task.archivedAt}
                             onDragStart={e => {
                                 e.dataTransfer?.setData("text/plain", task.id.toString());
 

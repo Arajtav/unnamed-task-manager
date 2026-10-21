@@ -1,6 +1,6 @@
 import { For, Show } from "solid-js";
 import { useAlert } from "../contexts/alertContext";
-import { Task, TimeEntry } from "./FullTask";
+import { Task, TimeEntry, TimeEntryRaw } from "./FullTask";
 import { format } from "date-fns";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
@@ -103,11 +103,7 @@ export default function TimeEditForm(props: {
         };
 
         const result = await gqlClient.mutation<{
-            createTimeTrackingEntry: Replace<
-                Replace<TimeEntry, "startedAt", string>,
-                "finishedAt",
-                string
-            > & { task: Pick<Task, "timeLogged"> };
+            createTimeTrackingEntry: TimeEntryRaw & { task: Pick<Task, "timeLogged"> };
         }>(
             gql`
                 mutation CreateTimeTrackingEntry(

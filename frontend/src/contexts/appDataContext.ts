@@ -11,6 +11,8 @@ export type User = {
     invite: string | null;
 };
 
+export type UserRaw = Replace<User, "createdAt", string>;
+
 export type Me = {
     id: string;
     emails: string[];

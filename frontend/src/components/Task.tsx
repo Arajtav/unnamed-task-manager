@@ -18,7 +18,7 @@ export default function Task({ task }: { task: TaskT }) {
             <Show when={timeTracking.isTracking(task.id)}>
                 <span class="indicator-item status status-xl status-success"></span>
             </Show>
-            <div class={task.isArchived ? "opacity-50" : ""}>
+            <div class={task.archivedAt ? "opacity-50" : ""}>
                 <p class="font-bold">{task.title}</p>
                 <For each={task.labels}>
                     {label => (
@@ -68,6 +68,14 @@ export default function Task({ task }: { task: TaskT }) {
                     <span>Created:</span>
                     <DateTime datetime={task.createdAt} imprecise={true} />
                 </div>
+                <Show when={task.archivedAt}>
+                    {archivedAt => (
+                        <div class="flex flex-row gap-[1ch]">
+                            <span>Archived:</span>
+                            <DateTime datetime={archivedAt()} imprecise={true} />
+                        </div>
+                    )}
+                </Show>
                 <p>Time logged: {formatDuration(timeTracked())}</p>
             </div>
         </div>

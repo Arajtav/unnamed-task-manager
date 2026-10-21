@@ -8,12 +8,14 @@ export type Task = {
     author: UserFromEmail;
     status: string;
     assignee?: UserFromEmail;
-    isArchived: boolean;
+    archivedAt: Date | null;
     timeLogged: { time: number }[];
     // TODO: this goes stale, but I'd have to refetch all the tasks every time a block is added or removed otherwise. Requires a deeper refactor.
     isBlocked: boolean;
     labels: string[];
 };
+
+export type TaskRaw = Replace<Replace<Task, "archivedAt", string | null>, "createdAt", string>;
 
 export type Access = {
     user: User & { emails: string[] };
@@ -33,6 +35,8 @@ export type FullBoard = {
     access: Access[];
     taskStatus: TaskStatus[];
 };
+
+export type FullBoardRaw = Replace<FullBoard, "tasks", TaskRaw[]>;
 
 export type User = {
     id: string;

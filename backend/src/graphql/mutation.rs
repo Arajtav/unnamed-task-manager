@@ -399,7 +399,10 @@ impl MutationRoot {
                 .one(&tx)
                 .await?
             {
-                if task.is_archived && input.is_archived != Some(false) && !access.is_moderator {
+                if task.archived_at.is_some()
+                    && input.is_archived != Some(false)
+                    && !access.is_moderator
+                {
                     return Err(Error::new("TASK ARCHIVED"));
                 }
             } else {
@@ -407,6 +410,7 @@ impl MutationRoot {
             }
         }
 
+        let was_archived = task.archived_at.is_some();
         let mut task = task.into_active_model();
 
         if let Some(title) = input.title {
@@ -428,7 +432,11 @@ impl MutationRoot {
         };
 
         if let Some(is_archived) = input.is_archived {
-            task.is_archived = Set(is_archived);
+            if !is_archived {
+                task.archived_at = Set(None);
+            } else if !was_archived {
+                task.archived_at = Set(Some(Utc::now()))
+            }
         }
 
         let task = match task.update(&tx).await {
@@ -843,7 +851,9 @@ impl MutationRoot {
                 .one(db)
                 .await?
             {
-                if (blocking_task.is_archived || task.is_archived) && !access.is_moderator {
+                if (blocking_task.archived_at.is_some() || task.archived_at.is_some())
+                    && !access.is_moderator
+                {
                     return Err(Error::new("TASK ARCHIVED"));
                 }
             } else {
@@ -854,7 +864,7 @@ impl MutationRoot {
         // TODO: Why do we even use sea orm it was a terrible decision.
         let stmt = Statement::from_sql_and_values(
             DbBackend::Sqlite,
-            r#"
+            r"
                 WITH RECURSIVE closure(blocked_id) AS (
                     SELECT blocked FROM task_block WHERE blocking = ?
                     UNION
@@ -862,7 +872,7 @@ impl MutationRoot {
                     JOIN closure c ON tb.blocking = c.blocked_id
                 )
                 SELECT 1 FROM closure WHERE blocked_id = ?
-            "#,
+            ",
             vec![task_id.into(), blocked_by.into()],
         );
 
@@ -906,7 +916,7 @@ impl MutationRoot {
                 .one(db)
                 .await?
             {
-                if task.is_archived && !access.is_moderator {
+                if task.archived_at.is_some() && !access.is_moderator {
                     return Err(Error::new("TASK ARCHIVED"));
                 }
             } else {
