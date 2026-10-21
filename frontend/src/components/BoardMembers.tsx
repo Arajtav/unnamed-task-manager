@@ -11,18 +11,18 @@ import { useAppData } from "../contexts/appDataContext";
 
 export default function BoardMembers() {
     const [board, setBoard] = useBoard();
-    const [{ me, users }] = useAppData();
+    const [appData] = useAppData();
     const { addAlert } = useAlert();
     const { openModal } = useModal();
 
     const [search, setSearch] = createSignal("");
 
     const permissions = createMemo(() => {
-        if (me.isAdmin) {
+        if (appData.me.isAdmin) {
             return "admin";
         }
 
-        return board.access.find(a => a.user.id == me.id)?.isModerator ? "moderator" : "";
+        return board.access.find(a => a.user.id == appData.me.id)?.isModerator ? "moderator" : "";
     });
 
     type ComputedAccess = {
@@ -31,7 +31,7 @@ export default function BoardMembers() {
     };
 
     const computedAccess = createMemo<ComputedAccess[]>(() => {
-        const admins: ComputedAccess[] = users
+        const admins: ComputedAccess[] = appData.users
             .filter(u => u.isAdmin)
             .map(u => ({ user: u, permissions: "admin" }));
 
@@ -82,7 +82,7 @@ export default function BoardMembers() {
     const searchResults = createMemo(() => {
         const query = search().trim().toLowerCase();
 
-        return users
+        return appData.users
             .filter(user => !computedAccess().some(a => a.user.id == user.id))
             .filter(
                 user =>

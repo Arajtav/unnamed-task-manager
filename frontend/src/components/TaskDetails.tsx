@@ -21,9 +21,8 @@ export default function TaskDetails(props: {
         time: TimeEntry[];
     }>;
 }) {
-    const [{ tasks }] = useBoard();
+    const [board] = useBoard();
     const { addAlert } = useAlert();
-    const task = props.task;
 
     const [selectedTaskId, setSelectedTaskId] = createSignal("");
 
@@ -43,7 +42,7 @@ export default function TaskDetails(props: {
                     }
                 }
             `,
-            { taskId: task.id, blockedBy: by }
+            { taskId: props.task.id, blockedBy: by }
         );
 
         if (handleAuthError(result.error) || !result.data) {
@@ -72,7 +71,7 @@ export default function TaskDetails(props: {
                     }
                 }
             `,
-            { taskId: task.id, blockedBy: by }
+            { taskId: props.task.id, blockedBy: by }
         );
 
         if (handleAuthError(result.error) || !result.data) {
@@ -87,7 +86,7 @@ export default function TaskDetails(props: {
 
     return (
         <>
-            <h3 class="text-xl font-bold">{task.title}</h3>
+            <h3 class="text-xl font-bold">{props.task.title}</h3>
 
             <div class="divider" />
 
@@ -95,7 +94,7 @@ export default function TaskDetails(props: {
                 <div>
                     <div class="text-sm font-semibold text-base-content/70">Description</div>
                     <p class="mt-1 whitespace-pre-wrap">
-                        {task.description || "No description provided."}
+                        {props.task.description || "No description provided."}
                     </p>
                 </div>
 
@@ -103,9 +102,9 @@ export default function TaskDetails(props: {
                     <div class="text-sm font-semibold text-base-content/70">Author</div>
                     <User
                         user={{
-                            id: task.author.user?.id,
-                            emails: [task.author.email],
-                            handle: task.author.user?.handle,
+                            id: props.task.author.user?.id,
+                            emails: [props.task.author.email],
+                            handle: props.task.author.user?.handle,
                         }}
                     />
                 </div>
@@ -113,7 +112,7 @@ export default function TaskDetails(props: {
                 <div>
                     <div class="text-sm font-semibold text-base-content/70">Assigned to</div>
                     <div>
-                        <Show when={task.assignee} fallback={<p class="mt-2">No one</p>}>
+                        <Show when={props.task.assignee} fallback={<p class="mt-2">No one</p>}>
                             {assignee => (
                                 <>
                                     <User
@@ -131,20 +130,20 @@ export default function TaskDetails(props: {
 
                 <div>
                     <div class="text-sm font-semibold text-base-content/70">Status</div>
-                    <div class="mt-1">{task.status}</div>
+                    <div class="mt-1">{props.task.status}</div>
                 </div>
 
                 <div>
                     <div class="text-sm font-semibold text-base-content/70">Created</div>
                     <div class="mt-1">
-                        <DateTime datetime={task.createdAt} />
+                        <DateTime datetime={props.task.createdAt} />
                     </div>
                 </div>
 
                 <div>
                     <div class="text-sm font-semibold text-base-content/70">Blocked by</div>
                     <ul class="mt-1 list bg-base-100 rounded-box mb-4">
-                        <For each={task.blockedBy}>
+                        <For each={props.task.blockedBy}>
                             {taskBlock => (
                                 <li class="list-row">
                                     <div class="list-col-grow">{taskBlock.title}</div>
@@ -171,12 +170,12 @@ export default function TaskDetails(props: {
                                 Select a task...
                             </option>
                             <For
-                                each={tasks
+                                each={board.tasks
                                     .filter(
                                         t =>
                                             !t.isArchived &&
-                                            t.id != task.id &&
-                                            !task.blockedBy.some(b => b.id == t.id)
+                                            t.id != props.task.id &&
+                                            !props.task.blockedBy.some(b => b.id == t.id)
                                     )
                                     .toSorted((a, b) => a.title.localeCompare(b.title))}
                             >
@@ -199,7 +198,7 @@ export default function TaskDetails(props: {
                 <div>
                     <div class="text-sm font-semibold text-base-content/70">Time logged</div>
                     <div class="flex flex-col w-full mt-2">
-                        <For each={task.timeLogged}>
+                        <For each={props.task.timeLogged}>
                             {e => (
                                 <div class="flex flex-row w-full">
                                     <div class="flex-1">

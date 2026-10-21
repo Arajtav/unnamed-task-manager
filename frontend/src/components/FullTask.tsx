@@ -38,9 +38,9 @@ export type TimeEntry = {
     description: string;
 };
 
-export default function FullTask({ id, setId }: { id: number; setId: (id: number | null) => any }) {
+export default function FullTask(props: { id: number; setId: (id: number | null) => any }) {
     const { addAlert } = useAlert();
-    const [{ me }] = useAppData();
+    const [appData] = useAppData();
 
     const [task, setTask] = createStore({} as { task: Task; time: TimeEntry[] });
     const [loading, setLoading] = createSignal(true);
@@ -99,7 +99,7 @@ export default function FullTask({ id, setId }: { id: number; setId: (id: number
                     }
                 }
             `,
-            { taskId: id, userId: me.id },
+            { taskId: props.id, userId: appData.me.id },
             // I guess if cache is available it should be used while this loads in the background.
             { requestPolicy: "network-only" }
         );
@@ -142,7 +142,7 @@ export default function FullTask({ id, setId }: { id: number; setId: (id: number
                                         task={task.task}
                                         save={setTask}
                                         onEdit={() => setEditing(true)}
-                                        onClose={() => setId(null)}
+                                        onClose={() => props.setId(null)}
                                         onLogTime={() => setTimeLogging(true)}
                                     />
                                 </div>
@@ -168,7 +168,7 @@ export default function FullTask({ id, setId }: { id: number; setId: (id: number
                 </Show>
             </Show>
 
-            <div class="modal-backdrop" onClick={() => setId(null)} />
+            <div class="modal-backdrop" onClick={() => props.setId(null)} />
         </dialog>
     );
 }

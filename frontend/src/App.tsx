@@ -11,6 +11,8 @@ import BoardSettings from "./pages/BoardSettings";
 import Users from "./pages/Users";
 import { MetaProvider, Title } from "@solidjs/meta";
 
+const INT = /^\d+$/;
+
 export default function App() {
     return (
         <MetaProvider>
@@ -18,11 +20,11 @@ export default function App() {
                 <Route path="/" component={Home} />
                 <Route path="/login" component={Login} />
                 <Route path="/join" component={Join} />
-                <Route path="/boards/:id" component={BoardLayout}>
-                    <Route path="/:taskId?" component={Board} />
+                <Route path="/boards/create" component={BoardForm} />
+                <Route path="/boards/:id" matchFilters={{ id: INT }} component={BoardLayout}>
+                    <Route path="/:taskId?" matchFilters={{ taskId: INT }} component={Board} />
                     <Route path="/settings" component={BoardSettings} />
                 </Route>
-                <Route path="/boards/create" component={BoardForm} />
                 <Route path="/settings" component={Settings} />
                 <Route path="/users" component={Users} />
                 <Route path="*" component={() => <Title>Not Found</Title>} />

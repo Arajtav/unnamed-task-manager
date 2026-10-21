@@ -1,16 +1,14 @@
 import { createMemo, For } from "solid-js";
-import { A, useLocation } from "@solidjs/router";
+import { A, useMatch } from "@solidjs/router";
 import { PanelLeftIcon } from "lucide-solid";
 import { useAppData } from "../contexts/appDataContext";
 
 export default function Drawer() {
-    const [{ boards, me }] = useAppData();
+    const [appData] = useAppData();
 
     let boardsSorted = createMemo(() => {
-        return [...boards].sort((a, b) => a[1].localeCompare(b[1]));
+        return [...appData.boards].sort((a, b) => a[1].localeCompare(b[1]));
     });
-
-    const location = useLocation();
 
     let drawerToggle: HTMLInputElement | undefined;
 
@@ -18,15 +16,12 @@ export default function Drawer() {
         if (drawerToggle) drawerToggle.checked = false;
     }
 
-    let currentBoard = createMemo(() => {
-        if (!location.pathname.startsWith("/boards/")) return null;
-        let after = location.pathname.slice("/boards".length + 1);
-        let i = after.indexOf("/");
-        if (i >= 0) {
-            return after.slice(0, i);
-        } else {
-            return after;
-        }
+    const exact = useMatch(() => "/boards/:id", { id: /^\d+$/ });
+    const nested = useMatch(() => "/boards/:id/*", { id: /^\d+$/ });
+
+    const currentBoard = createMemo<number | null>(() => {
+        const id = (exact() ?? nested())?.params.id;
+        return id === undefined ? null : Number(id);
     });
 
     return (
@@ -60,7 +55,7 @@ export default function Drawer() {
                         </For>
                     </div>
                     <A
-                        class={`btn ${me.isAdmin ? "btn-accent" : "btn-disabled"}`}
+                        class={`btn ${appData.me.isAdmin ? "btn-accent" : "btn-disabled"}`}
                         href="/boards/create"
                         onClick={closeDrawer}
                     >

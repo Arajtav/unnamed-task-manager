@@ -1,10 +1,15 @@
-export default function Email({ email }: { email: string }) {
-    let at = email.lastIndexOf("@");
+import { createMemo } from "solid-js";
+
+export default function Email(props: { email: string }) {
+    let email = createMemo(() => {
+        const at = props.email.lastIndexOf("@");
+        return [props.email.slice(0, at), props.email.slice(at + 1)];
+    });
 
     return (
         <div>
-            <span>{email.slice(0, at)}</span>
-            <span class="opacity-60">{" @ " + email.slice(at + 1)}</span>
+            <span>{email()[0]}</span>
+            <span class="opacity-60">{" @ " + email()[1]}</span>
         </div>
     );
 }

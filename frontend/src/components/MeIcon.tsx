@@ -4,7 +4,7 @@ import { useAppData } from "../contexts/appDataContext";
 import Avatar from "../newComponents/Avatar";
 
 export default function MeIcon() {
-    const [{ me }] = useAppData();
+    const [appData] = useAppData();
 
     async function logout() {
         try {
@@ -18,10 +18,7 @@ export default function MeIcon() {
     return (
         <div>
             <button popovertarget="avatar-settings" style="anchor-name: --avatar-anchor">
-                <Avatar
-                    user={me}
-                    title={{ option: "custom", value: "You" }}
-                />
+                <Avatar user={appData.me} title={{ option: "custom", value: "You" }} />
             </button>
 
             <ul

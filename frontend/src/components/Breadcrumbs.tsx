@@ -1,4 +1,4 @@
-import { A, useLocation, useParams } from "@solidjs/router";
+import { A, useMatch } from "@solidjs/router";
 import { createMemo, For } from "solid-js";
 import { useAppData } from "../contexts/appDataContext";
 
@@ -13,32 +13,37 @@ type RouteData =
     | { place: "users" }
     | { place: "home" };
 
+const INT = /^\d+$/;
+
 export default function Breadcrumbs() {
-    const location = useLocation();
-    const params = useParams<{ id?: string; taskId?: string }>();
-    const [{ boards }] = useAppData();
+    const [appData] = useAppData();
+
+    const settingsMatch = useMatch(() => "/settings");
+    const usersMatch = useMatch(() => "/users");
+    const createMatch = useMatch(() => "/boards/create");
+    const boardSettingsMatch = useMatch(() => "/boards/:id/settings", { id: INT });
+    const taskMatch = useMatch(() => "/boards/:id/:taskId", { id: INT, taskId: INT });
+    const boardMatch = useMatch(() => "/boards/:id", { id: INT });
 
     const routeData = createMemo((): RouteData => {
-        const path = location.pathname;
+        if (settingsMatch()) return { place: "settings" };
+        if (usersMatch()) return { place: "users" };
+        if (createMatch()) return { place: "boards", id: "new" };
 
-        if (path == "/settings") return { place: "settings" };
-        if (path == "/users") return { place: "users" };
-        if (path == "/boards/create") return { place: "boards", id: "new" };
+        const bs = boardSettingsMatch();
+        if (bs) return { place: "boards", id: Number(bs.params.id), settings: true };
 
-        if (path.startsWith("/boards/")) {
-            const boardId = Number(params.id);
-
-            if (path.endsWith("/settings")) {
-                return { place: "boards", id: boardId, settings: true };
-            }
-
-            const task = Number(params.taskId);
-            if (Number.isInteger(task) && task >= 0) {
-                return { place: "boards", id: boardId, task };
-            }
-
-            return { place: "boards", id: boardId };
+        const t = taskMatch();
+        if (t) {
+            return {
+                place: "boards",
+                id: Number(t.params.id),
+                task: Number(t.params.taskId),
+            };
         }
+
+        const b = boardMatch();
+        if (b) return { place: "boards", id: Number(b.params.id) };
 
         return { place: "home" };
     });
@@ -55,7 +60,7 @@ export default function Breadcrumbs() {
             if (data.id == "new") {
                 items.push({ label: "Create Board", href: "/boards/create" });
             } else {
-                const board = boards.get(data.id);
+                const board = appData.boards.get(data.id);
 
                 if (board !== undefined) {
                     items.push({ label: board, href: `/boards/${data.id}` });

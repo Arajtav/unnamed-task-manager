@@ -8,10 +8,10 @@ import { useAppData } from "../contexts/appDataContext";
 export default function BoardNavbar() {
     const [board] = useBoard();
     const [boardNav, setBoardNav] = useBoardNav();
-    const [{ me }] = useAppData();
+    const [appData] = useAppData();
 
     const modOrAdmin = createMemo(
-        () => me.isAdmin || board.access.find(a => a.user.id == me.id)?.isModerator
+        () => appData.me.isAdmin || board.access.find(a => a.user.id == appData.me.id)?.isModerator
     );
 
     return (

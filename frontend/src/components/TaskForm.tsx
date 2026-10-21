@@ -12,13 +12,13 @@ import { PlusIcon } from "lucide-solid";
 
 export default function TaskForm() {
     const { addAlert } = useAlert();
-    const [{ me }] = useAppData();
+    const [appData] = useAppData();
     const [board, setBoard] = useBoard();
     const [boardNav, setBoardNav] = useBoardNav();
 
     const [title, setTitle] = createSignal("");
     const [description, setDescription] = createSignal("");
-    const [author, setAuthor] = createSignal(me.emails[0] ?? "");
+    const [author, setAuthor] = createSignal(appData.me.emails[0] ?? "");
     const [labels, setLabels] = createSignal(new Set<string>());
 
     function addLabel() {
@@ -124,7 +124,7 @@ export default function TaskForm() {
                 <h2 class="card-title">Create Task</h2>
 
                 <Show
-                    when={me.emails.length}
+                    when={appData.me.emails.length}
                     fallback={
                         <A href="/settings" class="text-warning text-sm">
                             You need to link an email first.
@@ -156,10 +156,10 @@ export default function TaskForm() {
                                 class="select w-full"
                                 value={author()}
                                 onChange={e => setAuthor(e.currentTarget.value)}
-                                disabled={me.emails.length == 1}
+                                disabled={appData.me.emails.length == 1}
                                 required
                             >
-                                <For each={me.emails}>
+                                <For each={appData.me.emails}>
                                     {email => <option value={email}>{email}</option>}
                                 </For>
                             </select>
@@ -210,7 +210,7 @@ export default function TaskForm() {
                     >
                         Cancel
                     </button>
-                    <Show when={me.emails.length}>
+                    <Show when={appData.me.emails.length}>
                         <button class="btn btn-primary mt-4" type="submit" form="create-task-form">
                             Create
                         </button>

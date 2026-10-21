@@ -21,7 +21,7 @@ export default function TaskEditForm(props: {
     onCancel: () => void;
 }) {
     const { addAlert } = useAlert();
-    const [{ me }] = useAppData();
+    const [appData] = useAppData();
     const [board, setBoard] = useBoard();
 
     const task = props.task;
@@ -81,7 +81,7 @@ export default function TaskEditForm(props: {
     });
 
     const isUserAdminOrModerator = () =>
-        me.isAdmin || board.access.some(access => access.user.id == me.id && access.isModerator);
+        appData.me.isAdmin || board.access.some(access => access.user.id == appData.me.id && access.isModerator);
 
     const isEditing = createMemo(
         () =>
