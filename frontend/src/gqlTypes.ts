@@ -7,7 +7,7 @@ export type BaseUser = {
 
 export type UserFromEmail = {
     email: string;
-    user?: BaseUser;
+    user: BaseUser | null;
 };
 
 export type PreviewTask = {

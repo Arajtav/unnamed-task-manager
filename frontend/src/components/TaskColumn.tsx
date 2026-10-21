@@ -1,13 +1,14 @@
 import { For, Setter } from "solid-js";
-import { PreviewTask as TaskT, TaskStatus } from "../contexts/boardContext";
 import Task from "./Task";
 import Badge from "../newComponents/Badge";
 import { PlusIcon } from "lucide-solid";
 import { useBoardNav } from "../contexts/boardNavContext";
+import { textColor } from "../../colors";
+import { PreviewTask, TaskStatus } from "../gqlTypes";
 
 export default function TaskColumn(props: {
     status: TaskStatus;
-    tasks: TaskT[];
+    tasks: PreviewTask[];
     setViewTask: Setter<number>;
     onMoveTask: (id: number, status: string) => void;
 }) {
@@ -41,7 +42,7 @@ export default function TaskColumn(props: {
                         class="proportional-num border-0!"
                         style={{
                             "background-color": props.status.color,
-                            color: `oklch(from ${props.status.color} clamp(0, (0.6 + (0.8 * l)) + (clamp(0, (l - 0.55) * 1000, 1) * ((0.1 + (0.8 * (l - 0.55))) - (0.6 + (0.8 * l)))), 1) c h)`,
+                            color: textColor(props.status.color),
                         }}
                     />
                     <h3 class="self-center">{props.status.name}</h3>

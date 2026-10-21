@@ -7,12 +7,16 @@
     "start": "vite",
     "dev": "vite",
     "build": "vite build",
-    "serve": "vite preview"
+    "serve": "vite preview",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "license": "MIT",
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.13",
     "solid-devtools": "^0.34.3",
+    "storybook": "^10.6.3",
+    "storybook-solidjs-vite": "^10.7.4",
     "tailwindcss": "^4.1.13",
     "typescript": "^5.9.2",
     "vite": "^7.1.4",

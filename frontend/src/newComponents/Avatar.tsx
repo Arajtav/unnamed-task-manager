@@ -1,7 +1,18 @@
 import { UserRoundIcon } from "lucide-solid";
 import { Show } from "solid-js";
 import { userColor } from "../format";
-import { UserFromEmail } from "../contexts/boardContext";
+import { UserFromEmail } from "../gqlTypes";
+import { textColor } from "../../colors";
+
+export type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
+
+export const sizeClasses: Record<AvatarSize, [string, number, number]> = {
+    xs: ["h-5 text-xs", 2.5, 12],
+    sm: ["h-6 text-sm", 2.0, 18],
+    md: ["h-8 text-base", 1.5, 24],
+    lg: ["h-12 text-xl", 1.25, 36],
+    xl: ["h-16 text-2xl", 1.0, 48],
+};
 
 type TitleOptions =
     | { option: "auto" }
@@ -13,9 +24,10 @@ type TitleOptions =
 type FlexibleUser =
     { id?: string | null; emails: string[]; handle?: string | null } | UserFromEmail;
 
-export default function Avatar(props: {
-    user?: FlexibleUser;
+function Avatar(props: {
+    user?: FlexibleUser | null;
     title?: TitleOptions;
+    size?: AvatarSize;
     onClick?: (e: MouseEvent) => void;
 }) {
     const user = () =>
@@ -42,23 +54,33 @@ export default function Avatar(props: {
 
     const character = () => user()?.handle?.charAt(0) ?? user()?.fallback?.charAt(0);
 
+    const sc = () => sizeClasses[props.size ?? "md"];
+
     return (
-        <div
-            class="avatar avatar-placeholder h-8 text-base aspect-square font-body"
-            title={title()}
-        >
+        <div class={`avatar avatar-placeholder aspect-square font-body ${sc()[0]}`} title={title()}>
             <div
                 class={`rounded-full h-full w-full text-center uppercase select-none ${props.onClick ? "cursor-pointer" : ""}`}
                 style={{
                     "background-color": color(),
-                    color: `oklch(from ${color()} clamp(0, (0.6 + (0.8 * l)) + (clamp(0, (l - 0.55) * 1000, 1) * ((0.1 + (0.8 * (l - 0.55))) - (0.6 + (0.8 * l)))), 1) c h)`,
+                    color: textColor(color()),
                 }}
                 onClick={props.onClick}
             >
-                <Show when={character} fallback={<UserRoundIcon strokeWidth={1.5} />}>
+                <Show
+                    when={character()}
+                    fallback={
+                        <UserRoundIcon
+                            strokeWidth={sc()[1]}
+                            color={textColor(color())}
+                            size={sc()[2]}
+                        />
+                    }
+                >
                     {user => <>{user()}</>}
                 </Show>
             </div>
         </div>
     );
 }
+
+export default Avatar;
