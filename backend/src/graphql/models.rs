@@ -239,7 +239,6 @@ pub struct Task {
     created_at: DateTime<Utc>,
     author: Email,
     status: String,
-    assignee: Option<Email>,
     archived_at: Option<DateTime<Utc>>,
     priority: i32,
 
@@ -257,7 +256,6 @@ impl From<models::task::Model> for Task {
             created_at: task.created_at,
             author: Email { email: task.author },
             status: task.status,
-            assignee: task.assignee.map(|email| Email { email }),
             archived_at: task.archived_at,
             priority: task.priority,
         }
@@ -357,11 +355,55 @@ impl Task {
 
         Ok(vec_map(labels))
     }
+
+    async fn assignees(&self, ctx: &Context<'_>) -> Result<Vec<TaskAssignee>> {
+        let db = get_db(ctx);
+
+        let assignees = models::task_assignee::Entity::find()
+            .filter(models::task_assignee::Column::TaskId.eq(self.id))
+            .all(db)
+            .await?;
+
+        Ok(vec_map(assignees))
+    }
 }
 
 impl From<models::task_label::Model> for String {
     fn from(label: models::task_label::Model) -> Self {
         label.name
+    }
+}
+
+impl From<models::task_assignee::Model> for TaskAssignee {
+    fn from(assignee: models::task_assignee::Model) -> Self {
+        Self {
+            task_id: assignee.task_id,
+            email: Email {
+                email: assignee.email,
+            },
+        }
+    }
+}
+
+#[derive(SimpleObject)]
+#[graphql(complex)]
+pub struct TaskAssignee {
+    #[graphql(skip)]
+    task_id: i32,
+
+    email: Email,
+}
+
+#[ComplexObject]
+impl TaskAssignee {
+    async fn task(&self, ctx: &Context<'_>) -> Result<Task> {
+        let db = get_db(ctx);
+
+        let task = models::task::Entity::find_by_id(self.task_id)
+            .require_one(db)
+            .await?;
+
+        Ok(Task::from(task))
     }
 }
 

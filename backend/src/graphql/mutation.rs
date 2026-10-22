@@ -30,12 +30,16 @@ pub struct UpdateTaskInput {
     pub title: Option<String>,
     pub description: Option<String>,
     pub status: Option<String>,
-    pub assignee: MaybeUndefined<String>,
     pub is_archived: Option<bool>,
     #[graphql(default)]
     pub add_labels: Vec<String>,
     #[graphql(default)]
     pub remove_labels: Vec<String>,
+    #[graphql(default)]
+    pub add_assignees: Vec<String>,
+    #[graphql(default)]
+    pub remove_assignees: Vec<String>,
+
     #[graphql(default)]
     pub priority: Option<i32>,
 }
@@ -293,7 +297,7 @@ impl MutationRoot {
         #[graphql(default)] description: Option<String>,
         author: String,
         status: String,
-        #[graphql(default)] assignee: Option<String>,
+        #[graphql(default)] assignees: Vec<String>,
         #[graphql(default)] labels: Vec<String>,
         #[graphql(default)] priority: i32,
     ) -> Result<Task> {
@@ -337,7 +341,6 @@ impl MutationRoot {
             description: description.map_or(NotSet, Set),
             author: Set(author),
             status: Set(status),
-            assignee: assignee.map_or(NotSet, |a| Set(Some(a))),
             priority: Set(priority),
             ..Default::default()
         };
@@ -370,11 +373,40 @@ impl MutationRoot {
             .map_err(|_| Error::new("Failed to add label"))?;
         }
 
+        let assignees: Vec<String> = assignees
+            .iter()
+            .filter_map(|e| {
+                let e = e.trim();
+                if e.is_empty() {
+                    None
+                } else {
+                    Some(e.to_owned())
+                }
+            })
+            .collect();
+
+        if !assignees.is_empty() {
+            models::task_assignee::Entity::insert_many(assignees.into_iter().map(|email| {
+                models::task_assignee::ActiveModel {
+                    task_id: Set(task.id),
+                    email: Set(email),
+                }
+            }))
+            .on_conflict_do_nothing_on([
+                models::task_assignee::Column::TaskId,
+                models::task_assignee::Column::Email,
+            ])
+            .exec(&tx)
+            .await
+            .map_err(|_| Error::new("Failed to add assignee"))?;
+        }
+
         tx.commit().await?;
 
         Ok(Task::from(task))
     }
 
+    #[allow(clippy::too_many_lines)]
     async fn update_task(
         &self,
         ctx: &Context<'_>,
@@ -441,12 +473,6 @@ impl MutationRoot {
             task.priority = Set(priority);
         }
 
-        task.assignee = match input.assignee {
-            MaybeUndefined::Value(email) => Set(Some(email)),
-            MaybeUndefined::Null => Set(None),
-            MaybeUndefined::Undefined => NotSet,
-        };
-
         if let Some(is_archived) = input.is_archived {
             if !is_archived {
                 task.archived_at = Set(None);
@@ -474,6 +500,14 @@ impl MutationRoot {
                 .await?;
         }
 
+        if !input.remove_assignees.is_empty() {
+            models::task_assignee::Entity::delete_many()
+                .filter(models::task_assignee::Column::TaskId.eq(id))
+                .filter(models::task_assignee::Column::Email.is_in(input.remove_assignees))
+                .exec(&tx)
+                .await?;
+        }
+
         for name in add_labels {
             let label = models::task_label::ActiveModel {
                 task_id: Set(id),
@@ -486,6 +520,21 @@ impl MutationRoot {
                 }
 
                 return Err(Error::new("Failed to add label"));
+            }
+        }
+
+        for email in input.add_assignees {
+            let assignee = models::task_assignee::ActiveModel {
+                task_id: Set(id),
+                email: Set(email),
+            };
+
+            if let Err(err) = assignee.insert(&tx).await {
+                if let Some(SqlErr::UniqueConstraintViolation(_)) = err.sql_err() {
+                    continue;
+                }
+
+                return Err(Error::new("Failed to add assignee"));
             }
         }
 

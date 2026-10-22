@@ -13,7 +13,11 @@ import { dbg } from "../debug";
 import { useNavigate, useParams } from "@solidjs/router";
 import { Title } from "@solidjs/meta";
 import { useTimeTracking } from "../contexts/clientAppDataContext";
-import { PreviewTaskRaw, processPreviewTask } from "../gqlTypes";
+import { PreviewTaskRaw, processPreviewTask, UserFromEmail } from "../gqlTypes";
+
+function matchesUser(a: UserFromEmail, assignee: string) {
+    return a.email.includes(assignee) || a.user?.handle?.includes(assignee);
+}
 
 export default function Board() {
     const params = useParams();
@@ -108,18 +112,11 @@ export default function Board() {
 
         if (f.authors.size > 0) {
             const authors = [...f.authors];
-            filtered = filtered.filter(t =>
-                authors.some(
-                    author =>
-                        t.author.email.includes(author) || t.author.user?.handle?.includes(author)
-                )
-            );
+            filtered = filtered.filter(t => authors.some(author => matchesUser(t.author, author)));
         }
 
         for (const author of f.notAuthors) {
-            filtered = filtered.filter(
-                t => !t.author.email.includes(author) && !t.author.user?.handle?.includes(author)
-            );
+            filtered = filtered.filter(t => !matchesUser(t.author, author));
         }
 
         for (const label of f.labels) {
@@ -130,23 +127,12 @@ export default function Board() {
             filtered = filtered.filter(t => !t.labels.some(l => l == label));
         }
 
-        if (f.assignees.size > 0) {
-            const assignees = [...f.assignees];
-            filtered = filtered.filter(t =>
-                assignees.some(
-                    assignee =>
-                        t.assignee?.email.includes(assignee) ||
-                        t.assignee?.user?.handle?.includes(assignee)
-                )
-            );
+        for (const assignee of f.assignees) {
+            filtered = filtered.filter(t => t.assignees.some(a => matchesUser(a.email, assignee)));
         }
 
         for (const assignee of f.notAssignees) {
-            filtered = filtered.filter(
-                t =>
-                    !t.assignee?.email.includes(assignee) &&
-                    !t.assignee?.user?.handle?.includes(assignee)
-            );
+            filtered = filtered.filter(t => !t.assignees.some(a => matchesUser(a.email, assignee)));
         }
 
         if (f.searchTerm) {
@@ -200,11 +186,13 @@ export default function Board() {
                             }
                         }
                         status
-                        assignee {
-                            email
-                            user {
-                                id
-                                handle
+                        assignees {
+                            email {
+                                email
+                                user {
+                                    id
+                                    handle
+                                }
                             }
                         }
                         timeLogged {

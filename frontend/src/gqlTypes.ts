@@ -16,7 +16,7 @@ export type PreviewTask = {
     createdAt: Date;
     author: UserFromEmail;
     status: string;
-    assignee?: UserFromEmail;
+    assignees: Assignee[];
     archivedAt: Date | null;
     timeLogged: { time: number }[];
     // TODO: this goes stale, but I'd have to refetch all the tasks every time a block is added or removed otherwise. Requires a deeper refactor.
@@ -87,6 +87,10 @@ export type TimeLogged = {
     user: UserWithEmails | null;
 };
 
+export type Assignee = {
+    email: UserFromEmail;
+};
+
 export type CompleteTask = {
     id: number;
     title: string;
@@ -94,7 +98,7 @@ export type CompleteTask = {
     createdAt: Date;
     author: UserFromEmail;
     status: string;
-    assignee?: UserFromEmail;
+    assignees: Assignee[];
     archivedAt: Date | null;
     timeLogged: TimeLogged[];
     blockedBy: MinimalTask[];

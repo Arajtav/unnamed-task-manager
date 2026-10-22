@@ -8,8 +8,15 @@ import { gqlClient } from "../graphql";
 import User from "../newComponents/User";
 import Badge from "../newComponents/Badge";
 import BadgeButton from "../newComponents/BadgeButton";
-import { PlusIcon } from "lucide-solid";
-import { CompleteTask, CompleteTaskRaw, PRIORITIES, processCompleteTask } from "../gqlTypes";
+import { PlusIcon, XIcon } from "lucide-solid";
+import {
+    BaseUser,
+    CompleteTask,
+    CompleteTaskRaw,
+    PRIORITIES,
+    processCompleteTask,
+} from "../gqlTypes";
+import { parseOneAddress } from "email-addresses";
 
 export function newValueOrUndefined<T>(value: T, original: T) {
     return value !== original ? value : undefined;
@@ -28,7 +35,9 @@ export default function TaskEditForm(props: {
     const [title, setTitle] = createSignal(task.title);
     const [description, setDescription] = createSignal(task.description ?? "");
     const [status, setStatus] = createSignal(task.status);
-    const [assignee, setAssignee] = createSignal(task.assignee?.email ?? "");
+    const originalAssignees = new Set(task.assignees.map(a => a.email.email));
+    const [assignees, setAssignees] = createSignal(new Set(originalAssignees));
+    const [assigneeSearch, setAssigneeSearch] = createSignal("");
     const [isArchived, setIsArchived] = createSignal(task.archivedAt != null);
     const [saving, setSaving] = createSignal(false);
     const originalLabels = new Set(task.labels.map(l => l.trim().toLowerCase()));
@@ -40,7 +49,56 @@ export default function TaskEditForm(props: {
         remove: [...originalLabels].filter(l => !labels().has(l)),
     }));
 
+    const assigneeDiff = createMemo(() => ({
+        add: [...assignees()].filter(email => !originalAssignees.has(email)),
+        remove: [...originalAssignees].filter(email => !assignees().has(email)),
+    }));
+
+    const knownUsers = createMemo(() => {
+        const map = new Map<string, BaseUser>();
+        for (const { email } of task.assignees) if (email.user) map.set(email.email, email.user);
+        for (const user of appData.users) {
+            for (const email of user.emails) map.set(email, user);
+        }
+        return map;
+    });
+
+    const assigneeUser = (email: string) => ({ ...knownUsers().get(email), emails: [email] });
+
+    const assigneeResults = createMemo(() => {
+        const query = assigneeSearch().trim().toLowerCase();
+
+        return board.access.flatMap(({ user }) =>
+            user.emails.filter(
+                email => !assignees().has(email) && email.toLowerCase().includes(query)
+            )
+        );
+    });
+
+    const typedEmail = createMemo(() => {
+        const value = assigneeSearch().trim();
+        if (!value || assignees().has(value)) return undefined;
+        if (parseOneAddress(value) == null) return undefined;
+        if (assigneeResults().some(email => email == value)) return undefined;
+        return value;
+    });
+
+    function addAssignee(email: string) {
+        setAssignees(prev => new Set(prev).add(email));
+    }
+
+    function removeAssignee(email: string) {
+        setAssignees(prev => {
+            const next = new Set(prev);
+            next.delete(email);
+            return next;
+        });
+    }
+
     const hasLabelChanges = () => labelDiff().add.length > 0 || labelDiff().remove.length > 0;
+
+    const hasAssigneeChanges = () =>
+        assigneeDiff().add.length > 0 || assigneeDiff().remove.length > 0;
 
     function addLabel() {
         const name = prompt("Label")?.trim().toLowerCase();
@@ -62,25 +120,6 @@ export default function TaskEditForm(props: {
         });
     }
 
-    const filteredEmails = createMemo(() => {
-        const query = assignee().trim().toLowerCase();
-
-        if (!query) return [];
-
-        return board.access.flatMap(({ user }) =>
-            user.emails
-                .filter(userEmail => userEmail.toLowerCase().includes(query))
-                .map(userEmail => ({
-                    user: {
-                        id: user.id,
-                        emails: [userEmail],
-                        handle: user.handle,
-                    },
-                    email: userEmail,
-                }))
-        );
-    });
-
     const isUserAdminOrModerator = () =>
         appData.me.isAdmin ||
         board.access.some(access => access.user.id == appData.me.id && access.isModerator);
@@ -90,16 +129,16 @@ export default function TaskEditForm(props: {
             title() != task.title ||
             description() != (task.description ?? "") ||
             status() != task.status ||
-            assignee() != (task.assignee?.email ?? "") ||
             priority() != task.priority ||
-            hasLabelChanges()
+            hasLabelChanges() ||
+            hasAssigneeChanges()
     );
 
     const canKeepArchived = () => isUserAdminOrModerator() || !isEditing();
 
     createEffect(
         on(
-            [title, description, status, assignee, priority, labelDiff],
+            [title, description, status, assigneeDiff, priority, labelDiff],
             () => {
                 if (!canKeepArchived()) setIsArchived(false);
             },
@@ -110,17 +149,19 @@ export default function TaskEditForm(props: {
     async function submit(e: SubmitEvent) {
         e.preventDefault();
 
-        const { add, remove } = labelDiff();
+        const { add: labelAdd, remove: labelRemove } = labelDiff();
+        const { add: assigneeAdd, remove: assigneeRemove } = assigneeDiff();
 
         const fields = {
             title: newValueOrUndefined(title(), task.title),
             description: newValueOrUndefined(description(), task.description),
             status: newValueOrUndefined(status(), task.status),
-            assignee: newValueOrUndefined(assignee() || null, task.assignee?.email ?? null),
             priority: newValueOrUndefined(priority(), task.priority),
             isArchived: newValueOrUndefined(isArchived(), task.archivedAt != null),
-            addLabels: add.length > 0 ? add : undefined,
-            removeLabels: remove.length > 0 ? remove : undefined,
+            addLabels: labelAdd.length > 0 ? labelAdd : undefined,
+            removeLabels: labelRemove.length > 0 ? labelRemove : undefined,
+            addAssignees: assigneeAdd.length > 0 ? assigneeAdd : undefined,
+            removeAssignees: assigneeRemove.length > 0 ? assigneeRemove : undefined,
         };
 
         if (Object.values(fields).every(value => value === undefined)) {
@@ -148,11 +189,13 @@ export default function TaskEditForm(props: {
                             }
                         }
                         status
-                        assignee {
-                            email
-                            user {
-                                id
-                                handle
+                        assignees {
+                            email {
+                                email
+                                user {
+                                    id
+                                    handle
+                                }
                             }
                         }
                         archivedAt
@@ -212,33 +255,84 @@ export default function TaskEditForm(props: {
                         />
 
                         <label class="label">Assigned to</label>
+                        <Show when={assignees().size > 0}>
+                            <ul class="list bg-base-100 rounded-box mb-2">
+                                <For each={[...assignees()]}>
+                                    {email => (
+                                        <li class="list-row items-center">
+                                            <div class="list-col-grow">
+                                                <User user={assigneeUser(email)} />
+                                            </div>
+
+                                            <button
+                                                type="button"
+                                                class="btn btn-square btn-ghost btn-sm"
+                                                onClick={() => removeAssignee(email)}
+                                            >
+                                                <XIcon strokeWidth={1.5} />
+                                            </button>
+                                        </li>
+                                    )}
+                                </For>
+                            </ul>
+                        </Show>
+
                         <div class="dropdown w-full">
                             <input
                                 type="text"
                                 inputMode="email"
                                 class="input w-full"
-                                placeholder="No one"
-                                value={assignee()}
-                                onInput={e => setAssignee(e.currentTarget.value)}
+                                placeholder="Add assignee..."
+                                value={assigneeSearch()}
+                                onInput={e => setAssigneeSearch(e.currentTarget.value)}
+                                onKeyDown={e => {
+                                    if (e.key != "Enter") return;
+                                    e.preventDefault();
+                                    const email = typedEmail() ?? assigneeResults()[0];
+                                    if (email) addAssignee(email);
+                                }}
                             />
 
-                            <Show when={filteredEmails().length > 0}>
-                                <ul class="dropdown-content menu bg-base-100 rounded-box mt-2 w-full">
-                                    <For each={filteredEmails()}>
-                                        {item => (
+                            <Show when={assigneeResults().length > 0 || typedEmail()}>
+                                <ul
+                                    class="dropdown-content menu bg-base-200 rounded-box mt-2 w-full"
+                                    onPointerDown={e => e.preventDefault()}
+                                >
+                                    <For each={assigneeResults()}>
+                                        {email => (
                                             <li>
-                                                <button onClick={() => setAssignee(item.email)}>
-                                                    <div class="flex w-full items-center gap-2">
-                                                        <User user={item.user} />
+                                                <div class="flex w-full items-center gap-2">
+                                                    <div class="flex-1">
+                                                        <User user={assigneeUser(email)} />
                                                     </div>
-                                                </button>
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-square btn-ghost"
+                                                        onClick={() => addAssignee(email)}
+                                                    >
+                                                        <PlusIcon strokeWidth={1.5} />
+                                                    </button>
+                                                </div>
                                             </li>
                                         )}
                                     </For>
+
+                                    <Show when={typedEmail()}>
+                                        {email => (
+                                            <li>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => addAssignee(email())}
+                                                >
+                                                    <PlusIcon strokeWidth={1.5} />
+                                                    Add {email()}
+                                                </button>
+                                            </li>
+                                        )}
+                                    </Show>
                                 </ul>
                             </Show>
                         </div>
-
                         <label class="label">Status</label>
                         <select
                             class="select w-full"

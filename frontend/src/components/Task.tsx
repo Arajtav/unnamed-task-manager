@@ -46,24 +46,24 @@ export default function Task({ task }: { task: PreviewTask }) {
                         }}
                     />
                 </p>
-                <Show when={task.assignee}>
+                <For each={task.assignees}>
                     {assignee => (
                         <p>
                             Assignee:{" "}
                             <Avatar
-                                user={assignee()}
+                                user={assignee.email}
                                 title={{ option: "auto" }}
                                 onClick={e => {
                                     e.stopPropagation();
                                     setBoardNav(
                                         "search",
-                                        search => `${search} assignee:${assignee().email}`
+                                        search => `${search} assignee:${assignee.email.email}`
                                     );
                                 }}
                             />
                         </p>
                     )}
-                </Show>
+                </For>
                 <p>Priority: {priorityLabel(task.priority)}</p>
                 <div class="flex flex-row gap-[1ch]">
                     <span>Created:</span>

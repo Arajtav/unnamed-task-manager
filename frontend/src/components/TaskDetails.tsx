@@ -126,19 +126,19 @@ export default function TaskDetails(props: {
                 <div>
                     <div class="text-sm font-semibold text-base-content/70">Assigned to</div>
                     <div>
-                        <Show when={props.task.assignee} fallback={<p class="mt-2">No one</p>}>
+                        <For each={props.task.assignees} fallback={<p class="mt-2">No one</p>}>
                             {assignee => (
                                 <>
                                     <User
                                         user={{
-                                            id: assignee().user?.id,
-                                            emails: [assignee().email],
-                                            handle: assignee().user?.handle,
+                                            id: assignee.email.user?.id,
+                                            emails: [assignee.email.email],
+                                            handle: assignee.email.user?.handle,
                                         }}
                                     />
                                 </>
                             )}
-                        </Show>
+                        </For>
                     </div>
                 </div>
 

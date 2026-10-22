@@ -21,7 +21,6 @@ pub struct Model {
     pub board: BelongsTo<super::board::Entity>,
 
     pub status: String,
-    pub assignee: Option<String>,
 
     pub archived_at: Option<DateTime<Utc>>,
 

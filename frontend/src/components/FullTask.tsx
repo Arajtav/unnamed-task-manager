@@ -46,11 +46,13 @@ export default function FullTask(props: { id: number; setId: (id: number | null)
                             }
                         }
                         status
-                        assignee {
-                            email
-                            user {
-                                id
-                                handle
+                        assignees {
+                            email {
+                                email
+                                user {
+                                    id
+                                    handle
+                                }
                             }
                         }
                         timeLogged {

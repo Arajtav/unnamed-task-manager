@@ -4,6 +4,7 @@ pub mod board_task_status;
 pub mod email;
 pub mod passkey;
 pub mod task;
+pub mod task_assignee;
 pub mod task_block;
 pub mod task_label;
 pub mod time_tracking;

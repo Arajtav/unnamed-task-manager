@@ -79,11 +79,13 @@ export default function TaskForm() {
                             }
                         }
                         status
-                        assignee {
-                            email
-                            user {
-                                id
-                                handle
+                        assignees {
+                            email {
+                                email
+                                user {
+                                    id
+                                    handle
+                                }
                             }
                         }
                         timeLogged {
