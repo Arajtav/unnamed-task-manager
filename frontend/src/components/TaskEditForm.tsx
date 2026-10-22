@@ -8,7 +8,7 @@ import { gqlClient } from "../graphql";
 import User from "../newComponents/User";
 import Badge from "../newComponents/Badge";
 import BadgeButton from "../newComponents/BadgeButton";
-import { PlusIcon, XIcon } from "lucide-solid";
+import { CircleXIcon, PlusIcon, XIcon } from "lucide-solid";
 import {
     BaseUser,
     CompleteTask,
@@ -105,7 +105,12 @@ export default function TaskEditForm(props: {
         if (!name) return;
 
         if ([...name].length > 64) {
-            addAlert("Label can be at most 64 characters", "error");
+            addAlert({
+                type: "error",
+                title: "Label too long",
+                content: "Labels can be at most 64 characters.",
+                icon: CircleXIcon,
+            });
             return;
         }
 
@@ -220,7 +225,12 @@ export default function TaskEditForm(props: {
 
         if (handleAuthError(result.error)) {
             // TODO: Pre-check title uniqueness against board.tasks before submitting, also in TaskForm.
-            addAlert("Failed to update task", "error");
+            addAlert({
+                type: "error",
+                title: "Failed to update task",
+                content: "Try again later.",
+                icon: CircleXIcon,
+            });
             return;
         }
 

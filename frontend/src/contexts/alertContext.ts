@@ -1,9 +1,11 @@
 import { createContext, useContext } from "solid-js";
+import { AlertProps } from "../newComponents/Alert";
 
-export type AlertType = "info" | "success" | "warning" | "error";
+export type AlertConfig = Omit<AlertProps, "onClose">;
 
 export const AlertContext = createContext<{
-    addAlert: (message: string, type: AlertType, duration?: number) => void;
+    addAlert: (alert: AlertConfig, duration?: number) => symbol;
+    removeAlert: (id: symbol) => void;
 }>();
 
 export function useAlert() {

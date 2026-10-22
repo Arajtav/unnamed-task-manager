@@ -8,7 +8,7 @@ import { useAppData } from "../contexts/appDataContext";
 import { useAlert } from "../contexts/alertContext";
 import Badge from "../newComponents/Badge";
 import BadgeButton from "../newComponents/BadgeButton";
-import { PlusIcon } from "lucide-solid";
+import { CircleXIcon, PlusIcon } from "lucide-solid";
 import { PreviewTaskRaw, PRIORITIES, processPreviewTask } from "../gqlTypes";
 
 export default function TaskForm() {
@@ -28,7 +28,12 @@ export default function TaskForm() {
         if (!name) return;
 
         if ([...name].length > 64) {
-            addAlert("Label can be at most 64 characters", "error");
+            addAlert({
+                type: "error",
+                title: "Label too long",
+                content: "Labels can be at most 64 characters.",
+                icon: CircleXIcon,
+            });
             return;
         }
 

@@ -3,6 +3,7 @@ import { client } from "../auth";
 import { A } from "@solidjs/router";
 import { useAlert } from "../contexts/alertContext";
 import { Title } from "@solidjs/meta";
+import { CircleXIcon, RotateCwIcon, ShieldXIcon } from "lucide-solid";
 
 export default function Join() {
     const { addAlert } = useAlert();
@@ -26,9 +27,25 @@ export default function Join() {
             console.error(error);
 
             if (error instanceof Error && error.message.startsWith("HTTP 404")) {
-                addAlert("Invalid or expired invite code.", "error");
+                addAlert({
+                    type: "error",
+                    title: "Unable to get any passkeys",
+                    content: "Check your authenticator and try again.",
+                    icon: CircleXIcon,
+                });
+                addAlert({
+                    type: "error",
+                    title: "Invalid invite code",
+                    content: "The code is invalid or expired.",
+                    icon: ShieldXIcon,
+                });
             } else {
-                addAlert("Something went wrong. Please try again.", "error");
+                addAlert({
+                    type: "error",
+                    title: "Something went wrong",
+                    content: "Try again later.",
+                    icon: CircleXIcon,
+                });
             }
 
             setLoading(false);
@@ -40,7 +57,12 @@ export default function Join() {
         });
 
         if (!credential) {
-            addAlert("Failed to create a passkey. Please try again.", "warning");
+            addAlert({
+                type: "warning",
+                title: "Failed to create a passkey",
+                content: "Please try again.",
+                icon: RotateCwIcon,
+            });
             setLoading(false);
             return;
         }
@@ -53,9 +75,20 @@ export default function Join() {
             console.error(error);
 
             if (error instanceof Error && error.message.startsWith("HTTP 404")) {
-                addAlert("The code expired while you were creating the passkey.", "error");
+                addAlert({
+                    type: "error",
+                    title: "Code expired",
+                    content:
+                        "This code has expired or has been used while you were creating the passkey.",
+                    icon: ShieldXIcon,
+                });
             } else {
-                addAlert("Something went wrong. Please try again.", "error");
+                addAlert({
+                    type: "error",
+                    title: "Something went wrong",
+                    content: "Try again later.",
+                    icon: CircleXIcon,
+                });
             }
 
             setLoading(false);

@@ -16,6 +16,7 @@ import {
     TimeEntry,
     TimeEntryRaw,
 } from "../gqlTypes";
+import { CircleXIcon } from "lucide-solid";
 
 export default function FullTask(props: { id: number; setId: (id: number | null) => any }) {
     const { addAlert } = useAlert();
@@ -87,7 +88,12 @@ export default function FullTask(props: { id: number; setId: (id: number | null)
         );
 
         if (handleAuthError(result.error)) {
-            addAlert("Failed to load task", "error");
+            addAlert({
+                type: "error",
+                title: "Could not load task",
+                content: "Try again later.",
+                icon: CircleXIcon,
+            });
             return;
         }
 

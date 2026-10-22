@@ -3,6 +3,7 @@ import { client } from "../auth";
 import { A } from "@solidjs/router";
 import { useAlert } from "../contexts/alertContext";
 import { Title } from "@solidjs/meta";
+import { CircleXIcon, SearchAlertIcon, ServerCrashIcon, UserRoundXIcon } from "lucide-solid";
 
 export default function Login() {
     const { addAlert } = useAlert();
@@ -21,9 +22,19 @@ export default function Login() {
             console.error(error);
 
             if (error instanceof Error && error.message.startsWith("HTTP 500")) {
-                addAlert("Server error. This shouldn't have happened.", "error");
+                addAlert({
+                    type: "error",
+                    title: "Server error",
+                    content: "This shouldn't have happened.",
+                    icon: ServerCrashIcon,
+                });
             } else {
-                addAlert("Something went wrong.", "error");
+                addAlert({
+                    type: "error",
+                    title: "Something went wrong",
+                    content: "Try again later.",
+                    icon: CircleXIcon,
+                });
             }
 
             setLoading(false);
@@ -38,9 +49,19 @@ export default function Login() {
             });
         } catch (error) {
             if (error instanceof Error && error.name == "NotAllowedError") {
-                addAlert("Unable to get any passkeys. Check your authenticator.", "error");
+                addAlert({
+                    type: "error",
+                    title: "Unable to get any passkeys",
+                    content: "Check your authenticator and try again.",
+                    icon: CircleXIcon,
+                });
             } else {
-                addAlert("Something went wrong.", "error");
+                addAlert({
+                    type: "error",
+                    title: "Something went wrong",
+                    content: "Try again later.",
+                    icon: CircleXIcon,
+                });
             }
 
             setLoading(false);
@@ -48,7 +69,12 @@ export default function Login() {
         }
 
         if (!credential) {
-            addAlert("No passkeys were found.", "info");
+            addAlert({
+                type: "normal",
+                title: "No passkeys",
+                content: "No passkeys were found",
+                icon: SearchAlertIcon,
+            });
             setLoading(false);
             return;
         }
@@ -59,11 +85,26 @@ export default function Login() {
             await client.loginFinish(cred);
         } catch (error) {
             if (error instanceof Error && error.message.startsWith("HTTP 500")) {
-                addAlert("Server error. This shouldn't have happened.", "error");
+                addAlert({
+                    type: "error",
+                    title: "Server error",
+                    content: "This shouldn't have happened.",
+                    icon: ServerCrashIcon,
+                });
             } else if (error instanceof Error && error.message.startsWith("HTTP 401")) {
-                addAlert("This account does not exist or is disabled.", "warning");
+                addAlert({
+                    type: "warning",
+                    title: "Account not found",
+                    content: "This account does not exist or is disabled",
+                    icon: UserRoundXIcon,
+                });
             } else {
-                addAlert("Something went wrong.", "error");
+                addAlert({
+                    type: "error",
+                    title: "Something went wrong",
+                    content: "Try again later.",
+                    icon: CircleXIcon,
+                });
             }
             setLoading(false);
             return;

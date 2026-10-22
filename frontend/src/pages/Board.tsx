@@ -14,6 +14,7 @@ import { useNavigate, useParams } from "@solidjs/router";
 import { Title } from "@solidjs/meta";
 import { useTimeTracking } from "../contexts/clientAppDataContext";
 import { PreviewTaskRaw, processPreviewTask, UserFromEmail } from "../gqlTypes";
+import { CircleXIcon } from "lucide-solid";
 
 function matchesUser(a: UserFromEmail, assignee: string) {
     return a.email.includes(assignee) || a.user?.handle?.includes(assignee);
@@ -214,7 +215,12 @@ export default function Board() {
         );
 
         if (handleAuthError(result.error)) {
-            addAlert("Failed to move task", "error");
+            addAlert({
+                type: "error",
+                title: "Failed to update task",
+                content: "Try again later.",
+                icon: CircleXIcon,
+            });
             return;
         }
 

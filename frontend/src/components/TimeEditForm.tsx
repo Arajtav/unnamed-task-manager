@@ -11,6 +11,7 @@ import { newValueOrUndefined } from "./TaskEditForm";
 import DateTime from "./DateTime";
 import { useTimeTracking } from "../contexts/clientAppDataContext";
 import { CompleteTask, processTimeEntry, TimeEntry, TimeEntryRaw, TimeLogged } from "../gqlTypes";
+import { CircleCheckIcon, CircleXIcon } from "lucide-solid";
 
 export default function TimeEditForm(props: {
     time: TimeEntry[];
@@ -80,7 +81,12 @@ export default function TimeEditForm(props: {
         const timeLogged = result.data?.removeTaskTimeTrackingEntry?.timeLogged;
 
         if (handleAuthError(result.error) || !timeLogged) {
-            addAlert("Failed to delete entry", "error");
+            addAlert({
+                type: "error",
+                title: "Failed to delete time entry",
+                content: "Try again later.",
+                icon: CircleXIcon,
+            });
             return;
         }
 
@@ -92,7 +98,12 @@ export default function TimeEditForm(props: {
             cancelEdit();
         }
 
-        addAlert("Time entry deleted", "success");
+        addAlert({
+            type: "normal",
+            title: "Time entry deleted",
+            content: "Successfully deleted time entry",
+            icon: CircleCheckIcon,
+        });
     }
 
     async function create(startedAt: Date, finishedAt: Date, description: string) {
@@ -142,7 +153,12 @@ export default function TimeEditForm(props: {
         );
 
         if (handleAuthError(result.error) || !result.data?.createTimeTrackingEntry) {
-            addAlert("Failed to add entry", "error");
+            addAlert({
+                type: "error",
+                title: "Failed to log time",
+                content: "Try again later.",
+                icon: CircleXIcon,
+            });
             return false;
         }
 
@@ -153,7 +169,12 @@ export default function TimeEditForm(props: {
         props.save("task", "timeLogged", entry.task.timeLogged);
         setBoard("tasks", task => task.id == props.taskId, "timeLogged", entry.task.timeLogged);
 
-        addAlert("Time entry added", "success");
+        addAlert({
+            type: "normal",
+            title: "Time logged",
+            content: "Time entry added",
+            icon: CircleCheckIcon,
+        });
         return true;
     }
 
@@ -233,7 +254,12 @@ export default function TimeEditForm(props: {
             );
 
             if (handleAuthError(result.error) || !result.data?.updateTimeTrackingEntry) {
-                addAlert("Failed to update entry", "error");
+                addAlert({
+                    type: "error",
+                    title: "Failed to update time",
+                    content: "Try again later.",
+                    icon: CircleXIcon,
+                });
                 return;
             }
 
@@ -243,7 +269,12 @@ export default function TimeEditForm(props: {
             props.save("task", "timeLogged", entry.task.timeLogged);
             setBoard("tasks", task => task.id == props.taskId, "timeLogged", entry.task.timeLogged);
 
-            addAlert("Time entry updated", "success");
+            addAlert({
+                type: "normal",
+                title: "Time updated",
+                content: "Time entry updated",
+                icon: CircleCheckIcon,
+            });
             cancelEdit();
         }
     }

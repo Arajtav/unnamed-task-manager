@@ -2,7 +2,7 @@ import { For, Show } from "solid-js";
 import { useAppData } from "../contexts/appDataContext";
 import Avatar from "../newComponents/Avatar";
 import Badge from "../newComponents/Badge";
-import { EllipsisVerticalIcon, PlusIcon } from "lucide-solid";
+import { ClipboardCheckIcon, EllipsisVerticalIcon, PlusIcon } from "lucide-solid";
 import BadgeButton from "../newComponents/BadgeButton";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
@@ -287,7 +287,12 @@ export default function Users() {
                                                 <button
                                                     onClick={() => {
                                                         navigator.clipboard.writeText(user.id);
-                                                        addAlert("Copied", "info");
+                                                        addAlert({
+                                                            type: "normal",
+                                                            title: `Copied`,
+                                                            content: "Copied user id into clipboard.",
+                                                            icon: ClipboardCheckIcon,
+                                                        });
                                                     }}
                                                 >
                                                     Copy id

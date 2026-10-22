@@ -3,7 +3,7 @@ import { useAlert } from "../contexts/alertContext";
 import { useBoard } from "../contexts/boardContext";
 import { gqlClient } from "../graphql";
 import { createSignal, For, Show } from "solid-js";
-import { GripVerticalIcon, PencilIcon } from "lucide-solid";
+import { CircleXIcon, GripVerticalIcon, PencilIcon } from "lucide-solid";
 import { TaskStatus } from "../gqlTypes";
 
 // TODO: Block everything with a spinner while stuff saves.
@@ -57,7 +57,12 @@ export default function TaskStatuses() {
         );
 
         if (result.error) {
-            addAlert("Failed to update task status.", "error");
+            addAlert({
+                type: "error",
+                title: "Failed to update board settings",
+                content: "Try again later.",
+                icon: CircleXIcon,
+            });
             return false;
         }
 
@@ -146,7 +151,12 @@ export default function TaskStatuses() {
         );
 
         if (result.error) {
-            addAlert("Failed to add task status.", "error");
+            addAlert({
+                type: "error",
+                title: "Failed to update board settings",
+                content: "Try again later.",
+                icon: CircleXIcon,
+            });
         } else {
             setNewStatusName("");
             setBoard("taskStatus", result.data!.addTaskStatus.taskStatus);

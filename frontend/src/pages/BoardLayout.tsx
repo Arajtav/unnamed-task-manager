@@ -11,6 +11,7 @@ import { useAlert } from "../contexts/alertContext";
 import { BoardNavContext, BoardNavSettings } from "../contexts/boardNavContext";
 import { Title } from "@solidjs/meta";
 import { FullBoard, FullBoardRaw, processFullBoard } from "../gqlTypes";
+import { CircleXIcon, SearchX, SearchXIcon } from "lucide-solid";
 
 export default function BoardLayout(props: RouteSectionProps) {
     const params = useParams<{ id: string }>();
@@ -90,7 +91,12 @@ export default function BoardLayout(props: RouteSectionProps) {
         );
 
         if (handleAuthError(result.error)) {
-            addAlert("Something went wrong.", "error");
+            addAlert({
+                type: "error",
+                title: "Something went wrong",
+                content: "Try again later.",
+                icon: CircleXIcon,
+            });
             setLoading("error");
             return;
         }
@@ -98,7 +104,12 @@ export default function BoardLayout(props: RouteSectionProps) {
         const board = result.data!.board;
 
         if (!board) {
-            addAlert("Board not found.", "error");
+            addAlert({
+                type: "error",
+                title: "Board not found",
+                content: "Are you sure this board exists?",
+                icon: SearchXIcon,
+            });
             setLoading("error");
             return;
         }

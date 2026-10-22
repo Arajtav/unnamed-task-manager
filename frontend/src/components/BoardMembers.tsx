@@ -5,7 +5,7 @@ import { useModal } from "../contexts/modalContext";
 import { gql } from "@urql/core";
 import { gqlClient } from "../graphql";
 import User from "../newComponents/User";
-import { EllipsisVerticalIcon, PlusIcon } from "lucide-solid";
+import { CircleXIcon, EllipsisVerticalIcon, PlusIcon } from "lucide-solid";
 import Badge from "../newComponents/Badge";
 import { useAppData } from "../contexts/appDataContext";
 import { Access } from "../gqlTypes";
@@ -132,7 +132,12 @@ export default function BoardMembers() {
         );
 
         if (result.error) {
-            addAlert("Failed to remove user.", "error");
+            addAlert({
+                type: "error",
+                title: "Failed to remove user",
+                content: "Try again later.",
+                icon: CircleXIcon,
+            });
         } else {
             setBoard("access", result.data!.removeAccess.access);
         }
@@ -164,12 +169,12 @@ export default function BoardMembers() {
         );
 
         if (result.error) {
-            addAlert(
-                isModerator
-                    ? "Failed to remove moderator permissions."
-                    : "Failed to add moderator permissions.",
-                "error"
-            );
+            addAlert({
+                type: "error",
+                title: `Failed to ${isModerator ? "remove" : "add"} moderator permissions`,
+                content: "Try again later.",
+                icon: CircleXIcon,
+            });
         } else {
             setBoard("access", result.data!.addAccess.access);
         }
@@ -201,7 +206,12 @@ export default function BoardMembers() {
         );
 
         if (result.error) {
-            addAlert("Failed to add user.", "error");
+            addAlert({
+                type: "error",
+                title: "Failed to add user",
+                content: "Try again later.",
+                icon: CircleXIcon,
+            });
         } else {
             setBoard("access", result.data!.addAccess.access);
         }

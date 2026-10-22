@@ -1,7 +1,7 @@
 import { createSignal, For, Show } from "solid-js";
 import User from "../newComponents/User";
 import { formatDuration } from "../format";
-import { XIcon } from "lucide-solid";
+import { CircleXIcon, XIcon } from "lucide-solid";
 import { useBoard } from "../contexts/boardContext";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
@@ -52,7 +52,12 @@ export default function TaskDetails(props: {
         );
 
         if (handleAuthError(result.error) || !result.data) {
-            addAlert("Failed to add task block", "error");
+            addAlert({
+                type: "error",
+                title: "Failed to update task",
+                content: "Try again later.",
+                icon: CircleXIcon,
+            });
             return null;
         }
 
@@ -85,7 +90,12 @@ export default function TaskDetails(props: {
         );
 
         if (handleAuthError(result.error) || !result.data) {
-            addAlert("Failed to add task block", "error");
+            addAlert({
+                type: "error",
+                title: "Failed to update task",
+                content: "Try again later.",
+                icon: CircleXIcon,
+            });
             return null;
         }
 

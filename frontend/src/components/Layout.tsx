@@ -5,12 +5,13 @@ import { handleAuthError } from "../auth";
 import Navbar from "./Navbar";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
-import { AlertContext, AlertType } from "../contexts/alertContext";
+import { AlertConfig, AlertContext } from "../contexts/alertContext";
 import { ModalContext, ModalOptions } from "../contexts/modalContext";
 import { dbg } from "../debug";
 import { AppData, AppDataContext } from "../contexts/appDataContext";
 import { ClientAppDataContext, createClientAppData } from "../contexts/clientAppDataContext";
 import { BaseBoard, FullUserRaw, Me, processFullUser } from "../gqlTypes";
+import Alert, { LogAlert } from "../newComponents/Alert";
 
 export default function Layout(props: RouteSectionProps) {
     const location = useLocation();
@@ -72,38 +73,27 @@ export default function Layout(props: RouteSectionProps) {
         setLoading(false);
     });
 
-    let [gAlert, setGAlert] = createSignal<{ id: symbol; message: string; type: AlertType }[]>([]);
+    let [alerts, setAlerts] = createSignal<{ id: symbol; alert: AlertConfig }[]>([]);
 
-    function addAlert(message: string, type: AlertType, duration: number = 10000) {
-        switch (type) {
-            case "info": {
-                console.info(message);
-                break;
-            }
-            case "success": {
-                console.debug(message);
-                break;
-            }
-            case "warning": {
-                console.warn(message);
-                break;
-            }
-            case "error": {
-                console.error(message);
-                break;
-            }
-        }
+    function addAlert(alert: AlertConfig, duration?: number) {
+        LogAlert(alert);
 
         const id = Symbol();
 
-        setGAlert(gAlerts => [...gAlerts, { id, message: message, type }]);
+        setAlerts(alerts => [...alerts, { id, alert }]);
 
-        setTimeout(() => {
-            setGAlert(gAlerts => gAlerts.filter(a => a.id != id));
-        }, duration);
+        if (duration) {
+            setTimeout(() => {
+                removeAlert(id);
+            }, duration);
+        }
+
+        return id;
     }
 
-    const alerts = { addAlert };
+    function removeAlert(id: symbol) {
+        setAlerts(alerts => alerts.filter(a => a.id != id));
+    }
 
     const [modal, setModal] = createSignal<ModalOptions | null>(null);
 
@@ -126,7 +116,7 @@ export default function Layout(props: RouteSectionProps) {
 
     return (
         <div class="flex flex-col h-screen w-screen">
-            <AlertContext.Provider value={alerts}>
+            <AlertContext.Provider value={{ addAlert, removeAlert }}>
                 <ModalContext.Provider value={modalContext}>
                     <Show
                         when={isAuthPage() || !loading()}
@@ -161,11 +151,16 @@ export default function Layout(props: RouteSectionProps) {
             </AlertContext.Provider>
 
             <div class="toast">
-                <For each={gAlert()}>
+                <For each={alerts()}>
                     {a => (
-                        <div role="alert" class={`alert alert-${a.type}`}>
-                            <span>{a.message}</span>
-                        </div>
+                        <Alert
+                            onClose={() => removeAlert(a.id)}
+                            buttons={a.alert.buttons}
+                            title={a.alert.title}
+                            content={a.alert.content}
+                            icon={a.alert.icon}
+                            type={a.alert.type}
+                        />
                     )}
                 </For>
             </div>

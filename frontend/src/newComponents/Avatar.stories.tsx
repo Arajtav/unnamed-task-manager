@@ -5,17 +5,27 @@ import Avatar, { AvatarSize, sizeClasses } from "./Avatar";
 const meta = {
     title: "Components/Avatar",
     component: Avatar,
+    tags: ["autodocs"],
+    parameters: { layout: "centered" },
+    argTypes: {
+        user: {
+            control: "object",
+        },
+        title: {
+            control: "object",
+        },
+        size: {
+            control: "select",
+            options: Object.keys(sizeClasses) as AvatarSize[],
+        },
+        onClick: { action: "clicked" },
+    },
     args: {
         user: { id: "user-1", emails: ["arajtav@example.org"], handle: "arajtav" },
         title: { option: "auto" },
+        size: "md",
+        onClick: fn(),
     },
-    render: args => (
-        <div style={{ display: "flex", gap: "8px", "align-items": "center" }}>
-            {Object.keys(sizeClasses).map(size => (
-                <Avatar {...args} size={size as AvatarSize} />
-            ))}
-        </div>
-    ),
 } satisfies Meta<typeof Avatar>;
 
 export default meta;
