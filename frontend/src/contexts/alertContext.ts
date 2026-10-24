@@ -4,8 +4,13 @@ import { AlertProps } from "../newComponents/Alert";
 export type AlertConfig = Omit<AlertProps, "onClose">;
 
 export const AlertContext = createContext<{
-    addAlert: (alert: AlertConfig, duration?: number) => symbol;
-    removeAlert: (id: symbol) => void;
+    addAlert: (alert: AlertConfig, duration?: number) => symbol | undefined;
+    removeAlert: (id: symbol, duration?: number) => void;
+    addSingleAlert: (
+        id: symbol | undefined,
+        alert: AlertConfig,
+        duration?: number
+    ) => symbol | undefined;
 }>();
 
 export function useAlert() {

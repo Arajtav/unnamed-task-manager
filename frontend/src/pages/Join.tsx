@@ -3,10 +3,31 @@ import { client } from "../auth";
 import { A } from "@solidjs/router";
 import { useAlert } from "../contexts/alertContext";
 import { Title } from "@solidjs/meta";
-import { CircleXIcon, RotateCwIcon, ShieldXIcon } from "lucide-solid";
+import {
+    CircleXIcon,
+    GlobeOffIcon,
+    RotateCwIcon,
+    ServerCrashIcon,
+    ShieldXIcon,
+} from "lucide-solid";
+
+const SERVER_WRONG = {
+    type: "error",
+    title: "Server error",
+    content: "Server sent invalid response.",
+    icon: ServerCrashIcon,
+} as const;
+
+const NETWORK = {
+    type: "error",
+    title: "Network error",
+    content: "Check your internet connection and try again.",
+    icon: GlobeOffIcon,
+} as const;
 
 export default function Join() {
-    const { addAlert } = useAlert();
+    const [nea, setNea] = createSignal<symbol | undefined>(undefined);
+    const { addAlert, addSingleAlert } = useAlert();
 
     // TODO: would be nice to debounce loading by a few ms.
     let [loading, setLoading] = createSignal(false);
@@ -19,35 +40,22 @@ export default function Join() {
 
         setLoading(true);
 
+        const rr = await client.registerStart(invite(), name());
+        if (rr.error) {
+            if (rr.error.type == "network") {
+                setNea(addSingleAlert(nea(), NETWORK, 60));
+            } else {
+                addAlert(SERVER_WRONG);
+            }
+            setLoading(false);
+            return;
+        }
         let options;
         try {
-            const rr = await client.registerStart(invite(), name());
-            options = PublicKeyCredential.parseCreationOptionsFromJSON(rr);
+            options = PublicKeyCredential.parseCreationOptionsFromJSON(rr.data);
         } catch (error) {
             console.error(error);
-
-            if (error instanceof Error && error.message.startsWith("HTTP 404")) {
-                addAlert({
-                    type: "error",
-                    title: "Unable to get any passkeys",
-                    content: "Check your authenticator and try again.",
-                    icon: CircleXIcon,
-                });
-                addAlert({
-                    type: "error",
-                    title: "Invalid invite code",
-                    content: "The code is invalid or expired.",
-                    icon: ShieldXIcon,
-                });
-            } else {
-                addAlert({
-                    type: "error",
-                    title: "Something went wrong",
-                    content: "Try again later.",
-                    icon: CircleXIcon,
-                });
-            }
-
+            addAlert(SERVER_WRONG);
             setLoading(false);
             return;
         }
@@ -69,12 +77,11 @@ export default function Join() {
 
         let cred = (credential as PublicKeyCredential).toJSON();
 
-        try {
-            await client.registerFinish(cred);
-        } catch (error) {
-            console.error(error);
-
-            if (error instanceof Error && error.message.startsWith("HTTP 404")) {
+        const res = await client.registerFinish(cred);
+        if (res.error) {
+            if (res.error.type == "network") {
+                setNea(addSingleAlert(nea(), NETWORK, 60));
+            } else if (res.error.type == "http" && res.error.status == 401) {
                 addAlert({
                     type: "error",
                     title: "Code expired",
@@ -83,12 +90,7 @@ export default function Join() {
                     icon: ShieldXIcon,
                 });
             } else {
-                addAlert({
-                    type: "error",
-                    title: "Something went wrong",
-                    content: "Try again later.",
-                    icon: CircleXIcon,
-                });
+                addAlert(SERVER_WRONG);
             }
 
             setLoading(false);

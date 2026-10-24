@@ -1,162 +1,165 @@
-import { createSignal, Match, onMount, Show, Switch } from "solid-js";
-import { client } from "../auth";
-import { A } from "@solidjs/router";
+import { createSignal, onMount } from "solid-js";
+import { client, getPasskeyCredential } from "../auth";
+import { A, useNavigate, useSearchParams } from "@solidjs/router";
 import { useAlert } from "../contexts/alertContext";
 import { Title } from "@solidjs/meta";
-import { CircleXIcon, SearchAlertIcon, ServerCrashIcon, UserRoundXIcon } from "lucide-solid";
+import {
+    CircleXIcon,
+    GlobeOffIcon,
+    KeyRoundIcon,
+    SearchXIcon,
+    ServerCrashIcon,
+    UserRoundXIcon,
+} from "lucide-solid";
+import ActiveButton from "../newComponents/ActiveButton";
+
+const SERVER_WRONG = {
+    type: "error",
+    title: "Server error",
+    content: "Server sent invalid response.",
+    icon: ServerCrashIcon,
+} as const;
+
+const NETWORK = {
+    type: "error",
+    title: "Network error",
+    content: "Check your internet connection and try again.",
+    icon: GlobeOffIcon,
+} as const;
 
 export default function Login() {
-    const { addAlert } = useAlert();
+    const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
 
-    // TODO: would be nice to debounce loading by a few ms.
-    let [loading, setLoading] = createSignal(false);
+    const handleRedirect = () => {
+        // Ignore multiple.
+        const backParam = typeof searchParams.back == "string" ? searchParams.back : "/";
+        const back = decodeURIComponent(backParam);
+
+        navigate(back, { replace: true });
+    };
+
+    const [nea, setNea] = createSignal<symbol | undefined>(undefined);
+    const { addAlert, addSingleAlert } = useAlert();
+
+    let [isLoading, setIsLoading] = createSignal(false);
+    let isLoadingTimeout: number | undefined;
+
+    const finishLoading = () => {
+        clearTimeout(isLoadingTimeout);
+        setIsLoading(false);
+    };
 
     async function login() {
-        setLoading(true);
+        isLoadingTimeout = setTimeout(() => {
+            setIsLoading(true);
+        }, 50);
+
+        const cr = await client.loginStart();
+        if (cr.error) {
+            if (cr.error.type == "network") {
+                setNea(addSingleAlert(nea(), NETWORK, 60));
+            } else {
+                addAlert(SERVER_WRONG);
+            }
+            finishLoading();
+            return;
+        }
 
         let options;
         try {
-            const cr = await client.loginStart();
-            options = PublicKeyCredential.parseRequestOptionsFromJSON(cr);
+            options = PublicKeyCredential.parseRequestOptionsFromJSON(cr.data);
         } catch (error) {
             console.error(error);
-
-            if (error instanceof Error && error.message.startsWith("HTTP 500")) {
-                addAlert({
-                    type: "error",
-                    title: "Server error",
-                    content: "This shouldn't have happened.",
-                    icon: ServerCrashIcon,
-                });
-            } else {
-                addAlert({
-                    type: "error",
-                    title: "Something went wrong",
-                    content: "Try again later.",
-                    icon: CircleXIcon,
-                });
-            }
-
-            setLoading(false);
+            addAlert(SERVER_WRONG);
+            finishLoading();
             return;
         }
 
-        let credential;
-        try {
-            credential = await navigator.credentials.get({
-                publicKey: options,
-                mediation: "required",
-            });
-        } catch (error) {
-            if (error instanceof Error && error.name == "NotAllowedError") {
-                addAlert({
-                    type: "error",
-                    title: "Unable to get any passkeys",
-                    content: "Check your authenticator and try again.",
-                    icon: CircleXIcon,
-                });
-            } else {
-                addAlert({
-                    type: "error",
-                    title: "Something went wrong",
-                    content: "Try again later.",
-                    icon: CircleXIcon,
-                });
-            }
-
-            setLoading(false);
-            return;
-        }
-
-        if (!credential) {
+        const credential = await getPasskeyCredential(options);
+        if (credential.error) {
             addAlert({
-                type: "normal",
-                title: "No passkeys",
-                content: "No passkeys were found",
-                icon: SearchAlertIcon,
+                type: "error",
+                title:
+                    credential.error.type == "not_allowed"
+                        ? "Unable to get any passkeys"
+                        : "Something went wrong",
+                content: "Check your authenticator and try again.",
+                icon: CircleXIcon,
             });
-            setLoading(false);
+            finishLoading();
             return;
         }
 
-        let cred = (credential as PublicKeyCredential).toJSON();
+        if (!credential.data) {
+            addAlert(
+                {
+                    type: "normal",
+                    title: "No passkeys",
+                    content: "No passkeys found.",
+                    icon: SearchXIcon,
+                },
+                30
+            );
+            finishLoading();
+            return;
+        }
 
-        try {
-            await client.loginFinish(cred);
-        } catch (error) {
-            if (error instanceof Error && error.message.startsWith("HTTP 500")) {
-                addAlert({
-                    type: "error",
-                    title: "Server error",
-                    content: "This shouldn't have happened.",
-                    icon: ServerCrashIcon,
-                });
-            } else if (error instanceof Error && error.message.startsWith("HTTP 401")) {
+        let lf = await client.loginFinish(credential.data.toJSON());
+        if (lf.error) {
+            if (lf.error.type == "network") {
+                setNea(addSingleAlert(nea(), NETWORK, 60));
+            } else if (lf.error.type == "http" && lf.error.status == 401) {
                 addAlert({
                     type: "warning",
                     title: "Account not found",
-                    content: "This account does not exist or is disabled",
+                    content: "This account does not exist or is disabled.",
                     icon: UserRoundXIcon,
                 });
             } else {
-                addAlert({
-                    type: "error",
-                    title: "Something went wrong",
-                    content: "Try again later.",
-                    icon: CircleXIcon,
-                });
+                addAlert(SERVER_WRONG);
             }
-            setLoading(false);
+            finishLoading();
             return;
         }
 
-        window.location.assign(
-            decodeURIComponent(new URLSearchParams(location.search).get("back") ?? "/")
-        );
+        handleRedirect();
+        finishLoading();
     }
 
     onMount(async () => {
-        const url = new URL(window.location.href);
-        const auto = url.searchParams.get("auto") == "1";
+        const auto = searchParams.auto == "1";
 
         if (!auto) return;
 
-        url.searchParams.delete("auto");
-        window.history.replaceState({}, "", url);
+        setSearchParams({ auto: undefined }, { replace: true });
+
         await login();
     });
 
     return (
-        <main class="h-full flex items-center justify-center">
+        <div class="h-full flex flex-col bg-base-100">
             <Title>Login</Title>
-            <div class="card w-full max-w-md bg-base-100 border border-base-200">
-                <div class="card-body items-center text-center">
-                    <h1 class="card-title text-2xl mb-4">Sign in</h1>
-
-                    <div class="w-full">
-                        <Switch>
-                            <Match when={loading()}>
-                                <div class="flex flex-col items-center gap-3">
-                                    <span class="loading loading-spinner loading-lg" />
-                                    <span>Waiting for your passkey...</span>
-                                </div>
-                            </Match>
-                        </Switch>
-
-                        <Show when={!loading()}>
-                            <button class="btn btn-primary w-full" onclick={login}>
-                                Sign in
-                            </button>
-                        </Show>
-                    </div>
-
-                    <div class="divider">OR</div>
-
-                    <A href={`/join${location.search}`} class="btn btn-ghost w-full">
+            <div class="flex-1"></div>
+            <div class="flex items-center justify-center">
+                <ActiveButton
+                    text="Login with a passkey"
+                    icon={KeyRoundIcon}
+                    isLoading={isLoading()}
+                    onClick={login}
+                />
+            </div>
+            <div class="flex-1 flex items-end justify-center">
+                <div class="mb-4 opacity-60">
+                    or{" "}
+                    <A
+                        href="/join"
+                        class="cursor-pointer hover:underline focus:underline drop-shadow-sm"
+                    >
                         Join
                     </A>
                 </div>
             </div>
-        </main>
+        </div>
     );
 }

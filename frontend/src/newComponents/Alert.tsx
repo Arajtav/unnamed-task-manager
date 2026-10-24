@@ -14,7 +14,7 @@ export const colorClasses: Record<AlertType, string> = {
 export type AlertButton = {
     name: string;
     important: boolean;
-    onClick: () => any;
+    onClick: (e: MouseEvent) => void;
 };
 
 export type AlertProps = {
@@ -61,7 +61,7 @@ function Alert(props: AlertProps) {
                     <div class="flex flex-row gap-2 mt-2 *:cursor-pointer text-base-content">
                         <For each={props.buttons}>
                             {button => (
-                                <div
+                                <button
                                     class={
                                         button.important
                                             ? "underline decoration-current/70"
@@ -70,7 +70,7 @@ function Alert(props: AlertProps) {
                                     onClick={button.onClick}
                                 >
                                     {button.name}
-                                </div>
+                                </button>
                             )}
                         </For>
                     </div>

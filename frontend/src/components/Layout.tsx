@@ -1,4 +1,4 @@
-import { createSignal, For, onMount, Show } from "solid-js";
+import { createEffect, createSignal, For, Show } from "solid-js";
 import { createStore } from "solid-js/store";
 import { RouteSectionProps, useLocation } from "@solidjs/router";
 import { handleAuthError } from "../auth";
@@ -21,8 +21,9 @@ export default function Layout(props: RouteSectionProps) {
 
     const appData = createStore({} as AppData);
 
-    onMount(async () => {
+    createEffect(async () => {
         if (isAuthPage()) return;
+        if (appData[0].me) return;
 
         const result = await gqlClient.query<{
             me: Me;
@@ -73,26 +74,50 @@ export default function Layout(props: RouteSectionProps) {
         setLoading(false);
     });
 
-    let [alerts, setAlerts] = createSignal<{ id: symbol; alert: AlertConfig }[]>([]);
+    let [alerts, setAlerts] = createSignal<
+        { id: symbol; alert: AlertConfig; timeout: number | undefined }[]
+    >([]);
 
     function addAlert(alert: AlertConfig, duration?: number) {
         LogAlert(alert);
+        if (duration && duration < 0.1) return;
 
         const id = Symbol();
 
-        setAlerts(alerts => [...alerts, { id, alert }]);
-
+        let timeout: number | undefined;
         if (duration) {
-            setTimeout(() => {
+            timeout = setTimeout(() => {
                 removeAlert(id);
-            }, duration);
+            }, duration * 1000);
         }
+
+        setAlerts(alerts => [...alerts, { id, alert, timeout }]);
 
         return id;
     }
 
-    function removeAlert(id: symbol) {
-        setAlerts(alerts => alerts.filter(a => a.id != id));
+    function removeAlert(id: symbol, duration: number = 0) {
+        setAlerts(alerts => {
+            if (duration <= 0) {
+                return alerts.filter(a => a.id != id);
+            }
+
+            return alerts.map(a => {
+                if (a.id != id) return a;
+                clearTimeout(a.timeout);
+                return { ...a, timeout: setTimeout(() => removeAlert(id), duration * 1000) };
+            });
+        });
+    }
+
+    function addSingleAlert(id: symbol | undefined, alert: AlertConfig, duration?: number) {
+        const a = id ? alerts().find(a => a.id == id) : undefined;
+        if (a) {
+            removeAlert(a.id, duration);
+            return a.id;
+        } else {
+            return addAlert(alert, duration);
+        }
     }
 
     const [modal, setModal] = createSignal<ModalOptions | null>(null);
@@ -116,7 +141,7 @@ export default function Layout(props: RouteSectionProps) {
 
     return (
         <div class="flex flex-col h-screen w-screen">
-            <AlertContext.Provider value={{ addAlert, removeAlert }}>
+            <AlertContext.Provider value={{ addAlert, removeAlert, addSingleAlert }}>
                 <ModalContext.Provider value={modalContext}>
                     <Show
                         when={isAuthPage() || !loading()}
