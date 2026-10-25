@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use async_graphql::{ComplexObject, Context, Result, SimpleObject};
+use async_graphql::{ComplexObject, Context, Enum, Result, SimpleObject};
 use chrono::{DateTime, Utc};
 use sea_orm::{
     ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, RelationTrait,
@@ -452,6 +452,25 @@ impl Email {
 
         Ok(user.map(User::from))
     }
+}
+
+#[derive(Enum, Copy, Clone, Eq, PartialEq)]
+pub enum TimeResolution {
+    Day,
+    Week,
+    Month,
+}
+
+#[derive(SimpleObject)]
+pub struct TimeSeries {
+    pub resolution: TimeResolution,
+    pub values: Vec<TimeEntry>,
+}
+
+#[derive(SimpleObject)]
+pub struct TimeEntry {
+    pub start: DateTime<Utc>,
+    pub value: i64,
 }
 
 // TODO: https://async-graphql.github.io/async-graphql/en/context.html#selection--lookahead I guess it can remove N+1s.

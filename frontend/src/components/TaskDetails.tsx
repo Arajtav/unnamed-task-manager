@@ -14,7 +14,7 @@ import {
     MinimalTaskRaw,
     priorityLabel,
     processMinimalTask,
-    TimeEntry,
+    TimeTrackingEntry,
 } from "../gqlTypes";
 
 export default function TaskDetails(props: {
@@ -24,7 +24,7 @@ export default function TaskDetails(props: {
     onLogTime: () => void;
     save: SetStoreFunction<{
         task: CompleteTask;
-        time: TimeEntry[];
+        time: TimeTrackingEntry[];
     }>;
 }) {
     const [board] = useBoard();

@@ -1,5 +1,6 @@
 // For graphql args.
 #![allow(clippy::too_many_arguments)]
+#![allow(clippy::unused_async_trait_impl)]
 
 use actix_web::web::ThinData;
 use async_graphql::Context;

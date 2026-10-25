@@ -10,15 +10,15 @@ import { useModal } from "../contexts/modalContext";
 import { newValueOrUndefined } from "./TaskEditForm";
 import DateTime from "./DateTime";
 import { useTimeTracking } from "../contexts/clientAppDataContext";
-import { CompleteTask, processTimeEntry, TimeEntry, TimeEntryRaw, TimeLogged } from "../gqlTypes";
+import { CompleteTask, processTimeTrackingEntry, TimeTrackingEntry, TimeTrackingEntryRaw, TimeLogged } from "../gqlTypes";
 import { CircleCheckIcon, CircleXIcon } from "lucide-solid";
 
 export default function TimeEditForm(props: {
-    time: TimeEntry[];
+    time: TimeTrackingEntry[];
     taskId: number;
     save: SetStoreFunction<{
         task: CompleteTask;
-        time: TimeEntry[];
+        time: TimeTrackingEntry[];
     }>;
     onCancel: () => void;
 }) {
@@ -39,7 +39,7 @@ export default function TimeEditForm(props: {
         description: "",
     });
 
-    function startEdit(entry: TimeEntry) {
+    function startEdit(entry: TimeTrackingEntry) {
         setEdited({
             id: entry.id,
             startedAt: new Date(entry.startedAt),
@@ -114,7 +114,7 @@ export default function TimeEditForm(props: {
         };
 
         const result = await gqlClient.mutation<{
-            createTimeTrackingEntry: TimeEntryRaw & { task: { timeLogged: TimeLogged } };
+            createTimeTrackingEntry: TimeTrackingEntryRaw & { task: { timeLogged: TimeLogged } };
         }>(
             gql`
                 mutation CreateTimeTrackingEntry(
@@ -164,7 +164,7 @@ export default function TimeEditForm(props: {
 
         const entry = result.data.createTimeTrackingEntry;
 
-        props.save("time", e => [...e, processTimeEntry(entry)]);
+        props.save("time", e => [...e, processTimeTrackingEntry(entry)]);
 
         props.save("task", "timeLogged", entry.task.timeLogged);
         setBoard("tasks", task => task.id == props.taskId, "timeLogged", entry.task.timeLogged);
@@ -265,7 +265,7 @@ export default function TimeEditForm(props: {
 
             const entry = result.data.updateTimeTrackingEntry;
 
-            props.save("time", e => e.id == entry.id, processTimeEntry(entry));
+            props.save("time", e => e.id == entry.id, processTimeTrackingEntry(entry));
             props.save("task", "timeLogged", entry.task.timeLogged);
             setBoard("tasks", task => task.id == props.taskId, "timeLogged", entry.task.timeLogged);
 

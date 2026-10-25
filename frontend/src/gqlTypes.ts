@@ -121,16 +121,20 @@ export function processCompleteTask(from: CompleteTaskRaw): CompleteTask {
     };
 }
 
-export type TimeEntry = {
+export type TimeTrackingEntry = {
     id: number;
     startedAt: Date;
     finishedAt: Date;
     description: string;
 };
 
-export type TimeEntryRaw = Replace<Replace<TimeEntry, "startedAt", string>, "finishedAt", string>;
+export type TimeTrackingEntryRaw = Replace<
+    Replace<TimeTrackingEntry, "startedAt", string>,
+    "finishedAt",
+    string
+>;
 
-export function processTimeEntry(from: TimeEntryRaw): TimeEntry {
+export function processTimeTrackingEntry(from: TimeTrackingEntryRaw): TimeTrackingEntry {
     return { ...from, startedAt: new Date(from.startedAt), finishedAt: new Date(from.finishedAt) };
 }
 
@@ -164,4 +168,22 @@ export const PRIORITIES = [
 
 export function priorityLabel(value: number) {
     return PRIORITIES.find(p => p.value == value)?.label ?? String(value);
+}
+
+export type TimeResolution = "DAY" | "WEEK" | "MONTH";
+
+export type TimeEntry = { start: Date; value: number };
+
+export type TimeEntryRaw = Replace<TimeEntry, "start", string>;
+
+export function processTimeEntry(from: TimeEntryRaw): TimeEntry {
+    return { ...from, start: new Date(from.start) };
+}
+
+export type TimeSeries = { resolution: TimeResolution; values: TimeEntry[] };
+
+export type TimeSeriesRaw = Replace<TimeSeries, "values", TimeEntryRaw[]>;
+
+export function processTimeSeries(from: TimeSeriesRaw): TimeSeries {
+    return { ...from, values: from.values.map(t => processTimeEntry(t)) };
 }

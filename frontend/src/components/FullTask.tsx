@@ -12,9 +12,9 @@ import {
     CompleteTask,
     CompleteTaskRaw,
     processCompleteTask,
-    processTimeEntry,
-    TimeEntry,
-    TimeEntryRaw,
+    processTimeTrackingEntry,
+    TimeTrackingEntry,
+    TimeTrackingEntryRaw,
 } from "../gqlTypes";
 import { CircleXIcon } from "lucide-solid";
 
@@ -22,7 +22,7 @@ export default function FullTask(props: { id: number; setId: (id: number | null)
     const { addAlert } = useAlert();
     const [appData] = useAppData();
 
-    const [task, setTask] = createStore({} as { task: CompleteTask; time: TimeEntry[] });
+    const [task, setTask] = createStore({} as { task: CompleteTask; time: TimeTrackingEntry[] });
     const [loading, setLoading] = createSignal(true);
     const [editing, setEditing] = createSignal(false);
     const [timeLogging, setTimeLogging] = createSignal(false);
@@ -30,7 +30,7 @@ export default function FullTask(props: { id: number; setId: (id: number | null)
     createEffect(async () => {
         const result = await gqlClient.query<{
             task: CompleteTaskRaw;
-            timeEntries: TimeEntryRaw[];
+            timeEntries: TimeTrackingEntryRaw[];
         }>(
             gql`
                 query TaskAndTimeEntries($userId: UUID!, $taskId: Int!) {
@@ -98,7 +98,7 @@ export default function FullTask(props: { id: number; setId: (id: number | null)
         }
 
         const task = result.data!.task;
-        const time = result.data!.timeEntries.map(time => processTimeEntry(time));
+        const time = result.data!.timeEntries.map(time => processTimeTrackingEntry(time));
 
         setTask({
             task: processCompleteTask(task),

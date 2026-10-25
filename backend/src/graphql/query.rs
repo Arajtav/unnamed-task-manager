@@ -1,12 +1,15 @@
+use std::cmp::{max, min};
+
 use async_graphql::{Context, Error, Object, Result};
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Datelike, Duration, Months, NaiveDate, TimeZone, Utc, Weekday};
+use chrono_tz::Tz;
 use sea_orm::{ColumnTrait, Condition, EntityTrait, QueryFilter, QuerySelect, QueryTrait};
 use uuid::Uuid;
 
 use crate::{
     graphql::{
         get_db, get_user,
-        models::{Board, Task, TimeTrackingEntry, User},
+        models::{Board, Task, TimeEntry, TimeResolution, TimeSeries, TimeTrackingEntry, User},
         vec_map,
     },
     models,
@@ -168,5 +171,85 @@ impl QueryRoot {
         let entries = query.all(db).await?;
 
         Ok(vec_map(entries))
+    }
+
+    async fn time_summary(
+        &self,
+        ctx: &Context<'_>,
+        resolution: TimeResolution,
+        from_date: DateTime<Utc>,
+        to_date: DateTime<Utc>,
+        timezone: Option<String>,
+    ) -> Result<TimeSeries> {
+        let db = get_db(ctx);
+        let user = get_user(ctx);
+
+        let tz = match timezone {
+            None => Tz::UTC,
+            Some(name) => name.parse().map_err(|_| Error::new("UNKNOWN TIMEZONE"))?,
+        };
+
+        // I hate whoever invented time.
+        fn local_midnight(tz: Tz, date: NaiveDate) -> DateTime<Utc> {
+            let mut naive = date.and_hms_opt(0, 0, 0).unwrap();
+            loop {
+                if let Some(dt) = tz.from_local_datetime(&naive).earliest() {
+                    return dt.with_timezone(&Utc);
+                }
+                naive += Duration::minutes(15);
+            }
+        }
+
+        let local_from = from_date.with_timezone(&tz).date_naive();
+        let first_day = match resolution {
+            TimeResolution::Day => local_from,
+            TimeResolution::Week => local_from.week(Weekday::Mon).first_day(),
+            TimeResolution::Month => local_from.with_day(1).unwrap(),
+        };
+
+        let from_date = local_midnight(tz, first_day);
+
+        let entries = models::time_tracking::Entity::find()
+            .filter(models::time_tracking::Column::UserId.eq(user.id))
+            .filter(models::time_tracking::Column::StartedAt.lt(to_date))
+            .filter(models::time_tracking::Column::FinishedAt.gt(from_date))
+            .all(db)
+            .await?;
+
+        let mut current = first_day;
+        let mut values = Vec::new();
+
+        loop {
+            let start = local_midnight(tz, current);
+
+            if start >= to_date {
+                break;
+            }
+
+            values.push(TimeEntry { start, value: 0 });
+            current = match resolution {
+                TimeResolution::Day => current + Duration::days(1),
+                TimeResolution::Week => current + Duration::weeks(1),
+                TimeResolution::Month => current.checked_add_months(Months::new(1)).unwrap(),
+            };
+        }
+
+        for entry in entries {
+            let mut buckets = values.iter_mut().peekable();
+            while let Some(bucket) = buckets.next() {
+                let bucket_end = buckets.peek().map_or(to_date, |next| next.start);
+
+                let overlap_start = max(entry.started_at, bucket.start);
+                let overlap_end = min(entry.finished_at, bucket_end);
+
+                if overlap_start < overlap_end {
+                    bucket.value += overlap_end
+                        .signed_duration_since(overlap_start)
+                        .num_seconds();
+                }
+            }
+        }
+
+        Ok(TimeSeries { resolution, values })
     }
 }
