@@ -59,4 +59,7 @@ export const Loading: Story = {
             />
         );
     },
+    args: {
+        icon: KeyRoundIcon,
+    },
 };

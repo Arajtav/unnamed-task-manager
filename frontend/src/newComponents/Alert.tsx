@@ -46,19 +46,21 @@ export function LogAlert(alert: { title: string; content: string; type: AlertTyp
     }
 }
 
+// Buttons can wrap which is pretty ugly but they should usually be a single word.
+
 function Alert(props: AlertProps) {
     return (
         <div
-            class={`w-lg px-4 py-6 flex flex-row gap-4 rounded-2xl border drop-shadow-sm ${colorClasses[props.type]}`}
+            class={`w-3xs px-2 py-3 text-sm sm:w-sm sm:px-4 sm:py-6 sm:text-base md:w-md lg:w-lg flex flex-row gap-4 rounded-2xl border drop-shadow-sm ${colorClasses[props.type]}`}
         >
-            <div class="opacity-60">
+            <div class="opacity-60 shrink-0">
                 <props.icon />
             </div>
             <div class="flex flex-col flex-1 gap-1">
                 <div>{props.title}</div>
                 <div class="opacity-70">{props.content}</div>
                 <Show when={props.buttons?.length}>
-                    <div class="flex flex-row gap-2 mt-2 *:cursor-pointer text-base-content">
+                    <div class="flex flex-row gap-2 mt-2 *:cursor-pointer text-base-content min-w-0">
                         <For each={props.buttons}>
                             {button => (
                                 <button
@@ -76,7 +78,10 @@ function Alert(props: AlertProps) {
                     </div>
                 </Show>
             </div>
-            <div class="opacity-60 cursor-pointer w-min h-min p-3 -m-3" onClick={props.onClose}>
+            <div
+                class="opacity-60 cursor-pointer w-min h-min p-3 -m-3 shrink-0"
+                onClick={props.onClose}
+            >
                 <XIcon />
             </div>
         </div>

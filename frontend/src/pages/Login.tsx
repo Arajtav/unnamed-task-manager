@@ -86,7 +86,7 @@ export default function Login() {
                         : "Something went wrong",
                 content: "Check your authenticator and try again.",
                 icon: CircleXIcon,
-            });
+            }, 30);
             finishLoading();
             return;
         }
@@ -115,7 +115,7 @@ export default function Login() {
                     title: "Account not found",
                     content: "This account does not exist or is disabled.",
                     icon: UserRoundXIcon,
-                });
+                }, 30);
             } else {
                 addAlert(SERVER_WRONG);
             }
