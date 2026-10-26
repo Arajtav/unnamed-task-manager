@@ -1,6 +1,6 @@
 use std::cmp::{max, min};
 
-use async_graphql::{Context, Error, Object, Result};
+use async_graphql::{Context, Error, ErrorExtensions, Object, Result};
 use chrono::{DateTime, Datelike, Duration, Months, NaiveDate, TimeZone, Utc, Weekday};
 use chrono_tz::Tz;
 use sea_orm::{ColumnTrait, Condition, EntityTrait, QueryFilter, QuerySelect, QueryTrait};
@@ -8,8 +8,14 @@ use uuid::Uuid;
 
 use crate::{
     graphql::{
-        get_db, get_user,
-        models::{Board, Task, TimeEntry, TimeResolution, TimeSeries, TimeTrackingEntry, User},
+        db_err, forbidden, get_db, get_user,
+        models::{
+            board::Board,
+            task::Task,
+            time_series::{TimeEntry, TimeResolution, TimeSeries},
+            time_tracking_entry::TimeTrackingEntry,
+            user::User,
+        },
         vec_map,
     },
     models,
@@ -19,8 +25,6 @@ use crate::{
 pub struct QueryRoot;
 
 #[Object]
-#[allow(clippy::unused_async)]
-#[allow(clippy::unused_async_trait_impl)]
 impl QueryRoot {
     async fn me(&self, ctx: &Context<'_>) -> User {
         let user = get_user(ctx);
@@ -30,39 +34,16 @@ impl QueryRoot {
 
     async fn users(&self, ctx: &Context<'_>) -> Result<Vec<User>> {
         let db = get_db(ctx);
-        let users = models::user::Entity::find().all(db).await?;
+        let users = models::user::Entity::find().all(db).await.map_err(db_err)?;
 
         Ok(vec_map(users))
     }
 
-    async fn user(&self, ctx: &Context<'_>, id: Uuid) -> Result<Option<User>> {
-        let db = get_db(ctx);
-        let user = models::user::Entity::find_by_id(id).one(db).await?;
-
-        Ok(user.map(User::from))
-    }
-
-    async fn board(&self, ctx: &Context<'_>, id: i32) -> Result<Option<Board>> {
-        let db = get_db(ctx);
-        let user = get_user(ctx);
-
-        if !user.is_admin {
-            let has_board_access = models::board_access::Entity::find_by_id((id, user.id))
-                .one(db)
-                .await?
-                .is_some();
-
-            if !has_board_access {
-                return Err(Error::new("FORBIDDEN"));
-            }
-        }
-
-        let board = models::board::Entity::find_by_id(id).one(db).await?;
-
-        Ok(board.map(Board::from))
-    }
-
-    async fn boards(&self, ctx: &Context<'_>, name: Option<String>) -> Result<Vec<Board>> {
+    async fn boards(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(default)] name: Option<String>,
+    ) -> Result<Vec<Board>> {
         let db = get_db(ctx);
         let user = get_user(ctx);
 
@@ -84,29 +65,49 @@ impl QueryRoot {
             query = query.filter(models::board::Column::Name.contains(name));
         }
 
-        let boards = query.all(db).await?;
+        let boards = query.all(db).await.map_err(db_err)?;
 
         Ok(vec_map(boards))
+    }
+
+    async fn board(&self, ctx: &Context<'_>, id: i32) -> Result<Option<Board>> {
+        let db = get_db(ctx);
+        let user = get_user(ctx);
+
+        if !user.is_admin {
+            models::board_access::Entity::find_by_id((id, user.id))
+                .one(db)
+                .await
+                .map_err(db_err)?
+                .ok_or(forbidden())?;
+        }
+
+        let board = models::board::Entity::find_by_id(id)
+            .one(db)
+            .await
+            .map_err(db_err)?;
+
+        Ok(board.map(Board::from))
     }
 
     async fn task(&self, ctx: &Context<'_>, id: i32) -> Result<Option<Task>> {
         let db = get_db(ctx);
         let user = get_user(ctx);
 
-        let Some(task) = models::task::Entity::find_by_id(id).one(db).await? else {
+        let Some(task) = models::task::Entity::find_by_id(id)
+            .one(db)
+            .await
+            .map_err(db_err)?
+        else {
             return Ok(None);
         };
 
         if !user.is_admin {
-            let has_board_access =
-                models::board_access::Entity::find_by_id((task.board_id, user.id))
-                    .one(db)
-                    .await?
-                    .is_some();
-
-            if !has_board_access {
-                return Err(Error::new("FORBIDDEN"));
-            }
+            models::board_access::Entity::find_by_id((task.board_id, user.id))
+                .one(db)
+                .await
+                .map_err(db_err)?
+                .ok_or(forbidden())?;
         }
 
         Ok(Some(Task::from(task)))
@@ -134,30 +135,24 @@ impl QueryRoot {
         }
 
         if !user.is_admin {
-            let task_ids: Vec<i32> = models::task::Entity::find()
+            let moderated_boards = models::board_access::Entity::find()
+                .select_only()
+                .column(models::board_access::Column::BoardId)
+                .filter(models::board_access::Column::UserId.eq(user.id))
+                .filter(models::board_access::Column::IsModerator.eq(true))
+                .into_query();
+
+            let moderated_tasks = models::task::Entity::find()
                 .select_only()
                 .column(models::task::Column::Id)
-                .filter(
-                    models::task::Column::BoardId.in_subquery(
-                        models::board_access::Entity::find()
-                            .select_only()
-                            .column(models::board_access::Column::BoardId)
-                            .filter(models::board_access::Column::UserId.eq(user.id))
-                            .filter(models::board_access::Column::IsModerator.eq(true))
-                            .into_query(),
-                    ),
-                )
-                .into_tuple::<i32>()
-                .all(db)
-                .await?;
+                .filter(models::task::Column::BoardId.in_subquery(moderated_boards))
+                .into_query();
 
-            let mut access_condition =
-                Condition::any().add(models::time_tracking::Column::UserId.eq(user.id));
-
-            access_condition =
-                access_condition.add(models::time_tracking::Column::TaskId.is_in(task_ids));
-
-            query = query.filter(access_condition);
+            query = query.filter(
+                Condition::any()
+                    .add(models::time_tracking::Column::UserId.eq(user.id))
+                    .add(models::time_tracking::Column::TaskId.in_subquery(moderated_tasks)),
+            );
         }
 
         if let Some(target_user_id) = user_id {
@@ -168,7 +163,7 @@ impl QueryRoot {
             query = query.filter(models::time_tracking::Column::TaskId.eq(task_id));
         }
 
-        let entries = query.all(db).await?;
+        let entries = query.all(db).await.map_err(db_err)?;
 
         Ok(vec_map(entries))
     }
@@ -181,14 +176,6 @@ impl QueryRoot {
         to_date: DateTime<Utc>,
         timezone: Option<String>,
     ) -> Result<TimeSeries> {
-        let db = get_db(ctx);
-        let user = get_user(ctx);
-
-        let tz = match timezone {
-            None => Tz::UTC,
-            Some(name) => name.parse().map_err(|_| Error::new("UNKNOWN TIMEZONE"))?,
-        };
-
         // I hate whoever invented time.
         fn local_midnight(tz: Tz, date: NaiveDate) -> DateTime<Utc> {
             let mut naive = date.and_hms_opt(0, 0, 0).unwrap();
@@ -199,6 +186,16 @@ impl QueryRoot {
                 naive += Duration::minutes(15);
             }
         }
+
+        let db = get_db(ctx);
+        let user = get_user(ctx);
+
+        let tz = match timezone {
+            None => Tz::UTC,
+            Some(name) => name.parse().map_err(|_| {
+                Error::new("Unknown timezone").extend_with(|_, c| c.set("CODE", "UNKNOWN_TZ"))
+            })?,
+        };
 
         let local_from = from_date.with_timezone(&tz).date_naive();
         let first_day = match resolution {
@@ -214,7 +211,8 @@ impl QueryRoot {
             .filter(models::time_tracking::Column::StartedAt.lt(to_date))
             .filter(models::time_tracking::Column::FinishedAt.gt(from_date))
             .all(db)
-            .await?;
+            .await
+            .map_err(db_err)?;
 
         let mut current = first_day;
         let mut values = Vec::new();

@@ -167,7 +167,9 @@ export default function Users() {
             <table class="table w-full">
                 <thead>
                     <tr>
-                        <th class="text-center">Invite</th>
+                        <Show when={appData.me.isAdmin}>
+                            <th class="text-center">Invite</th>
+                        </Show>
                         <th>User</th>
                         <th>Emails</th>
                         <th>Info</th>
@@ -180,11 +182,15 @@ export default function Users() {
                     <For each={appData.users}>
                         {user => (
                             <tr class="group *:whitespace-nowrap hover:bg-base-200">
-                                <td class="w-px font-mono">
-                                    <span class="inline-flex w-[16ch] items-center justify-center">
-                                        {user.invite ?? "None"}
-                                    </span>
-                                </td>
+                                <Show when={appData.me.isAdmin}>
+                                    <td class="w-px font-mono">
+                                        <span class="inline-flex w-[16ch] items-center justify-center">
+                                            {user.invite.type == "present"
+                                                ? user.invite.invite
+                                                : "None"}
+                                        </span>
+                                    </td>
+                                </Show>
 
                                 <td class="w-px">
                                     <div class="flex flex-row items-center gap-2 font-mono">
@@ -290,7 +296,8 @@ export default function Users() {
                                                         addAlert({
                                                             type: "normal",
                                                             title: `Copied`,
-                                                            content: "Copied user id into clipboard.",
+                                                            content:
+                                                                "Copied user id into clipboard.",
                                                             icon: ClipboardCheckIcon,
                                                         });
                                                     }}

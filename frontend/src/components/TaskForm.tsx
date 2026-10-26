@@ -85,12 +85,10 @@ export default function TaskForm() {
                         }
                         status
                         assignees {
-                            email {
-                                email
-                                user {
-                                    id
-                                    handle
-                                }
+                            email
+                            user {
+                                id
+                                handle
                             }
                         }
                         timeLogged {

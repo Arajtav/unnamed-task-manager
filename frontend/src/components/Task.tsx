@@ -51,13 +51,13 @@ export default function Task({ task }: { task: PreviewTask }) {
                         <p>
                             Assignee:{" "}
                             <Avatar
-                                user={assignee.email}
+                                user={assignee}
                                 title={{ option: "auto" }}
                                 onClick={e => {
                                     e.stopPropagation();
                                     setBoardNav(
                                         "search",
-                                        search => `${search} assignee:${assignee.email.email}`
+                                        search => `${search} assignee:${assignee.email}`
                                     );
                                 }}
                             />

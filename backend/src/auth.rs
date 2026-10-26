@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use actix_session::Session;
 use actix_web::{
-    HttpResponse, Result, error,
+    HttpResponse, Result,
     web::{Data, Json, ThinData},
 };
 use sea_orm::{
@@ -24,7 +24,7 @@ use simple_webauthn::{
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-use crate::{Origin, internal_server_error, models};
+use crate::{AuthErrorType, Origin, ServerErrorType, auth_error, internal_server_error, models};
 
 pub async fn login_start(
     session: Session,
@@ -38,7 +38,7 @@ pub async fn login_start(
 
     session
         .insert("webauthn_auth_state", random)
-        .map_err(internal_server_error)?;
+        .map_err(|err| internal_server_error(err, ServerErrorType::Unreachable))?;
 
     auth.lock().await.insert(random, state);
 
@@ -53,10 +53,10 @@ pub async fn login_finish(
 ) -> Result<HttpResponse> {
     let serialized_state = session
         .remove("webauthn_auth_state")
-        .ok_or_else(|| error::ErrorUnauthorized(""))?;
+        .ok_or(auth_error(AuthErrorType::NoState))?;
 
-    let random: Uuid =
-        serde_json::from_str(&serialized_state).map_err(|_| error::ErrorUnauthorized(""))?;
+    let random: Uuid = serde_json::from_str(&serialized_state)
+        .map_err(|err| internal_server_error(err, ServerErrorType::Corrupted))?;
 
     let cred_id = response.credential_id();
 
@@ -68,27 +68,27 @@ pub async fn login_finish(
         .filter(models::user::Column::IsDisabled.eq(false))
         .one(&*db)
         .await
-        .map_err(internal_server_error)?
-        .ok_or(error::ErrorUnauthorized(""))?;
+        .map_err(|err| internal_server_error(err, ServerErrorType::Database))?
+        .ok_or(auth_error(AuthErrorType::NoUser))?;
 
     let cred = serde_json::from_value::<Credential>(passkey.passkey)
         .map(SimpleCredential::from)
-        .map_err(internal_server_error)?;
+        .map_err(|err| internal_server_error(err, ServerErrorType::Corrupted))?;
 
     let state = auth
         .lock()
         .await
         .remove(&random)
-        .ok_or(error::ErrorUnauthorized(""))?;
+        .ok_or(auth_error(AuthErrorType::NoState))?;
 
     verify_authentication(response.into_inner(), state, &[cred])
-        .map_err(|err| error::ErrorUnauthorized(format!("verify_authentication failed: {err}")))?;
+        .map_err(|_| auth_error(AuthErrorType::VerificationFailed))?;
 
     // TODO: update counter?
 
     session
         .insert("user_id", passkey.user_id)
-        .map_err(internal_server_error)?;
+        .map_err(|err| internal_server_error(err, ServerErrorType::Unreachable))?;
 
     Ok(HttpResponse::NoContent().finish())
 }
@@ -118,16 +118,11 @@ pub async fn register_start(
 
     let user = models::user::Entity::find()
         .filter(models::user::Column::InviteCode.eq(&body.invite))
+        .filter(models::user::Column::IsDisabled.eq(false))
         .one(&*db)
         .await
-        .map_err(internal_server_error)?;
-
-    let user = match user {
-        Some(user) if !user.is_disabled => user,
-        _ => {
-            return Err(error::ErrorNotFound(""));
-        }
-    };
+        .map_err(|err| internal_server_error(err, ServerErrorType::Database))?
+        .ok_or(auth_error(AuthErrorType::NoInvite))?;
 
     let (rr, state) = simple_webauthn::start_registration(
         (*rp.into_inner()).clone(),
@@ -141,7 +136,7 @@ pub async fn register_start(
 
     session
         .insert("webauthn_reg_state", &(random, body.invite, user.id))
-        .map_err(internal_server_error)?;
+        .map_err(|err| internal_server_error(err, ServerErrorType::Unreachable))?;
 
     reg.lock().await.insert(random, state);
 
@@ -156,47 +151,57 @@ pub async fn register_finish(
 ) -> Result<HttpResponse> {
     let serialized_state = session
         .remove("webauthn_reg_state")
-        .ok_or_else(|| error::ErrorUnauthorized("webauthn_reg_state missing from session"))?;
+        .ok_or(auth_error(AuthErrorType::NoState))?;
 
     let (random, invite, user_id): (Uuid, String, Uuid) =
-        serde_json::from_str(&serialized_state).map_err(|_| error::ErrorUnauthorized(""))?;
+        serde_json::from_str(&serialized_state)
+            .map_err(|err| internal_server_error(err, ServerErrorType::Corrupted))?;
 
     let state = reg
         .lock()
         .await
         .remove(&random)
-        .ok_or(error::ErrorUnauthorized(""))?;
+        .ok_or(auth_error(AuthErrorType::NoState))?;
 
     let credential = verify_registration(response.into_inner(), state)
-        .map_err(|err| error::ErrorUnauthorized(format!("verify_registration failed: {err}")))?;
+        .map_err(|_| auth_error(AuthErrorType::VerificationFailed))?;
 
     let passkey = models::passkey::ActiveModel {
         id: Set(credential.id().to_vec()),
         user_id: Set(user_id),
-        passkey: Set(serde_json::to_value(credential).map_err(internal_server_error)?),
+        passkey: Set(serde_json::to_value(credential)
+            .map_err(|err| internal_server_error(err, ServerErrorType::Unreachable))?),
     };
 
-    let tx = db.begin().await.map_err(internal_server_error)?;
+    let tx = db
+        .begin()
+        .await
+        .map_err(|err| internal_server_error(err, ServerErrorType::Database))?;
 
-    passkey.insert(&tx).await.map_err(internal_server_error)?;
+    passkey
+        .insert(&tx)
+        .await
+        .map_err(|err| internal_server_error(err, ServerErrorType::Database))?;
 
     let result = models::user::Entity::update_many()
         .col_expr(models::user::Column::InviteCode, Expr::null())
         .filter(models::user::Column::InviteCode.eq(invite))
         .exec(&tx)
         .await
-        .map_err(internal_server_error)?;
+        .map_err(|err| internal_server_error(err, ServerErrorType::Database))?;
 
     if result.rows_affected == 0 {
         // The invite does not exist.
-        return Err(error::ErrorForbidden(""));
+        return Err(auth_error(AuthErrorType::NoInvite));
     }
 
-    tx.commit().await.map_err(internal_server_error)?;
+    tx.commit()
+        .await
+        .map_err(|err| internal_server_error(err, ServerErrorType::Database))?;
 
     session
         .insert("user_id", user_id)
-        .map_err(internal_server_error)?;
+        .map_err(|err| internal_server_error(err, ServerErrorType::Unreachable))?;
 
     Ok(HttpResponse::NoContent().finish())
 }

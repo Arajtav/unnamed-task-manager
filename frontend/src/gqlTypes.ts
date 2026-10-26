@@ -16,7 +16,7 @@ export type PreviewTask = {
     createdAt: Date;
     author: UserFromEmail;
     status: string;
-    assignees: Assignee[];
+    assignees: UserFromEmail[];
     archivedAt: Date | null;
     timeLogged: { time: number }[];
     // TODO: this goes stale, but I'd have to refetch all the tasks every time a block is added or removed otherwise. Requires a deeper refactor.
@@ -87,10 +87,6 @@ export type TimeLogged = {
     user: UserWithEmails | null;
 };
 
-export type Assignee = {
-    email: UserFromEmail;
-};
-
 export type CompleteTask = {
     id: number;
     title: string;
@@ -98,7 +94,7 @@ export type CompleteTask = {
     createdAt: Date;
     author: UserFromEmail;
     status: string;
-    assignees: Assignee[];
+    assignees: UserFromEmail[];
     archivedAt: Date | null;
     timeLogged: TimeLogged[];
     blockedBy: MinimalTask[];
@@ -138,17 +134,34 @@ export function processTimeTrackingEntry(from: TimeTrackingEntryRaw): TimeTracki
     return { ...from, startedAt: new Date(from.startedAt), finishedAt: new Date(from.finishedAt) };
 }
 
+export type Invite =
+    { type: "present"; invite: string } | { type: "not-present" } | { type: "forbidden" };
+
 export type FullUser = UserWithEmails & {
     isAdmin: boolean;
     isDisabled: boolean;
     createdAt: Date;
-    invite: string | null;
+    invite: Invite;
 };
 
-export type FullUserRaw = Replace<FullUser, "createdAt", string>;
+export type FullUserRaw = Replace<
+    Replace<FullUser, "invite", string | null | undefined>,
+    "createdAt",
+    string
+>;
 
 export function processFullUser(from: FullUserRaw): FullUser {
-    return { ...from, createdAt: new Date(from.createdAt) };
+    let invite: Invite;
+
+    if (from.invite === undefined) {
+        invite = { type: "forbidden" };
+    } else if (from.invite === null) {
+        invite = { type: "not-present" };
+    } else {
+        invite = { type: "present", invite: from.invite };
+    }
+
+    return { ...from, createdAt: new Date(from.createdAt), invite };
 }
 
 export type Me = UserWithEmails & {

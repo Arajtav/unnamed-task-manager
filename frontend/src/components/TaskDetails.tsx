@@ -141,9 +141,9 @@ export default function TaskDetails(props: {
                                 <>
                                     <User
                                         user={{
-                                            id: assignee.email.user?.id,
-                                            emails: [assignee.email.email],
-                                            handle: assignee.email.user?.handle,
+                                            id: assignee.user?.id,
+                                            emails: [assignee.email],
+                                            handle: assignee.user?.handle,
                                         }}
                                     />
                                 </>

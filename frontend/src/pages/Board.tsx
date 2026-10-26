@@ -129,11 +129,11 @@ export default function Board() {
         }
 
         for (const assignee of f.assignees) {
-            filtered = filtered.filter(t => t.assignees.some(a => matchesUser(a.email, assignee)));
+            filtered = filtered.filter(t => t.assignees.some(a => matchesUser(a, assignee)));
         }
 
         for (const assignee of f.notAssignees) {
-            filtered = filtered.filter(t => !t.assignees.some(a => matchesUser(a.email, assignee)));
+            filtered = filtered.filter(t => !t.assignees.some(a => matchesUser(a, assignee)));
         }
 
         if (f.searchTerm) {
@@ -188,12 +188,10 @@ export default function Board() {
                         }
                         status
                         assignees {
-                            email {
-                                email
-                                user {
-                                    id
-                                    handle
-                                }
+                            email
+                            user {
+                                id
+                                handle
                             }
                         }
                         timeLogged {

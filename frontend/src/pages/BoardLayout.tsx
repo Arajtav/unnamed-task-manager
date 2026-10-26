@@ -55,12 +55,10 @@ export default function BoardLayout(props: RouteSectionProps) {
                             }
                             status
                             assignees {
-                                email {
-                                    email
-                                    user {
-                                        id
-                                        handle
-                                    }
+                                email
+                                user {
+                                    id
+                                    handle
                                 }
                             }
                             timeLogged {

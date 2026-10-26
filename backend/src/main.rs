@@ -14,7 +14,8 @@ use async_graphql::{EmptySubscription, Schema};
 use async_graphql_actix_web::{GraphQLRequest, GraphQLResponse};
 use base64::Engine;
 use dotenv::dotenv;
-use sea_orm::{Database, DatabaseConnection, EntityTrait};
+use sea_orm::{ColumnTrait, Database, DatabaseConnection, EntityTrait, QueryFilter};
+use strum::Display;
 use tokio::sync::Mutex;
 use tracing::{debug, error, warn};
 use uuid::Uuid;
@@ -38,25 +39,19 @@ async fn require_auth(
 
     let Some(user_id) = session
         .get::<Uuid>("user_id")
-        .map_err(internal_server_error)?
+        .map_err(|err| internal_server_error(err, ServerErrorType::Unreachable))?
     else {
-        return Err(actix_web::error::ErrorUnauthorized(""));
+        return Err(auth_error(AuthErrorType::NoSession));
     };
 
     let db = req.app_data::<ThinData<DatabaseConnection>>().unwrap();
 
     let user = models::user::Entity::find_by_id(user_id)
+        .filter(models::user::Column::IsDisabled.eq(false))
         .one(&**db)
         .await
-        .map_err(internal_server_error)?;
-
-    let user = match user {
-        Some(user) if !user.is_disabled => user,
-        _ => {
-            session.purge();
-            return Err(actix_web::error::ErrorUnauthorized(""));
-        }
-    };
+        .map_err(|err| internal_server_error(err, ServerErrorType::Database))?
+        .ok_or(auth_error(AuthErrorType::NoUser))?;
 
     req.extensions_mut().insert(AuthUser(user));
 
@@ -191,7 +186,33 @@ async fn main() -> std::io::Result<()> {
     .await
 }
 
-pub fn internal_server_error<T: std::error::Error>(err: T) -> actix_web::Error {
+#[derive(Debug, Clone, Copy, Display)]
+#[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
+pub enum ServerErrorType {
+    /// Shouldn't be ever reached unless everything is broken.
+    /// Includes: failed serialization of some struct, failed const query etc.
+    Unreachable,
+    Database,
+    Corrupted,
+}
+
+#[must_use]
+pub fn internal_server_error<T: std::error::Error>(err: T, t: ServerErrorType) -> actix_web::Error {
     tracing::error!("{err}");
-    actix_web::error::ErrorInternalServerError("")
+    actix_web::error::ErrorInternalServerError(t.to_string())
+}
+
+#[derive(Debug, Clone, Copy, Display)]
+#[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
+pub enum AuthErrorType {
+    NoState,
+    NoUser,
+    NoInvite,
+    VerificationFailed,
+    NoSession,
+}
+
+#[must_use]
+pub fn auth_error(t: AuthErrorType) -> actix_web::Error {
+    actix_web::error::ErrorUnauthorized(t.to_string())
 }

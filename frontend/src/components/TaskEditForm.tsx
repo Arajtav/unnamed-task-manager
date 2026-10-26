@@ -35,7 +35,7 @@ export default function TaskEditForm(props: {
     const [title, setTitle] = createSignal(task.title);
     const [description, setDescription] = createSignal(task.description ?? "");
     const [status, setStatus] = createSignal(task.status);
-    const originalAssignees = new Set(task.assignees.map(a => a.email.email));
+    const originalAssignees = new Set(task.assignees.map(a => a.email));
     const [assignees, setAssignees] = createSignal(new Set(originalAssignees));
     const [assigneeSearch, setAssigneeSearch] = createSignal("");
     const [isArchived, setIsArchived] = createSignal(task.archivedAt != null);
@@ -56,7 +56,8 @@ export default function TaskEditForm(props: {
 
     const knownUsers = createMemo(() => {
         const map = new Map<string, BaseUser>();
-        for (const { email } of task.assignees) if (email.user) map.set(email.email, email.user);
+        for (const assignee of task.assignees)
+            if (assignee.user) map.set(assignee.email, assignee.user);
         for (const user of appData.users) {
             for (const email of user.emails) map.set(email, user);
         }
@@ -195,12 +196,10 @@ export default function TaskEditForm(props: {
                         }
                         status
                         assignees {
-                            email {
-                                email
-                                user {
-                                    id
-                                    handle
-                                }
+                            email
+                            user {
+                                id
+                                handle
                             }
                         }
                         archivedAt

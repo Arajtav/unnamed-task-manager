@@ -57,7 +57,28 @@ export default function Layout(props: RouteSectionProps) {
             {}
         );
 
-        if (handleAuthError(result.error)) return;
+        const forbiddenInvites = new Set<number>();
+
+        const otherErrors = (result.error?.graphQLErrors ?? []).filter(err => {
+            const [root, index, field] = err.path ?? [];
+
+            if (
+                root === "users" &&
+                typeof index === "number" &&
+                field === "invite" &&
+                err.extensions?.CODE === "FORBIDDEN"
+            ) {
+                forbiddenInvites.add(index);
+                return false;
+            }
+
+            return true;
+        });
+
+        if (result.error?.networkError || otherErrors.length > 0 || !result.data) {
+            if (handleAuthError(result.error)) return;
+            if (!result.data) return;
+        }
 
         const me = result.data!.me;
         const boards = result.data!.boards;
@@ -67,7 +88,9 @@ export default function Layout(props: RouteSectionProps) {
             dbg({
                 me,
                 boards: new Map(boards.map(board => [board.id, board.name])),
-                users: users.map(user => processFullUser(user)),
+                users: users.map((user, i) =>
+                    processFullUser(forbiddenInvites.has(i) ? { ...user, invite: undefined } : user)
+                ),
             })
         );
 
