@@ -6,7 +6,17 @@ import { gql } from "@urql/core";
 import { handleAuthError } from "../auth";
 import { useAlert } from "../contexts/alertContext";
 import { CircleXIcon } from "lucide-solid";
-import { Axis, AxisCursor, AxisGrid, AxisLabel, AxisTooltip, Bar, Chart } from "solid-charts";
+import {
+    Axis,
+    AxisCursor,
+    AxisGrid,
+    AxisLabel,
+    AxisTooltip,
+    AxisValueLine,
+    Bar,
+    Chart,
+} from "solid-charts";
+import { ticks } from "d3-array";
 import { formatDuration } from "../format";
 
 const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -92,25 +102,6 @@ export default function TimeGraph() {
         setLoading("no");
     }
 
-    function bucketLabel(start: string, resolution: TimeResolution, index: number) {
-        const [y, m, d] = new Date(start)
-            .toLocaleDateString("en-CA", { timeZone: timezone })
-            .split("-")
-            .map(Number);
-
-        if (resolution == "MONTH") {
-            const date = new Date(Date.UTC(y, m - 1 + index, 1));
-            return date.toLocaleDateString(undefined, { month: "short", timeZone: "UTC" });
-        }
-
-        const date = new Date(Date.UTC(y, m - 1, d + index));
-        return date.toLocaleDateString(undefined, {
-            day: "numeric",
-            month: "short",
-            timeZone: "UTC",
-        });
-    }
-
     createEffect(() => {
         fetchTimeSummary(getQueryParams(period()));
     });
@@ -121,6 +112,18 @@ export default function TimeGraph() {
 
     const total = () => timeSummary().values.reduce((sum, { value }) => sum + value, 0);
 
+    const average = () => {
+        const { values } = timeSummary();
+        return values.length ? Math.round(total() / values.length) : 0;
+    };
+
+    const activeAverage = () => {
+        const active = timeSummary().values.filter(v => v.value > 0);
+        return active.length
+            ? Math.round(active.reduce((sum, { value }) => sum + value, 0) / active.length)
+            : 0;
+    };
+
     const chartData = () => {
         const { values, resolution } = timeSummary();
         const format = resolution == "MONTH" ? monthFormat : dayFormat;
@@ -130,6 +133,11 @@ export default function TimeGraph() {
         }));
     };
 
+    const yTicks = () => {
+        const max = Math.max(0, ...timeSummary().values.map(v => v.value));
+        return ticks(0, max, 4);
+    };
+
     return (
         <div class="flex flex-col items-center">
             <Show when={loading() == "no"}>
@@ -137,12 +145,40 @@ export default function TimeGraph() {
                     <h3 class="text-xl">Time logged</h3>
                     <span class="text-base-content/60">{formatDuration(total())} total</span>
                 </div>
-                <div class="h-62.5 text-sm w-125 m-6">
+                <div class="h-62.5 text-sm w-125 m-6 [&_svg]:overflow-visible">
                     <Chart data={chartData()}>
-                        <Axis axis="y" position="left">
+                        <Axis axis="y" position="left" tickValues={yTicks()}>
                             <AxisLabel format={(v: number) => formatDuration(v)} />
                             <AxisGrid class="opacity-20" />
                         </Axis>
+
+                        <Axis axis="y" position="right" tickValues={[average()]}>
+                            <AxisLabel
+                                class="fill-primary"
+                                format={(v: number) => formatDuration(v)}
+                            />
+                            <AxisValueLine
+                                value={average()}
+                                class="stroke-primary"
+                                stroke-width={2}
+                                stroke-dasharray="6,4"
+                            />
+                        </Axis>
+
+                        <Show when={activeAverage() !== average()}>
+                            <Axis axis="y" position="right" tickValues={[activeAverage()]}>
+                                <AxisLabel
+                                    class="fill-accent"
+                                    format={(v: number) => formatDuration(v)}
+                                />
+                                <AxisValueLine
+                                    value={activeAverage()}
+                                    class="stroke-accent"
+                                    stroke-width={2}
+                                    stroke-dasharray="2,4"
+                                />
+                            </Axis>
+                        </Show>
 
                         <Bar dataKey="duration" class="fill-secondary" />
 
