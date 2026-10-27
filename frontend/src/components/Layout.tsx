@@ -163,7 +163,7 @@ export default function Layout(props: RouteSectionProps) {
     };
 
     return (
-        <div class="flex flex-col h-screen w-screen">
+        <div class="flex flex-col h-screen w-screen accent-accent">
             <AlertContext.Provider value={{ addAlert, removeAlert, addSingleAlert }}>
                 <ModalContext.Provider value={modalContext}>
                     <Show

@@ -167,9 +167,7 @@ export default function Users() {
             <table class="table w-full">
                 <thead>
                     <tr>
-                        <Show when={appData.me.isAdmin}>
-                            <th class="text-center">Invite</th>
-                        </Show>
+                        <th class="text-center">Invite</th>
                         <th>User</th>
                         <th>Emails</th>
                         <th>Info</th>
@@ -182,15 +180,15 @@ export default function Users() {
                     <For each={appData.users}>
                         {user => (
                             <tr class="group *:whitespace-nowrap hover:bg-base-200">
-                                <Show when={appData.me.isAdmin}>
-                                    <td class="w-px font-mono">
-                                        <span class="inline-flex w-[16ch] items-center justify-center">
-                                            {user.invite.type == "present"
-                                                ? user.invite.invite
-                                                : "None"}
-                                        </span>
-                                    </td>
-                                </Show>
+                                <td class="w-px font-mono">
+                                    <span class="inline-flex w-[16ch] items-center justify-center">
+                                        {user.invite.type == "present"
+                                            ? user.invite.invite
+                                            : user.invite.type == "not-present"
+                                              ? "None"
+                                              : ""}
+                                    </span>
+                                </td>
 
                                 <td class="w-px">
                                     <div class="flex flex-row items-center gap-2 font-mono">
@@ -306,35 +304,44 @@ export default function Users() {
                                                 </button>
                                             </li>
 
-                                            <li>
-                                                <button
-                                                    onClick={async () => {
-                                                        const handle = prompt("new handle")?.trim();
-                                                        if (handle !== undefined) {
-                                                            await updateUser(
-                                                                user.id,
-                                                                { handle: handle || null },
-                                                                "Failed to update handle."
-                                                            );
-                                                        }
-                                                    }}
-                                                >
-                                                    Set handle
-                                                </button>
-                                            </li>
-
-                                            <li>
-                                                <button onClick={() => addInvite(user.id)}>
-                                                    <Show
-                                                        when={user.invite === null}
-                                                        fallback="Regenerate invite"
+                                            <Show
+                                                when={
+                                                    appData.me.isAdmin || user.id == appData.me.id
+                                                }
+                                            >
+                                                <li>
+                                                    <button
+                                                        onClick={async () => {
+                                                            const handle =
+                                                                prompt("new handle")?.trim();
+                                                            if (handle !== undefined) {
+                                                                await updateUser(
+                                                                    user.id,
+                                                                    { handle: handle || null },
+                                                                    "Failed to update handle."
+                                                                );
+                                                            }
+                                                        }}
                                                     >
-                                                        Generate invite
-                                                    </Show>
-                                                </button>
-                                            </li>
+                                                        Set handle
+                                                    </button>
+                                                </li>
+                                            </Show>
 
-                                            <Show when={user.invite !== null}>
+                                            <Show when={user.invite.type != "forbidden"}>
+                                                <li>
+                                                    <button onClick={() => addInvite(user.id)}>
+                                                        <Show
+                                                            when={user.invite.type == "not-present"}
+                                                            fallback="Regenerate invite"
+                                                        >
+                                                            Generate invite
+                                                        </Show>
+                                                    </button>
+                                                </li>
+                                            </Show>
+
+                                            <Show when={user.invite.type == "present"}>
                                                 <li>
                                                     <button onClick={() => removeInvite(user.id)}>
                                                         Remove invite
@@ -342,7 +349,7 @@ export default function Users() {
                                                 </li>
                                             </Show>
 
-                                            <Show when={!user.isAdmin}>
+                                            <Show when={!user.isAdmin && appData.me.isAdmin}>
                                                 <li>
                                                     <button
                                                         onClick={async () =>

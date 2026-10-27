@@ -1,31 +1,19 @@
 import { createSignal, onMount } from "solid-js";
-import { client, getPasskeyCredential } from "../auth";
-import { A, useNavigate, useSearchParams } from "@solidjs/router";
+import { client, getPasskey } from "../auth";
+import { useNavigate, useSearchParams } from "@solidjs/router";
 import { useAlert } from "../contexts/alertContext";
 import { Title } from "@solidjs/meta";
-import {
-    CircleXIcon,
-    GlobeOffIcon,
-    KeyRoundIcon,
-    SearchXIcon,
-    ServerCrashIcon,
-    UserRoundXIcon,
-} from "lucide-solid";
+import { KeyRoundIcon } from "lucide-solid";
 import ActiveButton from "../newComponents/ActiveButton";
-
-const SERVER_WRONG = {
-    type: "error",
-    title: "Server error",
-    content: "Server sent invalid response.",
-    icon: ServerCrashIcon,
-} as const;
-
-const NETWORK = {
-    type: "error",
-    title: "Network error",
-    content: "Check your internet connection and try again.",
-    icon: GlobeOffIcon,
-} as const;
+import {
+    ACCOUNT_NOT_FOUND,
+    AUTHENTICATOR_WRONG,
+    NETWORK,
+    NO_PASSKEYS,
+    SERVER_WRONG,
+    UNABLE_TO_GET_PASSKEYS,
+} from "../alerts";
+import { PreservingA } from "../newComponents/PreservingA";
 
 export default function Login() {
     const navigate = useNavigate();
@@ -76,31 +64,20 @@ export default function Login() {
             return;
         }
 
-        const credential = await getPasskeyCredential(options);
+        const credential = await getPasskey(options);
         if (credential.error) {
-            addAlert({
-                type: "error",
-                title:
-                    credential.error.type == "not_allowed"
-                        ? "Unable to get any passkeys"
-                        : "Something went wrong",
-                content: "Check your authenticator and try again.",
-                icon: CircleXIcon,
-            }, 30);
+            addAlert(
+                credential.error.type == "not_allowed"
+                    ? UNABLE_TO_GET_PASSKEYS
+                    : AUTHENTICATOR_WRONG,
+                30
+            );
             finishLoading();
             return;
         }
 
         if (!credential.data) {
-            addAlert(
-                {
-                    type: "normal",
-                    title: "No passkeys",
-                    content: "No passkeys found.",
-                    icon: SearchXIcon,
-                },
-                30
-            );
+            addAlert(NO_PASSKEYS, 30);
             finishLoading();
             return;
         }
@@ -110,12 +87,7 @@ export default function Login() {
             if (lf.error.type == "network") {
                 setNea(addSingleAlert(nea(), NETWORK, 60));
             } else if (lf.error.type == "http" && lf.error.status == 401) {
-                addAlert({
-                    type: "warning",
-                    title: "Account not found",
-                    content: "This account does not exist or is disabled.",
-                    icon: UserRoundXIcon,
-                }, 30);
+                addAlert(ACCOUNT_NOT_FOUND, 30);
             } else {
                 addAlert(SERVER_WRONG);
             }
@@ -152,12 +124,12 @@ export default function Login() {
             <div class="flex-1 flex items-end justify-center">
                 <div class="mb-4 opacity-60">
                     or{" "}
-                    <A
+                    <PreservingA
                         href="/join"
                         class="cursor-pointer hover:underline focus:underline drop-shadow-sm"
                     >
                         Join
-                    </A>
+                    </PreservingA>
                 </div>
             </div>
         </div>

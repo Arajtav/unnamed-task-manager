@@ -98,13 +98,35 @@ export type PasskeyError = { type: "not_allowed" } | { type: "unknown" };
 
 export type PasskeyResult<T> = { data: T; error: null } | { data: null; error: PasskeyError };
 
-export async function getPasskeyCredential(
+export async function getPasskey(
     options: PublicKeyCredentialRequestOptions
 ): Promise<PasskeyResult<PublicKeyCredential | null>> {
     try {
         const credential = await navigator.credentials.get({
             publicKey: options,
             mediation: "required",
+        });
+
+        return { data: credential as PublicKeyCredential | null, error: null };
+    } catch (error) {
+        return {
+            data: null,
+            error: {
+                type:
+                    error instanceof Error && error.name == "NotAllowedError"
+                        ? "not_allowed"
+                        : "unknown",
+            },
+        };
+    }
+}
+
+export async function createPasskey(
+    options: PublicKeyCredentialCreationOptions
+): Promise<PasskeyResult<PublicKeyCredential | null>> {
+    try {
+        const credential = await navigator.credentials.create({
+            publicKey: options,
         });
 
         return { data: credential as PublicKeyCredential | null, error: null };

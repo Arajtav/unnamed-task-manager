@@ -1,187 +1,178 @@
-import { createSignal, Show } from "solid-js";
-import { client } from "../auth";
-import { A } from "@solidjs/router";
+import { createSignal } from "solid-js";
+import { client, createPasskey } from "../auth";
+import { useNavigate, useSearchParams } from "@solidjs/router";
 import { useAlert } from "../contexts/alertContext";
 import { Title } from "@solidjs/meta";
+import { masked } from "solid-imask";
 import {
-    CircleXIcon,
-    GlobeOffIcon,
-    RotateCwIcon,
-    ServerCrashIcon,
-    ShieldXIcon,
-} from "lucide-solid";
+    AUTHENTICATOR_WRONG,
+    INVITE_EXPIRED,
+    NETWORK,
+    SERVER_WRONG,
+    PASSKEY_CREATION_FAILED,
+} from "../alerts";
+import { PreservingA } from "../newComponents/PreservingA";
+import ActiveButton from "../newComponents/ActiveButton";
+import { KeyRoundIcon } from "lucide-solid";
 
-const SERVER_WRONG = {
-    type: "error",
-    title: "Server error",
-    content: "Server sent invalid response.",
-    icon: ServerCrashIcon,
-} as const;
+// Actually it's an used import.
+void masked;
 
-const NETWORK = {
-    type: "error",
-    title: "Network error",
-    content: "Check your internet connection and try again.",
-    icon: GlobeOffIcon,
-} as const;
+const INVITE_REGEX = /^[A-Z]{4}(-[A-Z]{4}){2}$/;
+const NAME_MAX_LENGTH = 64;
 
 export default function Join() {
+    const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+
+    const handleRedirect = () => {
+        // Ignore multiple.
+        const backParam = typeof searchParams.back == "string" ? searchParams.back : "/";
+        const back = decodeURIComponent(backParam);
+
+        navigate(back, { replace: true });
+    };
+
     const [nea, setNea] = createSignal<symbol | undefined>(undefined);
     const { addAlert, addSingleAlert } = useAlert();
 
-    // TODO: would be nice to debounce loading by a few ms.
-    let [loading, setLoading] = createSignal(false);
+    let [isLoading, setIsLoading] = createSignal(false);
+    let isLoadingTimeout: number | undefined;
+
+    const finishLoading = () => {
+        clearTimeout(isLoadingTimeout);
+        setIsLoading(false);
+    };
 
     const [invite, setInvite] = createSignal("");
     const [name, setName] = createSignal("");
 
-    async function register(e: SubmitEvent) {
-        e.preventDefault();
+    const isInviteValid = () => INVITE_REGEX.test(invite());
+    const isNameValid = () => {
+        const trimmed = name().trim();
+        return trimmed.length > 0 && trimmed.length <= NAME_MAX_LENGTH;
+    };
+    const canSubmit = () => isInviteValid() && isNameValid();
 
-        setLoading(true);
+    async function register() {
+        isLoadingTimeout = setTimeout(() => {
+            setIsLoading(true);
+        }, 50);
 
-        const rr = await client.registerStart(invite(), name());
+        const rr = await client.registerStart(invite(), name().trim());
         if (rr.error) {
             if (rr.error.type == "network") {
                 setNea(addSingleAlert(nea(), NETWORK, 60));
             } else {
                 addAlert(SERVER_WRONG);
             }
-            setLoading(false);
+            finishLoading();
             return;
         }
+
         let options;
         try {
             options = PublicKeyCredential.parseCreationOptionsFromJSON(rr.data);
         } catch (error) {
             console.error(error);
             addAlert(SERVER_WRONG);
-            setLoading(false);
+            finishLoading();
             return;
         }
 
-        const credential = await navigator.credentials.create({
-            publicKey: options,
-        });
-
-        if (!credential) {
-            addAlert({
-                type: "warning",
-                title: "Failed to create a passkey",
-                content: "Please try again.",
-                icon: RotateCwIcon,
-            });
-            setLoading(false);
+        const credential = await createPasskey(options);
+        if (credential.error) {
+            addAlert(
+                credential.error.type == "not_allowed"
+                    ? PASSKEY_CREATION_FAILED
+                    : AUTHENTICATOR_WRONG,
+                30
+            );
+            finishLoading();
             return;
         }
 
-        let cred = (credential as PublicKeyCredential).toJSON();
+        if (!credential.data) {
+            addAlert(PASSKEY_CREATION_FAILED, 30);
+            finishLoading();
+            return;
+        }
 
-        const res = await client.registerFinish(cred);
+        const res = await client.registerFinish(credential.data.toJSON());
         if (res.error) {
             if (res.error.type == "network") {
                 setNea(addSingleAlert(nea(), NETWORK, 60));
             } else if (res.error.type == "http" && res.error.status == 401) {
-                addAlert({
-                    type: "error",
-                    title: "Code expired",
-                    content:
-                        "This code has expired or has been used while you were creating the passkey.",
-                    icon: ShieldXIcon,
-                });
+                addAlert(INVITE_EXPIRED);
             } else {
                 addAlert(SERVER_WRONG);
             }
 
-            setLoading(false);
+            finishLoading();
             return;
         }
 
-        window.location.assign(
-            decodeURIComponent(new URLSearchParams(location.search).get("back") ?? "/")
-        );
+        handleRedirect();
+        finishLoading();
     }
 
     return (
-        <main class="h-full flex items-center justify-center">
+        <div class="h-full flex flex-col bg-base-100">
             <Title>Join</Title>
-            <div class="card w-full max-w-md bg-base-100 border border-base-200">
-                <div class="card-body items-center text-center">
-                    <h1 class="card-title text-2xl">Join</h1>
-
-                    <div class="w-full">
-                        <Show when={loading()}>
-                            <div class="flex flex-col items-center gap-3">
-                                <span class="loading loading-spinner loading-lg" />
-                                <span>Waiting for your passkey...</span>
-                            </div>
-                        </Show>
+            <div class="flex-1"></div>
+            <div class="flex items-center justify-center">
+                <fieldset
+                    class="flex flex-col border p-8 rounded-2xl border-base-300 drop-shadow-sm"
+                    disabled={isLoading()}
+                >
+                    <div class="flex flex-col">
+                        <label class="my-2">Invite code</label>
+                        <input
+                            class="font-mono uppercase bg-base-200 border-base-300 text-base-content px-6 py-4 rounded-xl border drop-shadow-sm user-invalid:ring-1 user-invalid:ring-inset user-invalid:ring-error disabled:cursor-not-allowed"
+                            type="text"
+                            placeholder="XXXX-XXXX-XXXX"
+                            pattern="[A-Za-z]{4}(-[A-Za-z]{4}){2}"
+                            use:masked={{
+                                mask: "aaaa-aaaa-aaaa",
+                                onAccept: (_, mask) => setInvite(mask.value.toUpperCase()),
+                            }}
+                            required
+                        />
                     </div>
 
-                    <form class="mt-4 w-full" onSubmit={register}>
-                        <fieldset class="fieldset">
-                            <label class="fieldset-label">Invite code</label>
+                    <div class="flex flex-col mt-3 mb-6">
+                        <label class="my-2">Display name</label>
+                        <input
+                            class="bg-base-200 border-base-300 text-base-content px-6 py-4 rounded-xl border drop-shadow-sm user-invalid:ring-1 user-invalid:ring-inset user-invalid:ring-error disabled:cursor-not-allowed"
+                            type="text"
+                            placeholder="Me"
+                            maxLength={NAME_MAX_LENGTH}
+                            value={name()}
+                            onInput={e => setName(e.currentTarget.value)}
+                            required
+                        />
+                    </div>
 
-                            <input
-                                class="input w-full validator"
-                                type="text"
-                                placeholder="XXXX-XXXX-XXXX"
-                                value={invite()}
-                                pattern="[a-zA-z]{4}(-[a-zA-z]{4}){2}"
-                                onBeforeInput={e => {
-                                    if (!e.data) return;
-
-                                    e.preventDefault();
-
-                                    const input = e.currentTarget;
-                                    const start = input.selectionStart ?? 0;
-                                    const end = input.selectionEnd ?? 0;
-
-                                    const letters = e.data.replace(/[^a-zA-Z]/g, "");
-
-                                    const value =
-                                        input.value.slice(0, start) +
-                                        letters +
-                                        input.value.slice(end);
-
-                                    const formatted =
-                                        value
-                                            .replace(/[^a-zA-Z]/g, "")
-                                            .toUpperCase()
-                                            .slice(0, 12)
-                                            .match(/.{1,4}/g)
-                                            ?.join("-") ?? "";
-
-                                    setInvite(formatted);
-                                }}
-                                onInput={e => {
-                                    setInvite(e.currentTarget.value);
-                                }}
-                                required
-                            />
-
-                            <label class="fieldset-label mt-3">Display name</label>
-                            <input
-                                class="input w-full validator"
-                                type="text"
-                                placeholder="Me"
-                                value={name()}
-                                onInput={e => setName(e.currentTarget.value)}
-                                required
-                            />
-                            <button class="btn btn-primary mt-4 w-full" disabled={loading()}>
-                                Join
-                            </button>
-                        </fieldset>
-                    </form>
-
-                    <div class="divider">OR</div>
-
-                    <A href={`/login${location.search}`} class="btn btn-ghost w-full">
-                        Go back to login
-                    </A>
+                    <ActiveButton
+                        text="Create a passkey"
+                        icon={KeyRoundIcon}
+                        isLoading={isLoading()}
+                        disabled={!canSubmit()}
+                        onClick={register}
+                    />
+                </fieldset>
+            </div>
+            <div class="flex-1 flex items-end justify-center">
+                <div class="mb-4 opacity-60">
+                    or{" "}
+                    <PreservingA
+                        href="/login"
+                        class="cursor-pointer hover:underline focus:underline drop-shadow-sm"
+                    >
+                        Login
+                    </PreservingA>
                 </div>
             </div>
-        </main>
+        </div>
     );
 }
