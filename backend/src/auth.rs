@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    time::{Duration, Instant},
+};
 
 use actix_session::Session;
 use actix_web::{
@@ -30,22 +33,47 @@ use crate::{
     internal_server_error, models,
 };
 
+// All of this is arbitrary, it is just so the server doesn't crash if someone tries to DOS it.
+// There is gonna be a proxy anyway to support https so it might handle throttling as well.
+pub const STATE_TTL: Duration = Duration::from_secs(90);
+pub const SWEEP_INTERVAL: Duration = Duration::from_secs(180);
+const MAX_STATES: usize = 16384;
+
+pub type AuthStates = Mutex<HashMap<Uuid, (Instant, AuthenticationState)>>;
+pub type RegStates = Mutex<HashMap<Uuid, (Instant, RegistrationState)>>;
+
+pub fn sweep<S>(map: &mut HashMap<Uuid, (Instant, S)>) {
+    map.retain(|_, (created, _)| created.elapsed() < STATE_TTL);
+}
+
+fn insert_state<S>(map: &mut HashMap<Uuid, (Instant, S)>, key: Uuid, state: S) -> Result<()> {
+    if map.len() >= MAX_STATES {
+        sweep(map);
+        if map.len() >= MAX_STATES {
+            tracing::warn!("webauthn state map full, rejecting, someone is DOSing you");
+            return Err(actix_web::error::ErrorServiceUnavailable("TOO_BUSY"));
+        }
+    }
+    map.insert(key, (Instant::now(), state));
+    Ok(())
+}
+
 #[instrument(skip_all)]
 pub async fn login_start(
     session: Session,
     rp: Data<Rp>,
     origin: Data<Origin>,
-    auth: Data<Mutex<HashMap<Uuid, AuthenticationState>>>,
+    auth: Data<AuthStates>,
 ) -> Result<Json<AuthenticationRequest>> {
     let random = Uuid::new_v4();
 
     let (ar, state) = start_authentication(rp.id.clone(), origin.0.clone(), Requirement::Required);
 
+    insert_state(&mut *auth.lock().await, random, state)?;
+
     session
         .insert("webauthn_auth_state", random)
         .map_err(|err| internal_server_error(err, ServerErrorType::Unreachable))?;
-
-    auth.lock().await.insert(random, state);
 
     Ok(Json(ar))
 }
@@ -55,7 +83,7 @@ pub async fn login_finish(
     session: Session,
     response: Json<AuthenticationResponse>,
     db: ThinData<DatabaseConnection>,
-    auth: Data<Mutex<HashMap<Uuid, AuthenticationState>>>,
+    auth: Data<AuthStates>,
 ) -> Result<HttpResponse> {
     let serialized_state = session
         .remove("webauthn_auth_state")
@@ -83,11 +111,15 @@ pub async fn login_finish(
         .map(SimpleCredential::from)
         .map_err(|err| internal_server_error(err, ServerErrorType::Corrupted))?;
 
-    let state = auth
+    let (created, state) = auth
         .lock()
         .await
         .remove(&random)
         .ok_or_else(|| auth_error(AuthErrorType::NoState))?;
+
+    if created.elapsed() > STATE_TTL {
+        return Err(auth_error(AuthErrorType::NoState));
+    }
 
     verify_authentication(response.into_inner(), state, &[cred])
         .map_err(|err| auth_error_with(err, AuthErrorType::VerificationFailed))?;
@@ -124,7 +156,7 @@ pub async fn register_start(
     rp: Data<Rp>,
     origin: Data<Origin>,
     db: ThinData<DatabaseConnection>,
-    reg: Data<Mutex<HashMap<Uuid, RegistrationState>>>,
+    reg: Data<RegStates>,
 ) -> Result<Json<RegistrationRequest>> {
     let body = body.into_inner();
     let random = Uuid::new_v4();
@@ -149,11 +181,11 @@ pub async fn register_start(
         },
     );
 
+    insert_state(&mut *reg.lock().await, random, state)?;
+
     session
         .insert("webauthn_reg_state", &(random, body.invite, user.id))
         .map_err(|err| internal_server_error(err, ServerErrorType::Unreachable))?;
-
-    reg.lock().await.insert(random, state);
 
     Ok(Json(rr))
 }
@@ -163,7 +195,7 @@ pub async fn register_finish(
     session: Session,
     response: Json<RegistrationResponse>,
     db: ThinData<DatabaseConnection>,
-    reg: Data<Mutex<HashMap<Uuid, RegistrationState>>>,
+    reg: Data<RegStates>,
 ) -> Result<HttpResponse> {
     let serialized_state = session
         .remove("webauthn_reg_state")
@@ -173,11 +205,15 @@ pub async fn register_finish(
         serde_json::from_str(&serialized_state)
             .map_err(|err| internal_server_error(err, ServerErrorType::Corrupted))?;
 
-    let state = reg
+    let (created, state) = reg
         .lock()
         .await
         .remove(&random)
         .ok_or_else(|| auth_error(AuthErrorType::NoState))?;
+
+    if created.elapsed() > STATE_TTL {
+        return Err(auth_error(AuthErrorType::NoState));
+    }
 
     Span::current().record("user_id", field::display(user_id));
 

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, env, process::exit};
+use std::{env, process::exit};
 
 use actix_cors::Cors;
 use actix_session::{SessionExt, SessionMiddleware, storage::CookieSessionStore};
@@ -19,12 +19,12 @@ use sea_orm::{
     ColumnTrait, ConnectOptions, Database, DatabaseConnection, EntityTrait, QueryFilter,
 };
 use strum::Display;
-use tokio::sync::Mutex;
 use tracing::{field, instrument};
 use tracing_actix_web::TracingLogger;
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 use uuid::Uuid;
 
+use crate::auth::{AuthStates, RegStates, SWEEP_INTERVAL};
 use crate::graphql::AppSchema;
 
 mod auth;
@@ -51,6 +51,7 @@ pub const ISSUED_AT_KEY: &str = "issued_at";
 #[derive(Clone, Copy)]
 pub struct SessionTtl(pub i64);
 
+#[must_use]
 pub fn now_ts() -> i64 {
     Utc::now().timestamp()
 }
@@ -136,12 +137,11 @@ async fn main() -> std::io::Result<()> {
     init_tracing();
 
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL missing");
-    let session_ttl = ThinData(SessionTtl(match env::var("SESSION_TTL") {
-        Ok(v) => v.parse().expect("SESSION_TTL must be an integer (seconds)"),
-        Err(_) => {
-            tracing::warn!("SESSION_TTL not provided, defaulting to {DEFAULT_SESSION_TTL_SECS}s");
-            DEFAULT_SESSION_TTL_SECS
-        }
+    let session_ttl = ThinData(SessionTtl(if let Ok(v) = env::var("SESSION_TTL") {
+        v.parse().expect("SESSION_TTL must be an integer (seconds)")
+    } else {
+        tracing::warn!("SESSION_TTL not provided, defaulting to {DEFAULT_SESSION_TTL_SECS}s");
+        DEFAULT_SESSION_TTL_SECS
     }));
     let session_key = env::var("SESSION_KEY").map_or_else(
         |_| {
@@ -164,15 +164,32 @@ async fn main() -> std::io::Result<()> {
         id: env::var("RP_ID").expect("RP_ID missing"),
     });
 
-    let auth = Data::new(Mutex::new(HashMap::<
-        Uuid,
-        simple_webauthn::authentication::AuthenticationState,
-    >::new()));
+    let auth = Data::new(AuthStates::default());
+    let reg = Data::new(RegStates::default());
 
-    let reg = Data::new(Mutex::new(HashMap::<
-        Uuid,
-        simple_webauthn::registration::RegistrationState,
-    >::new()));
+    {
+        let (auth, reg) = (auth.clone(), reg.clone());
+        actix_web::rt::spawn(async move {
+            let mut tick = actix_web::rt::time::interval(SWEEP_INTERVAL);
+            loop {
+                tick.tick().await;
+
+                let mut guard = auth.lock().await;
+                let initial_len = guard.len();
+                auth::sweep(&mut *guard);
+                let left = guard.len();
+                let removed = initial_len - left;
+                tracing::info!("Auth sweep, removed: {}, left: {}", removed, left);
+
+                let mut guard = reg.lock().await;
+                let initial_len = guard.len();
+                auth::sweep(&mut *guard);
+                let left = guard.len();
+                let removed = initial_len - left;
+                tracing::info!("Reg sweep, removed: {}, left: {}", removed, left);
+            }
+        });
+    }
 
     let mut opt = ConnectOptions::new(database_url);
     opt.sqlx_logging(true)
