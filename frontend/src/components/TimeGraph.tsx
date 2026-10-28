@@ -1,4 +1,4 @@
-import { createEffect, createSignal, onMount, Show } from "solid-js";
+import { createEffect, createSignal, For, onMount, Show } from "solid-js";
 import TimeGraphController, { Period } from "./TimeGraphController";
 import { processTimeSeries, TimeResolution, TimeSeries, TimeSeriesRaw } from "../gqlTypes";
 import { gqlClient } from "../graphql";
@@ -17,7 +17,8 @@ import {
     Chart,
 } from "solid-charts";
 import { ticks } from "d3-array";
-import { formatDuration } from "../format";
+import { boardColor, formatDuration } from "../format";
+import { useAppData } from "../contexts/appDataContext";
 
 const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -32,7 +33,21 @@ const monthFormat = new Intl.DateTimeFormat(undefined, {
     timeZone: timezone,
 });
 
+const dayLongFormat = new Intl.DateTimeFormat(undefined, {
+    weekday: "long",
+    day: "numeric",
+    month: "short",
+    timeZone: timezone,
+});
+
+const monthLongFormat = new Intl.DateTimeFormat(undefined, {
+    month: "long",
+    year: "numeric",
+    timeZone: timezone,
+});
+
 export default function TimeGraph() {
+    const [appData] = useAppData();
     const [loading, setLoading] = createSignal<"yes" | "no" | "error">("yes");
     const [period, setPeriod] = createSignal<Period>("THIS_WEEK");
     const [timeSummary, setTimeSummary] = createSignal<TimeSeries>({} as TimeSeries);
@@ -79,7 +94,10 @@ export default function TimeGraph() {
                         resolution
                         values {
                             start
-                            value
+                            values {
+                                boardId
+                                value
+                            }
                         }
                     }
                 }
@@ -110,7 +128,8 @@ export default function TimeGraph() {
         fetchTimeSummary(getQueryParams(period()));
     });
 
-    const total = () => timeSummary().values.reduce((sum, { value }) => sum + value, 0);
+    const total = () =>
+        timeSummary().values.reduce((acc, e) => acc + e.values.reduce((a, v) => a + v.value, 0), 0);
 
     const average = () => {
         const { values } = timeSummary();
@@ -118,23 +137,61 @@ export default function TimeGraph() {
     };
 
     const activeAverage = () => {
-        const active = timeSummary().values.filter(v => v.value > 0);
+        const active = timeSummary().values.filter(
+            e => e.values.reduce((a, v) => a + v.value, 0) > 0
+        );
+
         return active.length
-            ? Math.round(active.reduce((sum, { value }) => sum + value, 0) / active.length)
+            ? Math.round(
+                  active.reduce((acc, e) => acc + e.values.reduce((a, v) => a + v.value, 0), 0) /
+                      active.length
+              )
             : 0;
+    };
+
+    const boardIds = () => {
+        const ids = new Set<number | null>();
+        for (const e of timeSummary().values) {
+            for (const v of e.values) {
+                ids.add(v.boardId);
+            }
+        }
+        return [...ids].sort((a, b) => {
+            if (a === b) return 0;
+            if (a === null) return 1;
+            if (b === null) return -1;
+            return a - b;
+        });
     };
 
     const chartData = () => {
         const { values, resolution } = timeSummary();
         const format = resolution == "MONTH" ? monthFormat : dayFormat;
-        return values.map(({ start, value }) => ({
-            xAxis: format.format(start),
-            duration: value,
-        }));
+        const ids = boardIds();
+
+        return values.map(({ start, values }) => {
+            const item: Record<string, any> = {
+                xAxis: format.format(start),
+                label: (resolution == "MONTH" ? monthLongFormat : dayLongFormat).format(start),
+            };
+
+            for (const id of ids) {
+                item[`board_${id ?? "none"}`] = 0;
+            }
+
+            for (const v of values) {
+                item[`board_${v.boardId ?? "none"}`] = v.value;
+            }
+
+            return item;
+        });
     };
 
     const yTicks = () => {
-        const max = Math.max(0, ...timeSummary().values.map(v => v.value));
+        const max = Math.max(
+            0,
+            ...timeSummary().values.map(e => e.values.reduce((sum, v) => sum + v.value, 0))
+        );
         return ticks(0, max, 4);
     };
 
@@ -180,25 +237,71 @@ export default function TimeGraph() {
                             </Axis>
                         </Show>
 
-                        <Bar dataKey="duration" class="fill-secondary" />
+                        <For each={boardIds()}>
+                            {boardId => (
+                                <Bar
+                                    dataKey={`board_${boardId ?? "none"}`}
+                                    fill={boardColor(boardId)}
+                                    stackId="what"
+                                />
+                            )}
+                        </For>
 
                         <Axis axis="x" position="bottom" dataKey="xAxis">
                             <AxisLabel />
                             <AxisCursor stroke-dasharray="10,10" stroke-width={2} />
                             <AxisTooltip class="rounded-md overflow-hidden shadow-sm border bg-base-200">
-                                {tooltip => (
-                                    <div class="p-2 flex flex-col gap-2">
-                                        <div class="px-2 font-medium">
-                                            <p>{tooltip.data.xAxis}</p>
+                                {tooltip => {
+                                    // Terrible
+                                    const boardEntries = Object.entries(tooltip.data)
+                                        .filter(
+                                            ([k, v]) =>
+                                                k.startsWith("board_") &&
+                                                typeof v === "number" &&
+                                                v > 0
+                                        )
+                                        .map(([k, v]) => {
+                                            let b = k.replace("board_", "");
+
+                                            return {
+                                                boardId: b == "none" ? null : parseInt(b),
+                                                value: v as number,
+                                            };
+                                        })
+                                        .sort((a, b) => b.value - a.value);
+
+                                    return (
+                                        <div class="p-2 flex flex-col gap-1.5">
+                                            <div class="px-2 font-medium">
+                                                <p>{tooltip.data.label}</p>
+                                            </div>
+                                            <For each={boardEntries}>
+                                                {entry => (
+                                                    <div class="flex items-center px-2 gap-2 text-xs">
+                                                        <span
+                                                            class="w-2.5 h-2.5 rounded-full shrink-0"
+                                                            style={{
+                                                                "background-color": boardColor(
+                                                                    entry.boardId
+                                                                ),
+                                                            }}
+                                                        />
+                                                        <p class="grow">
+                                                            {entry.boardId == null
+                                                                ? "Unknown board"
+                                                                : (appData.boards.get(
+                                                                      entry.boardId
+                                                                  ) ?? "Unknown board")}
+                                                        </p>
+                                                        <p class="font-medium">
+                                                            {formatDuration(entry.value)}
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </For>
                                         </div>
-                                        <div class="flex items-center px-2">
-                                            <p class="grow ml-1.5">Time logged</p>
-                                            <p class="ml-3">
-                                                {formatDuration(tooltip.data.duration)}
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
+                                    );
+                                }}
                             </AxisTooltip>
                         </Axis>
                     </Chart>

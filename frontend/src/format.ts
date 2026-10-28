@@ -30,3 +30,8 @@ export function userColor(id?: string | null) {
     if (!id) return "#6F6F6F";
     return colorHash.hex(id);
 }
+
+export function boardColor(id?: number | null) {
+    if (!id) return "#6F6F6F";
+    return colorHash.hex(String(id));
+}

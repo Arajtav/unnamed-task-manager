@@ -12,7 +12,7 @@ use crate::{
         models::{
             board::Board,
             task::Task,
-            time_series::{TimeEntry, TimeResolution, TimeSeries},
+            time_series::{TimeEntry, TimeEntryValue, TimeResolution, TimeSeries},
             time_tracking_entry::TimeTrackingEntry,
             user::User,
         },
@@ -207,6 +207,7 @@ impl QueryRoot {
         let from_date = local_midnight(tz, first_day);
 
         let entries = models::time_tracking::Entity::find()
+            .find_also_related(models::task::Entity)
             .filter(models::time_tracking::Column::UserId.eq(user.id))
             .filter(models::time_tracking::Column::StartedAt.lt(to_date))
             .filter(models::time_tracking::Column::FinishedAt.gt(from_date))
@@ -224,7 +225,10 @@ impl QueryRoot {
                 break;
             }
 
-            values.push(TimeEntry { start, value: 0 });
+            values.push(TimeEntry {
+                start,
+                values: Vec::new(),
+            });
             current = match resolution {
                 TimeResolution::Day => current + Duration::days(1),
                 TimeResolution::Week => current + Duration::weeks(1),
@@ -232,7 +236,9 @@ impl QueryRoot {
             };
         }
 
-        for entry in entries {
+        for (entry, task) in entries {
+            let board_id = task.map(|t| t.board_id);
+
             let mut buckets = values.iter_mut().peekable();
             while let Some(bucket) = buckets.next() {
                 let bucket_end = buckets.peek().map_or(to_date, |next| next.start);
@@ -241,9 +247,17 @@ impl QueryRoot {
                 let overlap_end = min(entry.finished_at, bucket_end);
 
                 if overlap_start < overlap_end {
-                    bucket.value += overlap_end
+                    let seconds = overlap_end
                         .signed_duration_since(overlap_start)
                         .num_seconds();
+
+                    match bucket.values.iter_mut().find(|v| v.board_id == board_id) {
+                        Some(v) => v.value += seconds,
+                        None => bucket.values.push(TimeEntryValue {
+                            board_id,
+                            value: seconds,
+                        }),
+                    }
                 }
             }
         }

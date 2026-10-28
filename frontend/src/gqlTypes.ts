@@ -185,7 +185,12 @@ export function priorityLabel(value: number) {
 
 export type TimeResolution = "DAY" | "WEEK" | "MONTH";
 
-export type TimeEntry = { start: Date; value: number };
+export type TimeEntryValue = {
+    value: number;
+    boardId: number | null;
+};
+
+export type TimeEntry = { start: Date; values: TimeEntryValue[] };
 
 export type TimeEntryRaw = Replace<TimeEntry, "start", string>;
 
