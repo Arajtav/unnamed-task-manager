@@ -13,6 +13,7 @@ use actix_web::{
 use async_graphql::{EmptySubscription, Schema};
 use async_graphql_actix_web::{GraphQLRequest, GraphQLResponse};
 use base64::Engine;
+use chrono::Utc;
 use dotenv::dotenv;
 use sea_orm::{
     ColumnTrait, ConnectOptions, Database, DatabaseConnection, EntityTrait, QueryFilter,
@@ -44,6 +45,16 @@ fn init_tracing() {
         .init();
 }
 
+const DEFAULT_SESSION_TTL_SECS: i64 = 60 * 60 * 24;
+pub const ISSUED_AT_KEY: &str = "issued_at";
+
+#[derive(Clone, Copy)]
+pub struct SessionTtl(pub i64);
+
+pub fn now_ts() -> i64 {
+    Utc::now().timestamp()
+}
+
 pub type SessionUser = models::user::Model;
 
 #[derive(Clone)]
@@ -56,12 +67,22 @@ async fn require_auth(
 ) -> Result<ServiceResponse<BoxBody>> {
     let session = req.get_session();
 
-    let Some(user_id) = session
+    let ttl = req.app_data::<ThinData<SessionTtl>>().unwrap().0.0;
+
+    let issued_at = session
+        .get::<i64>(ISSUED_AT_KEY)
+        .map_err(|err| internal_server_error(err, ServerErrorType::Unreachable))?
+        .ok_or_else(|| auth_error(AuthErrorType::NoSession))?;
+
+    if now_ts().saturating_sub(issued_at) > ttl {
+        session.purge();
+        return Err(auth_error(AuthErrorType::NoSession));
+    }
+
+    let user_id = session
         .get::<Uuid>("user_id")
         .map_err(|err| internal_server_error(err, ServerErrorType::Unreachable))?
-    else {
-        return Err(auth_error(AuthErrorType::NoSession));
-    };
+        .ok_or_else(|| auth_error(AuthErrorType::NoSession))?;
 
     let db = req.app_data::<ThinData<DatabaseConnection>>().unwrap();
 
@@ -115,6 +136,13 @@ async fn main() -> std::io::Result<()> {
     init_tracing();
 
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL missing");
+    let session_ttl = ThinData(SessionTtl(match env::var("SESSION_TTL") {
+        Ok(v) => v.parse().expect("SESSION_TTL must be an integer (seconds)"),
+        Err(_) => {
+            tracing::warn!("SESSION_TTL not provided, defaulting to {DEFAULT_SESSION_TTL_SECS}s");
+            DEFAULT_SESSION_TTL_SECS
+        }
+    }));
     let session_key = env::var("SESSION_KEY").map_or_else(
         |_| {
             tracing::warn!("SESSION_KEY not provided, generating a temporary one");
@@ -163,6 +191,7 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(db.clone())
+            .app_data(session_ttl.clone())
             .app_data(actix_web::web::Data::new(schema.clone()))
             .app_data(rp.clone())
             .app_data(Data::new(origin.clone()))

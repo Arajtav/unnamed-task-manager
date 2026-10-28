@@ -26,8 +26,8 @@ use tracing::{Span, field, instrument};
 use uuid::Uuid;
 
 use crate::{
-    AuthErrorType, Origin, ServerErrorType, auth_error, auth_error_with, internal_server_error,
-    models,
+    AuthErrorType, ISSUED_AT_KEY, Origin, ServerErrorType, auth_error, auth_error_with,
+    internal_server_error, models,
 };
 
 #[instrument(skip_all)]
@@ -94,6 +94,9 @@ pub async fn login_finish(
 
     // TODO: update counter?
 
+    session
+        .insert(ISSUED_AT_KEY, crate::now_ts())
+        .map_err(|err| internal_server_error(err, ServerErrorType::Unreachable))?;
     session
         .insert("user_id", passkey.user_id)
         .map_err(|err| internal_server_error(err, ServerErrorType::Unreachable))?;
@@ -214,6 +217,9 @@ pub async fn register_finish(
         .await
         .map_err(|err| internal_server_error(err, ServerErrorType::Database))?;
 
+    session
+        .insert(ISSUED_AT_KEY, crate::now_ts())
+        .map_err(|err| internal_server_error(err, ServerErrorType::Unreachable))?;
     session
         .insert("user_id", user_id)
         .map_err(|err| internal_server_error(err, ServerErrorType::Unreachable))?;
