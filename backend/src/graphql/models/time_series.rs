@@ -1,7 +1,7 @@
 use async_graphql::{Enum, SimpleObject};
 use chrono::{DateTime, Utc};
 
-#[derive(Enum, Copy, Clone, Eq, PartialEq)]
+#[derive(Enum, Copy, Clone, Eq, PartialEq, Debug)]
 pub enum TimeResolution {
     Day,
     Week,

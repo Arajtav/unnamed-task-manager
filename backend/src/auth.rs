@@ -22,10 +22,15 @@ use simple_webauthn::{
     start_authentication, verify_authentication, verify_registration,
 };
 use tokio::sync::Mutex;
+use tracing::{Span, field, instrument};
 use uuid::Uuid;
 
-use crate::{AuthErrorType, Origin, ServerErrorType, auth_error, internal_server_error, models};
+use crate::{
+    AuthErrorType, Origin, ServerErrorType, auth_error, auth_error_with, internal_server_error,
+    models,
+};
 
+#[instrument(skip_all)]
 pub async fn login_start(
     session: Session,
     rp: Data<Rp>,
@@ -45,6 +50,7 @@ pub async fn login_start(
     Ok(Json(ar))
 }
 
+#[instrument(skip_all, fields(user_id = field::Empty))]
 pub async fn login_finish(
     session: Session,
     response: Json<AuthenticationResponse>,
@@ -53,7 +59,7 @@ pub async fn login_finish(
 ) -> Result<HttpResponse> {
     let serialized_state = session
         .remove("webauthn_auth_state")
-        .ok_or(auth_error(AuthErrorType::NoState))?;
+        .ok_or_else(|| auth_error(AuthErrorType::NoState))?;
 
     let random: Uuid = serde_json::from_str(&serialized_state)
         .map_err(|err| internal_server_error(err, ServerErrorType::Corrupted))?;
@@ -69,7 +75,9 @@ pub async fn login_finish(
         .one(&*db)
         .await
         .map_err(|err| internal_server_error(err, ServerErrorType::Database))?
-        .ok_or(auth_error(AuthErrorType::NoUser))?;
+        .ok_or_else(|| auth_error(AuthErrorType::NoUser))?;
+
+    Span::current().record("user_id", field::display(passkey.user_id));
 
     let cred = serde_json::from_value::<Credential>(passkey.passkey)
         .map(SimpleCredential::from)
@@ -79,10 +87,10 @@ pub async fn login_finish(
         .lock()
         .await
         .remove(&random)
-        .ok_or(auth_error(AuthErrorType::NoState))?;
+        .ok_or_else(|| auth_error(AuthErrorType::NoState))?;
 
     verify_authentication(response.into_inner(), state, &[cred])
-        .map_err(|_| auth_error(AuthErrorType::VerificationFailed))?;
+        .map_err(|err| auth_error_with(err, AuthErrorType::VerificationFailed))?;
 
     // TODO: update counter?
 
@@ -93,6 +101,7 @@ pub async fn login_finish(
     Ok(HttpResponse::NoContent().finish())
 }
 
+#[instrument(skip_all)]
 pub async fn logout(session: Session) -> HttpResponse {
     session.purge();
 
@@ -105,6 +114,7 @@ pub struct RegisterStartRequest {
     name: String,
 }
 
+#[instrument(skip_all, fields(user_id = field::Empty))]
 pub async fn register_start(
     session: Session,
     body: Json<RegisterStartRequest>,
@@ -122,7 +132,9 @@ pub async fn register_start(
         .one(&*db)
         .await
         .map_err(|err| internal_server_error(err, ServerErrorType::Database))?
-        .ok_or(auth_error(AuthErrorType::NoInvite))?;
+        .ok_or_else(|| auth_error(AuthErrorType::NoInvite))?;
+
+    Span::current().record("user_id", field::display(user.id));
 
     let (rr, state) = simple_webauthn::start_registration(
         (*rp.into_inner()).clone(),
@@ -143,6 +155,7 @@ pub async fn register_start(
     Ok(Json(rr))
 }
 
+#[instrument(skip_all, fields(user_id = field::Empty))]
 pub async fn register_finish(
     session: Session,
     response: Json<RegistrationResponse>,
@@ -151,7 +164,7 @@ pub async fn register_finish(
 ) -> Result<HttpResponse> {
     let serialized_state = session
         .remove("webauthn_reg_state")
-        .ok_or(auth_error(AuthErrorType::NoState))?;
+        .ok_or_else(|| auth_error(AuthErrorType::NoState))?;
 
     let (random, invite, user_id): (Uuid, String, Uuid) =
         serde_json::from_str(&serialized_state)
@@ -161,10 +174,12 @@ pub async fn register_finish(
         .lock()
         .await
         .remove(&random)
-        .ok_or(auth_error(AuthErrorType::NoState))?;
+        .ok_or_else(|| auth_error(AuthErrorType::NoState))?;
+
+    Span::current().record("user_id", field::display(user_id));
 
     let credential = verify_registration(response.into_inner(), state)
-        .map_err(|_| auth_error(AuthErrorType::VerificationFailed))?;
+        .map_err(|err| auth_error_with(err, AuthErrorType::VerificationFailed))?;
 
     let passkey = models::passkey::ActiveModel {
         id: Set(credential.id().to_vec()),

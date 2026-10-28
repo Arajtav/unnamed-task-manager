@@ -1,4 +1,4 @@
-use async_graphql::{Context, Error, ErrorExtensions, InputObject, MaybeUndefined, Object, Result};
+use async_graphql::{Context, InputObject, MaybeUndefined, Object, Result};
 use chrono::{DateTime, Utc};
 use sea_orm::{
     ActiveModelTrait,
@@ -7,11 +7,12 @@ use sea_orm::{
     QueryFilter, SqlErr, Statement, TransactionTrait,
     sea_query::{Expr, OnConflict},
 };
+use tracing::instrument;
 use uuid::Uuid;
 
 use crate::{
     graphql::{
-        db_err, forbidden, get_db, get_user,
+        coded, coded_with, db_err, forbidden, get_db, get_user,
         models::{board::Board, task::Task, time_tracking_entry::TimeTrackingEntry, user::User},
     },
     models::{self, user::new_invite},
@@ -20,7 +21,7 @@ use crate::{
 fn normalize_label(raw: &str) -> Result<String> {
     let name = raw.trim();
     if name.is_empty() || name.chars().count() > 64 {
-        return Err(Error::new("Invalid label").extend_with(|_, c| c.set("CODE", "INVALID_LABEL")));
+        return Err(coded("Invalid label", "INVALID_LABEL"));
     }
     Ok(name.to_lowercase())
 }
@@ -84,6 +85,56 @@ async fn insert_assignees(
     Ok(())
 }
 
+async fn insert_emails(
+    tx: &impl ConnectionTrait,
+    user_id: Uuid,
+    emails: Vec<String>,
+) -> Result<()> {
+    if emails.is_empty() {
+        return Ok(());
+    }
+
+    let active_models = emails
+        .iter()
+        .map(|email| models::email::ActiveModel {
+            user_id: Set(user_id),
+            email: Set(email.clone()),
+        })
+        .collect::<Vec<_>>();
+
+    let Err(err) = models::email::Entity::insert_many(active_models)
+        .exec(tx)
+        .await
+    else {
+        return Ok(());
+    };
+
+    if let Some(SqlErr::UniqueConstraintViolation(_)) = err.sql_err() {
+        let taken = models::email::Entity::find()
+            .filter(models::email::Column::Email.is_in(emails))
+            .all(tx)
+            .await
+            .map_err(db_err)?
+            .into_iter()
+            .map(|email| email.email)
+            .collect::<Vec<_>>();
+
+        return Err(coded_with(
+            "Emails already exist",
+            "EMAILS_TAKEN",
+            ("EMAILS", taken),
+        ));
+    }
+
+    if let DbErr::Custom(msg) = &err
+        && msg == "invalid RFC 5322 email address"
+    {
+        return Err(coded("Invalid email address", "INVALID_EMAIL"));
+    }
+
+    Err(db_err(err))
+}
+
 #[derive(InputObject)]
 pub struct UpdateTaskInput {
     pub title: Option<String>,
@@ -118,6 +169,7 @@ pub struct MutationRoot;
 
 #[Object]
 impl MutationRoot {
+    #[instrument(name = "Mutation.create_user", skip_all)]
     async fn create_user(
         &self,
         ctx: &Context<'_>,
@@ -142,64 +194,20 @@ impl MutationRoot {
             Ok(user) => user,
             Err(err) => {
                 if let Some(SqlErr::UniqueConstraintViolation(_)) = err.sql_err() {
-                    return Err(Error::new("Handle already taken")
-                        .extend_with(|_, c| c.set("CODE", "HANDLE_TAKEN")));
+                    return Err(coded("Handle already taken", "HANDLE_TAKEN"));
                 }
                 return Err(db_err(err));
             }
         };
 
-        if !emails.is_empty() {
-            let email_models = emails
-                .iter()
-                .map(|email| models::email::ActiveModel {
-                    user_id: Set(user.id),
-                    email: Set(email.clone()),
-                })
-                .collect::<Vec<_>>();
-
-            if let Err(err) = models::email::Entity::insert_many(email_models)
-                .exec(&tx)
-                .await
-            {
-                if let Some(SqlErr::UniqueConstraintViolation(_)) = err.sql_err() {
-                    let existing = models::email::Entity::find()
-                        .filter(models::email::Column::Email.is_in(emails))
-                        .all(&tx)
-                        .await
-                        .map_err(db_err)?;
-
-                    let existing_emails = existing
-                        .into_iter()
-                        .map(|email| email.email)
-                        .collect::<Vec<_>>();
-
-                    return Err(Error::new(format!(
-                        "Emails already exist: {}",
-                        existing_emails.join(", ")
-                    ))
-                    .extend_with(|_, c| {
-                        c.set("CODE", "EMAILS_TAKEN");
-                        c.set("EMAILS", existing_emails);
-                    }));
-                }
-
-                if let DbErr::Custom(msg) = &err
-                    && msg == "invalid RFC 5322 email address"
-                {
-                    return Err(Error::new("Invalid email address")
-                        .extend_with(|_, c| c.set("CODE", "INVALID_EMAIL")));
-                }
-
-                return Err(db_err(err));
-            }
-        }
+        insert_emails(&tx, user.id, emails).await?;
 
         tx.commit().await.map_err(db_err)?;
 
         Ok(User::from(user))
     }
 
+    #[instrument(name = "Mutation.update_user", skip_all, fields(target_user_id = %user_id))]
     async fn update_user(
         &self,
         ctx: &Context<'_>,
@@ -219,9 +227,7 @@ impl MutationRoot {
             .one(&tx)
             .await
             .map_err(db_err)?
-            .ok_or(
-                Error::new("User not found").extend_with(|_, c| c.set("CODE", "USER_NOT_FOUND")),
-            )?;
+            .ok_or_else(|| coded("User not found", "USER_NOT_FOUND"))?;
 
         let is_admin = user.is_admin;
         let mut user = user.into_active_model();
@@ -242,7 +248,7 @@ impl MutationRoot {
 
         let user = user.update(&tx).await.map_err(|err| {
             if let Some(SqlErr::UniqueConstraintViolation(_)) = err.sql_err() {
-                Error::new("Handle already taken").extend_with(|_, c| c.set("CODE", "HANDLE_TAKEN"))
+                coded("Handle already taken", "HANDLE_TAKEN")
             } else {
                 db_err(err)
             }
@@ -257,38 +263,14 @@ impl MutationRoot {
                 .map_err(db_err)?;
         }
 
-        for email in input.add_emails {
-            let email_model = models::email::ActiveModel {
-                user_id: Set(user_id),
-                email: Set(email.clone()),
-            };
-
-            if let Err(err) = email_model.insert(&tx).await {
-                if let Some(SqlErr::UniqueConstraintViolation(_)) = err.sql_err() {
-                    return Err(
-                        Error::new(format!("Email already exist: {email}")).extend_with(|_, c| {
-                            c.set("CODE", "EMAIL_TAKEN");
-                            c.set("EMAIL", email);
-                        }),
-                    );
-                }
-
-                if let DbErr::Custom(msg) = &err
-                    && msg == "invalid RFC 5322 email address"
-                {
-                    return Err(Error::new("Invalid email address")
-                        .extend_with(|_, c| c.set("CODE", "INVALID_EMAIL")));
-                }
-
-                return Err(db_err(err));
-            }
-        }
+        insert_emails(&tx, user_id, input.add_emails).await?;
 
         tx.commit().await.map_err(db_err)?;
 
         Ok(User::from(user))
     }
 
+    #[instrument(name = "Mutation.create_board", skip_all)]
     async fn create_board(&self, ctx: &Context<'_>, name: String) -> Result<Board> {
         let db = get_db(ctx);
         let user = get_user(ctx);
@@ -308,8 +290,7 @@ impl MutationRoot {
             Ok(board) => board,
             Err(err) => {
                 if let Some(SqlErr::UniqueConstraintViolation(_)) = err.sql_err() {
-                    return Err(Error::new("Name already taken")
-                        .extend_with(|_, c| c.set("CODE", "NAME_TAKEN")));
+                    return Err(coded("Name already taken", "NAME_TAKEN"));
                 }
 
                 return Err(db_err(err));
@@ -329,6 +310,7 @@ impl MutationRoot {
         Ok(Board::from(board))
     }
 
+    #[instrument(name = "Mutation.update_board", skip_all, fields(board_id = id))]
     async fn update_board(
         &self,
         ctx: &Context<'_>,
@@ -353,9 +335,7 @@ impl MutationRoot {
             .one(db)
             .await
             .map_err(db_err)?
-            .ok_or(
-                Error::new("Board not found").extend_with(|_, c| c.set("CODE", "BOARD_NOT_FOUND")),
-            )?;
+            .ok_or_else(|| coded("Board not found", "BOARD_NOT_FOUND"))?;
 
         let mut board = board.into_active_model();
 
@@ -365,8 +345,7 @@ impl MutationRoot {
 
         let board = board.update(db).await.map_err(|err| {
             if let Some(SqlErr::UniqueConstraintViolation(_)) = err.sql_err() {
-                return Error::new("Name already taken")
-                    .extend_with(|_, c| c.set("CODE", "NAME_TAKEN"));
+                return coded("Name already taken", "NAME_TAKEN");
             }
 
             db_err(err)
@@ -375,6 +354,7 @@ impl MutationRoot {
         Ok(Board::from(board))
     }
 
+    #[instrument(name = "Mutation.create_task", skip_all, fields(board_id = board_id))]
     async fn create_task(
         &self,
         ctx: &Context<'_>,
@@ -391,8 +371,7 @@ impl MutationRoot {
         let user = get_user(ctx);
 
         if !(-3..=3).contains(&priority) {
-            return Err(Error::new("Invalid priority")
-                .extend_with(|_, c| c.set("CODE", "INVALID_PRIORITY")));
+            return Err(coded("Invalid priority", "INVALID_PRIORITY"));
         }
 
         let labels = labels
@@ -407,7 +386,7 @@ impl MutationRoot {
                 .one(&tx)
                 .await
                 .map_err(db_err)?
-                .ok_or(forbidden())?;
+                .ok_or_else(forbidden)?;
         }
 
         models::email::Entity::find_by_id(&author)
@@ -415,7 +394,7 @@ impl MutationRoot {
             .one(&tx)
             .await
             .map_err(db_err)?
-            .ok_or(Error::new("Wrong author").extend_with(|_, c| c.set("CODE", "WRONG_AUTHOR")))?;
+            .ok_or_else(|| coded("Wrong author", "WRONG_AUTHOR"))?;
 
         let task = models::task::ActiveModel {
             board_id: Set(board_id),
@@ -429,13 +408,11 @@ impl MutationRoot {
 
         let task = task.insert(&tx).await.map_err(|err| {
             if let Some(SqlErr::UniqueConstraintViolation(_)) = err.sql_err() {
-                return Error::new("Title already taken")
-                    .extend_with(|_, c| c.set("CODE", "TITLE_TAKEN"));
+                return coded("Title already taken", "TITLE_TAKEN");
             }
 
             if let Some(SqlErr::ForeignKeyConstraintViolation(_)) = err.sql_err() {
-                return Error::new("Board not found")
-                    .extend_with(|_, c| c.set("CODE", "BOARD_NOT_FOUND"));
+                return coded("Board not found", "BOARD_NOT_FOUND");
             }
 
             db_err(err)
@@ -449,6 +426,7 @@ impl MutationRoot {
         Ok(Task::from(task))
     }
 
+    #[instrument(name = "Mutation.update_task", skip_all, fields(task_id = id))]
     async fn update_task(
         &self,
         ctx: &Context<'_>,
@@ -476,24 +454,20 @@ impl MutationRoot {
             .one(&tx)
             .await
             .map_err(db_err)?
-            .ok_or(
-                Error::new("Task not found").extend_with(|_, c| c.set("CODE", "TASK_NOT_FOUND")),
-            )?;
+            .ok_or_else(|| coded("Task not found", "TASK_NOT_FOUND"))?;
 
         if !user.is_admin {
             let access = models::board_access::Entity::find_by_id((task.board_id, user.id))
                 .one(&tx)
                 .await
                 .map_err(db_err)?
-                .ok_or(forbidden())?;
+                .ok_or_else(forbidden)?;
 
             if task.archived_at.is_some()
                 && input.is_archived != Some(false)
                 && !access.is_moderator
             {
-                return Err(
-                    Error::new("Task archived").extend_with(|_, c| c.set("CODE", "TASK_ARCHIVED"))
-                );
+                return Err(coded("Task archived", "TASK_ARCHIVED"));
             }
         }
 
@@ -514,8 +488,7 @@ impl MutationRoot {
 
         if let Some(priority) = input.priority {
             if !(-3..=3).contains(&priority) {
-                return Err(Error::new("Invalid priority")
-                    .extend_with(|_, c| c.set("CODE", "INVALID_PRIORITY")));
+                return Err(coded("Invalid priority", "INVALID_PRIORITY"));
             }
 
             task.priority = Set(priority);
@@ -531,7 +504,7 @@ impl MutationRoot {
 
         let task = task.update(&tx).await.map_err(|err| {
             if let Some(SqlErr::UniqueConstraintViolation(_)) = err.sql_err() {
-                Error::new("Title already taken").extend_with(|_, c| c.set("CODE", "TITLE_TAKEN"))
+                coded("Title already taken", "TITLE_TAKEN")
             } else {
                 db_err(err)
             }
@@ -563,6 +536,7 @@ impl MutationRoot {
         Ok(Task::from(task))
     }
 
+    #[instrument(name = "Mutation.add_access", skip_all, fields(board_id = board_id, target_user_id = %user_id, is_moderator = is_moderator))]
     async fn add_access(
         &self,
         ctx: &Context<'_>,
@@ -588,9 +562,7 @@ impl MutationRoot {
             .one(db)
             .await
             .map_err(db_err)?
-            .ok_or_else(|| {
-                Error::new("Board not found").extend_with(|_, c| c.set("CODE", "BOARD_NOT_FOUND"))
-            })?;
+            .ok_or_else(|| coded("Board not found", "BOARD_NOT_FOUND"))?;
 
         let access = models::board_access::ActiveModel {
             board_id: Set(board_id),
@@ -614,6 +586,7 @@ impl MutationRoot {
         Ok(Board::from(board))
     }
 
+    #[instrument(name = "Mutation.remove_access", skip_all, fields(board_id = board_id, target_user_id = %user_id))]
     async fn remove_access(
         &self,
         ctx: &Context<'_>,
@@ -627,9 +600,7 @@ impl MutationRoot {
             .one(db)
             .await
             .map_err(db_err)?
-            .ok_or_else(|| {
-                Error::new("Board not found").extend_with(|_, c| c.set("CODE", "BOARD_NOT_FOUND"))
-            })?;
+            .ok_or_else(|| coded("Board not found", "BOARD_NOT_FOUND"))?;
 
         let target = models::board_access::Entity::find_by_id((board_id, user_id))
             .one(db)
@@ -658,6 +629,7 @@ impl MutationRoot {
         Ok(Board::from(board))
     }
 
+    #[instrument(name = "Mutation.add_invite", skip_all, fields(target_user_id = %user_id))]
     async fn add_invite(&self, ctx: &Context<'_>, user_id: Uuid) -> Result<User> {
         let db = get_db(ctx);
         let current = get_user(ctx);
@@ -670,9 +642,7 @@ impl MutationRoot {
             .one(db)
             .await
             .map_err(db_err)?
-            .ok_or(
-                Error::new("User not found").extend_with(|_, c| c.set("CODE", "USER_NOT_FOUND")),
-            )?
+            .ok_or_else(|| coded("User not found", "USER_NOT_FOUND"))?
             .into_active_model();
 
         user.invite_code = Set(Some(new_invite()));
@@ -682,6 +652,7 @@ impl MutationRoot {
         Ok(User::from(user))
     }
 
+    #[instrument(name = "Mutation.remove_invite", skip_all, fields(target_user_id = %user_id))]
     async fn remove_invite(&self, ctx: &Context<'_>, user_id: Uuid) -> Result<User> {
         let db = get_db(ctx);
         let current = get_user(ctx);
@@ -694,9 +665,7 @@ impl MutationRoot {
             .one(db)
             .await
             .map_err(db_err)?
-            .ok_or(
-                Error::new("User not found").extend_with(|_, c| c.set("CODE", "USER_NOT_FOUND")),
-            )?
+            .ok_or_else(|| coded("User not found", "USER_NOT_FOUND"))?
             .into_active_model();
 
         user.invite_code = Set(None);
@@ -706,6 +675,7 @@ impl MutationRoot {
         Ok(User::from(user))
     }
 
+    #[instrument(name = "Mutation.add_task_status", skip_all, fields(board_id = board_id))]
     async fn add_task_status(
         &self,
         ctx: &Context<'_>,
@@ -730,10 +700,9 @@ impl MutationRoot {
 
         let board = models::board::Entity::find_by_id(board_id)
             .one(db)
-            .await?
-            .ok_or_else(|| {
-                Error::new("Board not found").extend_with(|_, c| c.set("CODE", "BOARD_NOT_FOUND"))
-            })?;
+            .await
+            .map_err(db_err)?
+            .ok_or_else(|| coded("Board not found", "BOARD_NOT_FOUND"))?;
 
         let task_status = models::board_task_status::ActiveModel {
             board_id: Set(board_id),
@@ -747,8 +716,7 @@ impl MutationRoot {
             .await
             .map_err(|err| {
                 if let Some(SqlErr::UniqueConstraintViolation(_)) = err.sql_err() {
-                    Error::new("Status name already taken")
-                        .extend_with(|_, c| c.set("CODE", "STATUS_NAME_TAKEN"))
+                    coded("Status name already taken", "STATUS_NAME_TAKEN")
                 } else {
                     db_err(err)
                 }
@@ -757,6 +725,7 @@ impl MutationRoot {
         Ok(Board::from(board))
     }
 
+    #[instrument(name = "Mutation.update_task_status", skip_all, fields(board_id = board_id))]
     async fn update_task_status(
         &self,
         ctx: &Context<'_>,
@@ -782,10 +751,9 @@ impl MutationRoot {
 
         let board = models::board::Entity::find_by_id(board_id)
             .one(db)
-            .await?
-            .ok_or_else(|| {
-                Error::new("Board not found").extend_with(|_, c| c.set("CODE", "BOARD_NOT_FOUND"))
-            })?;
+            .await
+            .map_err(db_err)?
+            .ok_or_else(|| coded("Board not found", "BOARD_NOT_FOUND"))?;
 
         // Primary key can change so update() doesn't work.
         let mut update = models::board_task_status::Entity::update_many()
@@ -812,21 +780,20 @@ impl MutationRoot {
 
         let result = update.exec(db).await.map_err(|err| {
             if let Some(SqlErr::UniqueConstraintViolation(_)) = err.sql_err() {
-                Error::new("Status name already taken")
-                    .extend_with(|_, c| c.set("CODE", "STATUS_NAME_TAKEN"))
+                coded("Status name already taken", "STATUS_NAME_TAKEN")
             } else {
                 db_err(err)
             }
         })?;
 
         if result.rows_affected == 0 {
-            return Err(Error::new("Board status not found")
-                .extend_with(|_, c| c.set("CODE", "BOARD_STATUS_NOT_FOUND")));
+            return Err(coded("Board status not found", "BOARD_STATUS_NOT_FOUND"));
         }
 
         Ok(Board::from(board))
     }
 
+    #[instrument(name = "Mutation.create_time_tracking_entry", skip_all, fields(task_id = task_id))]
     async fn create_time_tracking_entry(
         &self,
         ctx: &Context<'_>,
@@ -836,8 +803,7 @@ impl MutationRoot {
         description: String,
     ) -> Result<TimeTrackingEntry> {
         if finished_at < started_at {
-            return Err(Error::new("Finished before started")
-                .extend_with(|_, c| c.set("CODE", "FINISH_BEFORE_START")));
+            return Err(coded("Finished before started", "FINISH_BEFORE_START"));
         }
 
         let db = get_db(ctx);
@@ -847,9 +813,7 @@ impl MutationRoot {
             .one(db)
             .await
             .map_err(db_err)?
-            .ok_or_else(|| {
-                Error::new("Task not found").extend_with(|_, c| c.set("CODE", "TASK_NOT_FOUND"))
-            })?;
+            .ok_or_else(|| coded("Task not found", "TASK_NOT_FOUND"))?;
 
         if !user.is_admin {
             let access = models::board_access::Entity::find_by_id((task.board_id, user.id))
@@ -876,6 +840,7 @@ impl MutationRoot {
         Ok(TimeTrackingEntry::from(entry))
     }
 
+    #[instrument(name = "Mutation.update_time_tracking_entry", skip_all, fields(entry_id = id))]
     async fn update_time_tracking_entry(
         &self,
         ctx: &Context<'_>,
@@ -892,8 +857,7 @@ impl MutationRoot {
             .await
             .map_err(db_err)?
         else {
-            return Err(Error::new("Entry not found")
-                .extend_with(|_, c| c.set("CODE", "TIME_TRACKING_ENTRY_NOT_FOUND")));
+            return Err(coded("Entry not found", "TIME_TRACKING_ENTRY_NOT_FOUND"));
         };
 
         if entry.user_id != Some(user.id) {
@@ -904,8 +868,7 @@ impl MutationRoot {
         let final_finished_at = finished_at.unwrap_or(entry.finished_at);
 
         if final_finished_at < final_started_at {
-            return Err(Error::new("Finished before started")
-                .extend_with(|_, c| c.set("CODE", "FINISH_BEFORE_START")));
+            return Err(coded("Finished before started", "FINISH_BEFORE_START"));
         }
 
         let mut entry = entry.into_active_model();
@@ -927,6 +890,7 @@ impl MutationRoot {
         Ok(TimeTrackingEntry::from(entry))
     }
 
+    #[instrument(name = "Mutation.remove_task_time_tracking_entry", skip_all, fields(task_id = task_id, entry_id = id))]
     async fn remove_task_time_tracking_entry(
         &self,
         ctx: &Context<'_>,
@@ -949,7 +913,7 @@ impl MutationRoot {
                 .one(db)
                 .await
                 .map_err(db_err)?
-                .ok_or(forbidden())?;
+                .ok_or_else(forbidden)?;
         }
 
         let Some(entry) = models::time_tracking::Entity::find_by_id(id)
@@ -975,6 +939,7 @@ impl MutationRoot {
         Ok(task.map(Task::from))
     }
 
+    #[instrument(name = "Mutation.add_task_block", skip_all, fields(task_id = task_id, blocked_by = blocked_by))]
     async fn add_task_block(
         &self,
         ctx: &Context<'_>,
@@ -985,25 +950,28 @@ impl MutationRoot {
         let user = get_user(ctx);
 
         if task_id == blocked_by {
-            return Err(Error::new("Self block").extend_with(|_, c| c.set("CODE", "SELF_BLOCK")));
+            return Err(coded("Self block", "SELF_BLOCK"));
         }
 
-        let Some(task) = models::task::Entity::find_by_id(task_id).one(db).await? else {
-            return Err(
-                Error::new("Task not found").extend_with(|_, c| c.set("CODE", "TASK_NOT_FOUND"))
-            );
+        let Some(task) = models::task::Entity::find_by_id(task_id)
+            .one(db)
+            .await
+            .map_err(db_err)?
+        else {
+            return Err(coded("Task not found", "TASK_NOT_FOUND"));
         };
 
-        let Some(blocking_task) = models::task::Entity::find_by_id(blocked_by).one(db).await?
+        let Some(blocking_task) = models::task::Entity::find_by_id(blocked_by)
+            .one(db)
+            .await
+            .map_err(db_err)?
         else {
-            return Err(Error::new("Blocking task not found")
-                .extend_with(|_, c| c.set("CODE", "BLOCKING_TASK_NOT_FOUND")));
+            return Err(coded("Blocking task not found", "BLOCKING_TASK_NOT_FOUND"));
         };
 
         // Task not found on the same board.
         if task.board_id != blocking_task.board_id {
-            return Err(Error::new("Blocking task not found")
-                .extend_with(|_, c| c.set("CODE", "BLOCKING_TASK_NOT_FOUND")));
+            return Err(coded("Blocking task not found", "BLOCKING_TASK_NOT_FOUND"));
         }
 
         if !user.is_admin {
@@ -1011,14 +979,12 @@ impl MutationRoot {
                 .one(db)
                 .await
                 .map_err(db_err)?
-                .ok_or(forbidden())?;
+                .ok_or_else(forbidden)?;
 
             if (blocking_task.archived_at.is_some() || task.archived_at.is_some())
                 && !access.is_moderator
             {
-                return Err(
-                    Error::new("Task archived").extend_with(|_, c| c.set("CODE", "TASK_ARCHIVED"))
-                );
+                return Err(coded("Task archived", "TASK_ARCHIVED"));
             }
         }
 
@@ -1039,9 +1005,7 @@ impl MutationRoot {
 
         let cycle_results = db.query_all_raw(stmt).await.map_err(db_err)?;
         if !cycle_results.is_empty() {
-            return Err(
-                Error::new("Cyclic block").extend_with(|_, c| c.set("CODE", "CYCLIC_BLOCK"))
-            );
+            return Err(coded("Cyclic block", "CYCLIC_BLOCK"));
         }
 
         let new_block = models::task_block::ActiveModel {
@@ -1061,6 +1025,7 @@ impl MutationRoot {
         }
     }
 
+    #[instrument(name = "Mutation.remove_task_block", skip_all, fields(task_id = task_id, blocked_by = blocked_by))]
     async fn remove_task_block(
         &self,
         ctx: &Context<'_>,
@@ -1070,10 +1035,12 @@ impl MutationRoot {
         let db = get_db(ctx);
         let user = get_user(ctx);
 
-        let Some(task) = models::task::Entity::find_by_id(task_id).one(db).await? else {
-            return Err(
-                Error::new("Task not found").extend_with(|_, c| c.set("CODE", "TASK_NOT_FOUND"))
-            );
+        let Some(task) = models::task::Entity::find_by_id(task_id)
+            .one(db)
+            .await
+            .map_err(db_err)?
+        else {
+            return Err(coded("Task not found", "TASK_NOT_FOUND"));
         };
 
         if !user.is_admin {
@@ -1081,20 +1048,19 @@ impl MutationRoot {
                 .one(db)
                 .await
                 .map_err(db_err)?
-                .ok_or(forbidden())?;
+                .ok_or_else(forbidden)?;
 
             if task.archived_at.is_some() && !access.is_moderator {
-                return Err(
-                    Error::new("Task archived").extend_with(|_, c| c.set("CODE", "TASK_ARCHIVED"))
-                );
+                return Err(coded("Task archived", "TASK_ARCHIVED"));
             }
         }
 
         if let Some(block) = models::task_block::Entity::find_by_id((blocked_by, task_id))
             .one(db)
-            .await?
+            .await
+            .map_err(db_err)?
         {
-            block.delete(db).await?;
+            block.delete(db).await.map_err(db_err)?;
         }
 
         Ok(Task::from(task))

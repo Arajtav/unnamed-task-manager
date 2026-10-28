@@ -1,6 +1,7 @@
 use async_graphql::{ComplexObject, Context, Result, SimpleObject};
 use chrono::{DateTime, Utc};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+use tracing::instrument;
 use uuid::Uuid;
 
 use crate::{
@@ -49,6 +50,7 @@ impl User {
 
 #[ComplexObject]
 impl User {
+    #[instrument(name = "User.emails", level = "debug", skip_all, fields(target_user_id = %self.id))]
     async fn emails(&self, ctx: &Context<'_>) -> Result<Vec<String>> {
         let db = get_db(ctx);
 
@@ -62,6 +64,7 @@ impl User {
     }
 
     // Only for admins and self.
+    #[instrument(name = "User.invite", level = "debug", skip_all, fields(target_user_id = %self.id))]
     async fn invite(&self, ctx: &Context<'_>) -> Result<Option<String>> {
         self.ensure_self_or_admin(ctx)?;
         Ok(self.invite.clone())

@@ -1,5 +1,6 @@
 use async_graphql::{ComplexObject, Context, Result, SimpleObject};
 use sea_orm::EntityTrait;
+use tracing::instrument;
 use uuid::Uuid;
 
 use crate::{
@@ -20,6 +21,7 @@ pub struct TaskUserTime {
 
 #[ComplexObject]
 impl TaskUserTime {
+    #[instrument(name = "TaskUserTime.user", level = "debug", skip_all, fields(target_user_id = ?self.user_id))]
     pub async fn user(&self, ctx: &Context<'_>) -> Result<Option<User>> {
         let db = get_db(ctx);
 

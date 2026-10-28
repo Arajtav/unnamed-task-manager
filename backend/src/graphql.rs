@@ -4,11 +4,7 @@
 #![allow(clippy::too_many_lines)]
 
 use actix_web::web::ThinData;
-use async_graphql::Context;
-use async_graphql::EmptySubscription;
-use async_graphql::Error;
-use async_graphql::ErrorExtensions;
-use async_graphql::Schema;
+use async_graphql::{Context, EmptySubscription, Error, ErrorExtensions, Schema};
 
 mod models;
 mod mutation;
@@ -34,12 +30,24 @@ pub fn vec_map<T, U: From<T>>(a: Vec<T>) -> Vec<U> {
     a.into_iter().map(U::from).collect()
 }
 
+fn coded(msg: &str, code: &str) -> Error {
+    Error::new(msg).extend_with(|_, c| c.set("code", code))
+}
+
+fn coded_with<T: Into<async_graphql::Value>>(msg: &str, code: &str, extra: (&str, T)) -> Error {
+    Error::new(msg).extend_with(|_, c| {
+        c.set("code", code);
+        c.set(extra.0, extra.1);
+    })
+}
+
 pub fn forbidden() -> Error {
-    Error::new("Not authorized").extend_with(|_, c| c.set("CODE", "FORBIDDEN"))
+    tracing::warn!(kind = "FORBIDDEN", "forbidden");
+    coded("Not authorized", "FORBIDDEN")
 }
 
 #[allow(clippy::needless_pass_by_value)]
-pub fn db_err(err: sea_orm::DbErr) -> async_graphql::Error {
-    tracing::error!("{err}");
-    Error::new("Database error").extend_with(|_, c| c.set("code", "DATABASE"))
+pub fn db_err(err: sea_orm::DbErr) -> Error {
+    tracing::error!(error = %err, kind = "DATABASE", "database error");
+    coded("Database error", "DATABASE")
 }

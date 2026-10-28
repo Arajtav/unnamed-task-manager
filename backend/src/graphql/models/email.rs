@@ -1,5 +1,6 @@
 use async_graphql::{self, ComplexObject, Context, Result, SimpleObject};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+use tracing::instrument;
 
 use crate::{
     graphql::{db_err, get_db, models::user::User},
@@ -15,6 +16,7 @@ pub struct Email {
 
 #[ComplexObject]
 impl Email {
+    #[instrument(name = "Email.user", level = "debug", skip_all, fields(email = %self.email))]
     async fn user(&self, ctx: &Context<'_>) -> Result<Option<User>> {
         let db = get_db(ctx);
 

@@ -1,6 +1,7 @@
 use async_graphql::{ComplexObject, Context, Result, SimpleObject};
 use chrono::{DateTime, Utc};
 use sea_orm::EntityTrait;
+use tracing::instrument;
 use uuid::Uuid;
 
 use crate::{
@@ -29,6 +30,7 @@ pub struct TimeTrackingEntry {
 
 #[ComplexObject]
 impl TimeTrackingEntry {
+    #[instrument(name = "TimeTrackingEntry.task", level = "debug", skip_all, fields(entry_id = self.id, task_id = ?self.task_id))]
     async fn task(&self, ctx: &Context<'_>) -> Result<Option<Task>> {
         let db = get_db(ctx);
 
@@ -44,6 +46,7 @@ impl TimeTrackingEntry {
         Ok(Some(Task::from(task)))
     }
 
+    #[instrument(name = "TimeTrackingEntry.user", level = "debug", skip_all, fields(entry_id = self.id, target_user_id = ?self.user_id))]
     async fn user(&self, ctx: &Context<'_>) -> Result<Option<User>> {
         let db = get_db(ctx);
 

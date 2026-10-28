@@ -1,6 +1,7 @@
 use async_graphql::{ComplexObject, Context, Result, SimpleObject};
 use chrono::{DateTime, Utc};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
+use tracing::instrument;
 
 use crate::{
     graphql::{
@@ -32,6 +33,7 @@ impl From<models::board::Model> for Board {
 
 #[ComplexObject]
 impl Board {
+    #[instrument(name = "Board.tasks", level = "debug", skip_all, fields(board_id = self.id))]
     async fn tasks(&self, ctx: &Context<'_>) -> Result<Vec<Task>> {
         let db = get_db(ctx);
 
@@ -44,6 +46,7 @@ impl Board {
         Ok(vec_map(tasks))
     }
 
+    #[instrument(name = "Board.access", level = "debug", skip_all, fields(board_id = self.id))]
     async fn access(&self, ctx: &Context<'_>) -> Result<Vec<BoardAccess>> {
         let db = get_db(ctx);
 
@@ -56,6 +59,7 @@ impl Board {
         Ok(vec_map(access))
     }
 
+    #[instrument(name = "Board.task_status", level = "debug", skip_all, fields(board_id = self.id))]
     async fn task_status(&self, ctx: &Context<'_>) -> Result<Vec<BoardTaskStatus>> {
         let db = get_db(ctx);
 

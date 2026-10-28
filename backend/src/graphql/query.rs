@@ -1,14 +1,15 @@
 use std::cmp::{max, min};
 
-use async_graphql::{Context, Error, ErrorExtensions, Object, Result};
+use async_graphql::{Context, Object, Result};
 use chrono::{DateTime, Datelike, Duration, Months, NaiveDate, TimeZone, Utc, Weekday};
 use chrono_tz::Tz;
 use sea_orm::{ColumnTrait, Condition, EntityTrait, QueryFilter, QuerySelect, QueryTrait};
+use tracing::instrument;
 use uuid::Uuid;
 
 use crate::{
     graphql::{
-        db_err, forbidden, get_db, get_user,
+        coded, db_err, forbidden, get_db, get_user,
         models::{
             board::Board,
             task::Task,
@@ -26,12 +27,14 @@ pub struct QueryRoot;
 
 #[Object]
 impl QueryRoot {
+    #[instrument(name = "Query.me", level = "debug", skip_all)]
     async fn me(&self, ctx: &Context<'_>) -> User {
         let user = get_user(ctx);
 
         User::from(user.clone())
     }
 
+    #[instrument(name = "Query.users", skip_all)]
     async fn users(&self, ctx: &Context<'_>) -> Result<Vec<User>> {
         let db = get_db(ctx);
         let users = models::user::Entity::find().all(db).await.map_err(db_err)?;
@@ -39,6 +42,7 @@ impl QueryRoot {
         Ok(vec_map(users))
     }
 
+    #[instrument(name = "Query.boards", skip_all, fields(name = ?name))]
     async fn boards(
         &self,
         ctx: &Context<'_>,
@@ -70,6 +74,7 @@ impl QueryRoot {
         Ok(vec_map(boards))
     }
 
+    #[instrument(name = "Query.board", skip_all, fields(board_id = id))]
     async fn board(&self, ctx: &Context<'_>, id: i32) -> Result<Option<Board>> {
         let db = get_db(ctx);
         let user = get_user(ctx);
@@ -79,7 +84,7 @@ impl QueryRoot {
                 .one(db)
                 .await
                 .map_err(db_err)?
-                .ok_or(forbidden())?;
+                .ok_or_else(forbidden)?;
         }
 
         let board = models::board::Entity::find_by_id(id)
@@ -90,6 +95,7 @@ impl QueryRoot {
         Ok(board.map(Board::from))
     }
 
+    #[instrument(name = "Query.task", skip_all, fields(task_id = id))]
     async fn task(&self, ctx: &Context<'_>, id: i32) -> Result<Option<Task>> {
         let db = get_db(ctx);
         let user = get_user(ctx);
@@ -107,12 +113,13 @@ impl QueryRoot {
                 .one(db)
                 .await
                 .map_err(db_err)?
-                .ok_or(forbidden())?;
+                .ok_or_else(forbidden)?;
         }
 
         Ok(Some(Task::from(task)))
     }
 
+    #[instrument(name = "Query.time_entries", skip_all, fields(since = ?since, to = ?to, target_user_id = ?user_id, task_id = ?task_id))]
     async fn time_entries(
         &self,
         ctx: &Context<'_>,
@@ -168,6 +175,7 @@ impl QueryRoot {
         Ok(vec_map(entries))
     }
 
+    #[instrument(name = "Query.time_summary", skip_all, fields(from_date = %from_date, to_date = %to_date, timezone = ?timezone, resolution = ?resolution))]
     async fn time_summary(
         &self,
         ctx: &Context<'_>,
@@ -192,9 +200,9 @@ impl QueryRoot {
 
         let tz = match timezone {
             None => Tz::UTC,
-            Some(name) => name.parse().map_err(|_| {
-                Error::new("Unknown timezone").extend_with(|_, c| c.set("CODE", "UNKNOWN_TZ"))
-            })?,
+            Some(name) => name
+                .parse()
+                .map_err(|_| coded("Unknown timezone", "UNKNOWN_TZ"))?,
         };
 
         let local_from = from_date.with_timezone(&tz).date_naive();

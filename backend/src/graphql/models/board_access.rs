@@ -1,5 +1,6 @@
 use async_graphql::{ComplexObject, Context, Result, SimpleObject};
 use sea_orm::EntityTrait;
+use tracing::instrument;
 use uuid::Uuid;
 
 use crate::{
@@ -13,6 +14,9 @@ use crate::{
 pub struct BoardAccess {
     user_id: Uuid,
     is_moderator: bool,
+
+    #[graphql(skip)]
+    board_id: i32,
 }
 
 impl From<models::board_access::Model> for BoardAccess {
@@ -20,12 +24,14 @@ impl From<models::board_access::Model> for BoardAccess {
         Self {
             user_id: access.user_id,
             is_moderator: access.is_moderator,
+            board_id: access.board_id,
         }
     }
 }
 
 #[ComplexObject]
 impl BoardAccess {
+    #[instrument(name = "BoardAccess.user", level = "debug", skip_all, fields(board_id = self.board_id, target_user_id = %self.user_id))]
     async fn user(&self, ctx: &Context<'_>) -> Result<User> {
         let db = get_db(ctx);
 

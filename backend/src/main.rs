@@ -7,17 +7,21 @@ use actix_web::{
     body::BoxBody,
     cookie::Key,
     dev::{ServiceRequest, ServiceResponse},
-    middleware::{self, Logger, Next, NormalizePath},
+    middleware::{self, Next, NormalizePath},
     web::{Data, ThinData, post, scope},
 };
 use async_graphql::{EmptySubscription, Schema};
 use async_graphql_actix_web::{GraphQLRequest, GraphQLResponse};
 use base64::Engine;
 use dotenv::dotenv;
-use sea_orm::{ColumnTrait, Database, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::{
+    ColumnTrait, ConnectOptions, Database, DatabaseConnection, EntityTrait, QueryFilter,
+};
 use strum::Display;
 use tokio::sync::Mutex;
-use tracing::{debug, error, warn};
+use tracing::{field, instrument};
+use tracing_actix_web::TracingLogger;
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 use uuid::Uuid;
 
 use crate::graphql::AppSchema;
@@ -26,11 +30,26 @@ mod auth;
 mod graphql;
 mod models;
 
+fn init_tracing() {
+    tracing_subscriber::registry()
+        .with(
+            EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| EnvFilter::new("info,async_graphql=warn,sqlx=warn")),
+        )
+        .with(
+            tracing_tree::HierarchicalLayer::new(2)
+                .with_targets(true)
+                .with_bracketed_fields(true),
+        )
+        .init();
+}
+
 pub type SessionUser = models::user::Model;
 
 #[derive(Clone)]
 pub struct AuthUser(models::user::Model);
 
+#[instrument(skip_all, fields(user_id = field::Empty))]
 async fn require_auth(
     req: ServiceRequest,
     next: Next<BoxBody>,
@@ -51,7 +70,9 @@ async fn require_auth(
         .one(&**db)
         .await
         .map_err(|err| internal_server_error(err, ServerErrorType::Database))?
-        .ok_or(auth_error(AuthErrorType::NoUser))?;
+        .ok_or_else(|| auth_error(AuthErrorType::NoUser))?;
+
+    tracing::Span::current().record("user_id", field::display(user.id));
 
     req.extensions_mut().insert(AuthUser(user));
 
@@ -91,21 +112,12 @@ pub struct Origin(String);
 async fn main() -> std::io::Result<()> {
     dotenv().expect("env missing");
 
-    let debug = env::var("DEBUG").is_ok_and(|e| e == "true");
-
-    if debug {
-        tracing_subscriber::fmt()
-            .with_max_level(tracing::Level::DEBUG)
-            .init();
-        debug!("running with DEBUG");
-    } else {
-        tracing_subscriber::fmt().init();
-    }
+    init_tracing();
 
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL missing");
     let session_key = env::var("SESSION_KEY").map_or_else(
         |_| {
-            warn!("SESSION_KEY not provided, generating a temporary one");
+            tracing::warn!("SESSION_KEY not provided, generating a temporary one");
             Key::generate()
         },
         |key| {
@@ -134,13 +146,18 @@ async fn main() -> std::io::Result<()> {
         simple_webauthn::registration::RegistrationState,
     >::new()));
 
-    let db = ThinData(Database::connect(database_url).await.unwrap_or_else(|err| {
-        error!("Failed to connect to the database: {err}");
+    let mut opt = ConnectOptions::new(database_url);
+    opt.sqlx_logging(true)
+        .sqlx_logging_level(log::LevelFilter::Debug);
+
+    let db = ThinData(Database::connect(opt).await.unwrap_or_else(|err| {
+        tracing::error!("Failed to connect to the database: {err}");
         exit(1)
     }));
 
     let schema = Schema::build(graphql::QueryRoot, graphql::MutationRoot, EmptySubscription)
         .data(db.clone())
+        .extension(async_graphql::extensions::Tracing)
         .finish();
 
     HttpServer::new(move || {
@@ -158,7 +175,6 @@ async fn main() -> std::io::Result<()> {
                     .allow_any_header()
                     .supports_credentials(),
             )
-            .wrap(Logger::default())
             .wrap(NormalizePath::new(
                 actix_web::middleware::TrailingSlash::Trim,
             ))
@@ -166,6 +182,7 @@ async fn main() -> std::io::Result<()> {
                 SessionMiddleware::builder(CookieSessionStore::default(), session_key.clone())
                     .build(),
             )
+            .wrap(TracingLogger::default())
             .service(
                 scope("/auth")
                     .route("/login/start", post().to(auth::login_start))
@@ -198,7 +215,7 @@ pub enum ServerErrorType {
 
 #[must_use]
 pub fn internal_server_error<T: std::error::Error>(err: T, t: ServerErrorType) -> actix_web::Error {
-    tracing::error!("{err}");
+    tracing::error!(error = %err, kind = %t, "internal server error");
     actix_web::error::ErrorInternalServerError(t.to_string())
 }
 
@@ -213,6 +230,13 @@ pub enum AuthErrorType {
 }
 
 #[must_use]
+pub fn auth_error_with<T: std::error::Error>(err: T, t: AuthErrorType) -> actix_web::Error {
+    tracing::warn!(error = %err, kind = %t, "auth failure");
+    actix_web::error::ErrorUnauthorized(t.to_string())
+}
+
+#[must_use]
 pub fn auth_error(t: AuthErrorType) -> actix_web::Error {
+    tracing::warn!(kind = %t, "auth failure");
     actix_web::error::ErrorUnauthorized(t.to_string())
 }

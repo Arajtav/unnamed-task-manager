@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use async_graphql::{ComplexObject, Context, Result, SimpleObject};
 use chrono::{DateTime, Utc};
 use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QuerySelect, RelationTrait};
+use tracing::instrument;
 use uuid::Uuid;
 
 use crate::{
@@ -49,6 +50,7 @@ impl From<models::task::Model> for Task {
 
 #[ComplexObject]
 impl Task {
+    #[instrument(name = "Task.board", level = "debug", skip_all, fields(task_id = self.id, board_id = self.board_id))]
     async fn board(&self, ctx: &Context<'_>) -> Result<Board> {
         let db = get_db(ctx);
 
@@ -60,6 +62,7 @@ impl Task {
         Ok(Board::from(board))
     }
 
+    #[instrument(name = "Task.time_logged", level = "debug", skip_all, fields(task_id = self.id))]
     async fn time_logged(&self, ctx: &Context<'_>) -> Result<Vec<TaskUserTime>> {
         let db = get_db(ctx);
 
@@ -86,6 +89,7 @@ impl Task {
         Ok(time_logged)
     }
 
+    #[instrument(name = "Task.blocking", level = "debug", skip_all, fields(task_id = self.id))]
     async fn blocking(&self, ctx: &Context<'_>) -> Result<Vec<Task>> {
         let db = get_db(ctx);
 
@@ -102,6 +106,7 @@ impl Task {
         Ok(vec_map(tasks))
     }
 
+    #[instrument(name = "Task.blocked_by", level = "debug", skip_all, fields(task_id = self.id))]
     async fn blocked_by(&self, ctx: &Context<'_>) -> Result<Vec<Task>> {
         let db = get_db(ctx);
 
@@ -118,6 +123,7 @@ impl Task {
         Ok(vec_map(tasks))
     }
 
+    #[instrument(name = "Task.is_blocked", level = "debug", skip_all, fields(task_id = self.id))]
     async fn is_blocked(&self, ctx: &Context<'_>) -> Result<bool> {
         let db = get_db(ctx);
 
@@ -135,6 +141,7 @@ impl Task {
         Ok(count > 0)
     }
 
+    #[instrument(name = "Task.labels", level = "debug", skip_all, fields(task_id = self.id))]
     async fn labels(&self, ctx: &Context<'_>) -> Result<Vec<String>> {
         let db = get_db(ctx);
 
@@ -147,6 +154,7 @@ impl Task {
         Ok(vec_map(labels))
     }
 
+    #[instrument(name = "Task.assignees", level = "debug", skip_all, fields(task_id = self.id))]
     async fn assignees(&self, ctx: &Context<'_>) -> Result<Vec<Email>> {
         let db = get_db(ctx);
 

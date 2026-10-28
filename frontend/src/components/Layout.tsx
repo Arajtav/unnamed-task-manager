@@ -66,7 +66,7 @@ export default function Layout(props: RouteSectionProps) {
                 root === "users" &&
                 typeof index === "number" &&
                 field === "invite" &&
-                err.extensions?.CODE === "FORBIDDEN"
+                err.extensions?.code === "FORBIDDEN"
             ) {
                 forbiddenInvites.add(index);
                 return false;
