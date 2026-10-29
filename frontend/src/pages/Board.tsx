@@ -1,4 +1,4 @@
-import { createMemo, For, Setter, Show } from "solid-js";
+import { createMemo, createSignal, For, Setter, Show } from "solid-js";
 import FullTask from "../components/FullTask";
 import { useBoard } from "../contexts/boardContext";
 import { useBoardNav } from "../contexts/boardNavContext";
@@ -15,6 +15,7 @@ import { Title } from "@solidjs/meta";
 import { useTimeTracking } from "../contexts/clientAppDataContext";
 import { PreviewTaskRaw, processPreviewTask, UserFromEmail } from "../gqlTypes";
 import { CircleXIcon } from "lucide-solid";
+import TaskForm from "../components/TaskForm";
 
 function matchesUser(a: UserFromEmail, assignee: string) {
     return a.email.includes(assignee) || a.user?.handle?.includes(assignee);
@@ -27,6 +28,7 @@ export default function Board() {
     const [boardNav] = useBoardNav();
     const { addAlert } = useAlert();
     const { isTracking } = useTimeTracking();
+    const [createTaskStatus, setCreateTaskStatus] = createSignal<string | null>(null);
 
     // TODO: This won't accept some cursed emails but we probably should not allow them anyways, it was a mistake.
     const filters = createMemo(() => {
@@ -251,6 +253,7 @@ export default function Board() {
                             status={status}
                             setViewTask={setViewTask as Setter<number>}
                             onMoveTask={moveTask}
+                            createTask={status => setCreateTaskStatus(status)}
                             tasks={filteredTasks().filter(task => task.status == status.name)}
                         />
                     )}
@@ -259,6 +262,21 @@ export default function Board() {
 
             <Show when={viewTask() != null}>
                 {_ => <FullTask id={viewTask()!} setId={setViewTask} />}
+            </Show>
+
+            <Show when={createTaskStatus()}>
+                {ts => (
+                    <div class="fixed inset-0 h-screen w-screen flex items-center justify-center">
+                        <TaskForm
+                            status={ts()}
+                            onClose={() => setCreateTaskStatus(null)}
+                            onCreate={id => {
+                                setCreateTaskStatus(null);
+                                setViewTask(id);
+                            }}
+                        />
+                    </div>
+                )}
             </Show>
         </div>
     );

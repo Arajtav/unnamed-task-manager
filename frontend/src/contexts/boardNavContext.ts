@@ -2,7 +2,6 @@ import { createContext, useContext } from "solid-js";
 import { createStore } from "solid-js/store";
 
 export type BoardNavSettings = {
-    createTask: string;
     search: string;
 };
 

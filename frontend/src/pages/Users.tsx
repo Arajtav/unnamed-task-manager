@@ -11,6 +11,7 @@ import { useModal } from "../contexts/modalContext";
 import DateTime from "../components/DateTime";
 import { Title } from "@solidjs/meta";
 import { FullUserRaw, processFullUser } from "../gqlTypes";
+import { SOMETHING } from "../alerts";
 
 export default function Users() {
     const [appData, setAppData] = useAppData();
@@ -25,135 +26,123 @@ export default function Users() {
     };
 
     async function updateUser(userId: string, input: UpdateUserInput, fallbackErrorMsg: string) {
-        try {
-            const result = await gqlClient.mutation<{
-                updateUser: FullUserRaw;
-            }>(
-                gql`
-                    mutation UpdateUser($userId: UUID!, $input: UpdateUserInput!) {
-                        updateUser(userId: $userId, input: $input) {
-                            id
-                            emails
-                            handle
-                            isAdmin
-                            isDisabled
-                            createdAt
-                            invite
-                        }
+        const result = await gqlClient.mutation<{
+            updateUser: FullUserRaw;
+        }>(
+            gql`
+                mutation UpdateUser($userId: UUID!, $input: UpdateUserInput!) {
+                    updateUser(userId: $userId, input: $input) {
+                        id
+                        emails
+                        handle
+                        isAdmin
+                        isDisabled
+                        createdAt
+                        invite
                     }
-                `,
-                { userId, input }
-            );
+                }
+            `,
+            { userId, input }
+        );
 
-            if (result.error) {
-                throw result.error;
-            }
-
-            const updateUser = result.data!.updateUser;
-
-            setAppData("users", user => user.id == updateUser.id, processFullUser(updateUser));
-        } catch (err) {
-            addAlert(err instanceof Error ? err.message : fallbackErrorMsg, "error");
+        if (result.error) {
+            addAlert(SOMETHING);
+            return;
         }
+
+        const updateUser = result.data!.updateUser;
+
+        setAppData("users", user => user.id == updateUser.id, processFullUser(updateUser));
     }
 
     async function addUser() {
-        try {
-            const result = await gqlClient.mutation<{
-                createUser: FullUserRaw;
-            }>(
-                gql`
-                    mutation createUser {
-                        createUser {
-                            id
-                            emails
-                            handle
-                            isAdmin
-                            isDisabled
-                            createdAt
-                            invite
-                        }
+        const result = await gqlClient.mutation<{
+            createUser: FullUserRaw;
+        }>(
+            gql`
+                mutation createUser {
+                    createUser {
+                        id
+                        emails
+                        handle
+                        isAdmin
+                        isDisabled
+                        createdAt
+                        invite
                     }
-                `,
-                {}
-            );
+                }
+            `,
+            {}
+        );
 
-            if (result.error) {
-                throw result.error;
-            }
-
-            const user = result.data!.createUser;
-
-            setAppData("users", users => [...users, processFullUser(user)]);
-        } catch (err) {
-            addAlert(err instanceof Error ? err.message : "Failed to create user.", "error");
+        if (result.error) {
+            addAlert(SOMETHING);
+            return;
         }
+
+        const user = result.data!.createUser;
+
+        setAppData("users", users => [...users, processFullUser(user)]);
     }
 
     async function addInvite(userId: string) {
-        try {
-            const result = await gqlClient.mutation<{
-                addInvite: FullUserRaw;
-            }>(
-                gql`
-                    mutation addInvite($userId: UUID!) {
-                        addInvite(userId: $userId) {
-                            id
-                            emails
-                            handle
-                            isAdmin
-                            isDisabled
-                            createdAt
-                            invite
-                        }
+        const result = await gqlClient.mutation<{
+            addInvite: FullUserRaw;
+        }>(
+            gql`
+                mutation addInvite($userId: UUID!) {
+                    addInvite(userId: $userId) {
+                        id
+                        emails
+                        handle
+                        isAdmin
+                        isDisabled
+                        createdAt
+                        invite
                     }
-                `,
-                { userId }
-            );
+                }
+            `,
+            { userId }
+        );
 
-            if (result.error) {
-                throw result.error;
-            }
-
-            let user = result.data!.addInvite;
-
-            setAppData("users", user => user.id == userId, processFullUser(user));
-        } catch (err) {
-            addAlert(err instanceof Error ? err.message : "Failed to generate invite.", "error");
+        if (result.error) {
+            addAlert(SOMETHING);
+            return;
         }
+
+        let user = result.data!.addInvite;
+
+        setAppData("users", user => user.id == userId, processFullUser(user));
     }
 
     async function removeInvite(userId: string) {
-        try {
-            const result = await gqlClient.mutation<{
-                removeInvite: FullUserRaw;
-            }>(
-                gql`
-                    mutation removeInvite($userId: UUID!) {
-                        removeInvite(userId: $userId) {
-                            id
-                            emails
-                            handle
-                            isAdmin
-                            isDisabled
-                            createdAt
-                            invite
-                        }
+        const result = await gqlClient.mutation<{
+            removeInvite: FullUserRaw;
+        }>(
+            gql`
+                mutation removeInvite($userId: UUID!) {
+                    removeInvite(userId: $userId) {
+                        id
+                        emails
+                        handle
+                        isAdmin
+                        isDisabled
+                        createdAt
+                        invite
                     }
-                `,
-                { userId }
-            );
+                }
+            `,
+            { userId }
+        );
 
-            if (result.error) {
-                throw result.error;
-            }
-
-            let user = result.data!.removeInvite;
-
-            setAppData("users", user => user.id == userId, processFullUser(user));
-        } catch (err) {
-            addAlert(err instanceof Error ? err.message : "Failed to remove invite.", "error");
+        if (result.error) {
+            addAlert(SOMETHING);
+            return;
         }
+
+        let user = result.data!.removeInvite;
+
+        setAppData("users", user => user.id == userId, processFullUser(user));
     }
 
     return (

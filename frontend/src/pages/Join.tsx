@@ -98,7 +98,7 @@ export default function Join() {
             return;
         }
 
-        const res = await client.registerFinish(credential.data.toJSON());
+        const res = await client.registerFinish(credential.data);
         if (res.error) {
             if (res.error.type == "network") {
                 setNea(addSingleAlert(nea(), NETWORK, 60));

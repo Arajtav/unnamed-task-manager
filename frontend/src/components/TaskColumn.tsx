@@ -10,6 +10,7 @@ export default function TaskColumn(props: {
     status: TaskStatus;
     tasks: PreviewTask[];
     setViewTask: Setter<number>;
+    createTask: (status: string) => void;
     onMoveTask: (id: number, status: string) => void;
 }) {
     const [_, setBoardNav] = useBoardNav();
@@ -47,10 +48,7 @@ export default function TaskColumn(props: {
                     />
                     <h3 class="self-center">{props.status.name}</h3>
                 </div>
-                <div
-                    class="btn btn-ghost"
-                    onClick={() => setBoardNav("createTask", props.status.name)}
-                >
+                <div class="btn btn-ghost" onClick={() => props.createTask(props.status.name)}>
                     <PlusIcon strokeWidth={1.5} />
                 </div>
             </div>

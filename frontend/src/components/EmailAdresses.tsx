@@ -8,6 +8,7 @@ import Email from "./Email";
 import { parseOneAddress } from "email-addresses";
 import { TrashIcon } from "lucide-solid";
 import { Me } from "../gqlTypes";
+import { SERVER_WRONG, SOMETHING } from "../alerts";
 
 export default function EmailAddresses() {
     const [appData, setAppData] = useAppData();
@@ -25,49 +26,40 @@ export default function EmailAddresses() {
         isDisabled?: boolean;
     };
 
-    async function updateMe(
-        input: UpdateUserInput,
-        fallbackErrorMsg: string,
-        onSuccess?: () => void
-    ) {
-        try {
-            const result = await gqlClient.mutation<{
-                updateUser: Me;
-            }>(
-                gql`
-                    mutation UpdateUser($userId: UUID!, $input: UpdateUserInput!) {
-                        updateUser(userId: $userId, input: $input) {
-                            id
-                            isAdmin
-                            emails
-                            handle
-                            invite
-                        }
+    async function updateMe(input: UpdateUserInput, onSuccess: () => void = () => {}) {
+        const result = await gqlClient.mutation<{
+            updateUser: Me;
+        }>(
+            gql`
+                mutation UpdateUser($userId: UUID!, $input: UpdateUserInput!) {
+                    updateUser(userId: $userId, input: $input) {
+                        id
+                        isAdmin
+                        emails
+                        handle
+                        invite
                     }
-                `,
-                {
-                    userId: appData.me.id,
-                    input,
                 }
-            );
-
-            if (result.error) {
-                throw result.error;
+            `,
+            {
+                userId: appData.me.id,
+                input,
             }
+        );
 
-            setAppData("me", result.data!.updateUser);
-            if (onSuccess) {
-                onSuccess();
-            }
-        } catch (err) {
-            addAlert(err instanceof Error ? err.message : fallbackErrorMsg, "error");
+        if (result.error) {
+            addAlert(SOMETHING);
+            return;
         }
+
+        setAppData("me", result.data!.updateUser);
+        onSuccess();
     }
 
     async function addEmail() {
         setAdding(true);
 
-        await updateMe({ addEmails: [email()] }, "Failed to add email.", () => {
+        await updateMe({ addEmails: [email()] }, () => {
             setEmail("");
             setEmailValid(false);
         });
@@ -114,10 +106,7 @@ export default function EmailAddresses() {
                                                     label: "Yes",
                                                     class: "btn-error",
                                                     onClick: async () =>
-                                                        await updateMe(
-                                                            { deleteEmails: [email] },
-                                                            "Failed to delete email."
-                                                        ),
+                                                        await updateMe({ deleteEmails: [email] }),
                                                 },
                                             ],
                                         });

@@ -4,6 +4,7 @@
         "jsx": "preserve",
         "jsxImportSource": "solid-js",
         "target": "ESNext",
+        "skipLibCheck": true,
 
         // Modules
         "allowSyntheticDefaultImports": true,
@@ -17,4 +18,5 @@
         "strict": true,
         "types": ["vite/client"],
     },
+    "include": ["src"],
 }

@@ -4,6 +4,7 @@ import { useAppData } from "../contexts/appDataContext";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
 import { Me } from "../gqlTypes";
+import { SOMETHING } from "../alerts";
 
 export default function YourHandle() {
     const [appData, setAppData] = useAppData();
@@ -22,38 +23,35 @@ export default function YourHandle() {
 
         setSaving(true);
 
-        try {
-            const result = await gqlClient.mutation<{
-                updateUser: Me;
-            }>(
-                gql`
-                    mutation UpdateUser($userId: UUID!, $input: UpdateUserInput!) {
-                        updateUser(userId: $userId, input: $input) {
-                            id
-                            isAdmin
-                            emails
-                            handle
-                            invite
-                        }
+        const result = await gqlClient.mutation<{
+            updateUser: Me;
+        }>(
+            gql`
+                mutation UpdateUser($userId: UUID!, $input: UpdateUserInput!) {
+                    updateUser(userId: $userId, input: $input) {
+                        id
+                        isAdmin
+                        emails
+                        handle
+                        invite
                     }
-                `,
-                {
-                    userId: appData.me.id,
-                    input: {
-                        handle: handle() || null,
-                    },
                 }
-            );
-
-            if (result.error) {
-                throw result.error;
+            `,
+            {
+                userId: appData.me.id,
+                input: {
+                    handle: handle() || null,
+                },
             }
+        );
 
-            setAppData("me", result.data!.updateUser);
-            setHandle(result.data!.updateUser.handle ?? "");
-        } catch (err) {
-            addAlert(err instanceof Error ? err.message : "Failed to set handle.", "error");
+        if (result.error) {
+            addAlert(SOMETHING);
+            return;
         }
+
+        setAppData("me", result.data!.updateUser);
+        setHandle(result.data!.updateUser.handle ?? "");
 
         setSaving(false);
     }

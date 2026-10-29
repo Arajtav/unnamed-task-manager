@@ -55,8 +55,11 @@ export const client = {
         return request("/auth/login/start", { method: "POST" });
     },
 
-    loginFinish(credential: PublicKeyCredentialJSON): Promise<ApiResult<null>> {
-        return request("/auth/login/finish", { method: "POST", body: JSON.stringify(credential) });
+    loginFinish(credential: PublicKeyCredential): Promise<ApiResult<null>> {
+        return request("/auth/login/finish", {
+            method: "POST",
+            body: JSON.stringify(credential),
+        });
     },
 
     logout(): Promise<ApiResult<null>> {
@@ -73,7 +76,7 @@ export const client = {
         });
     },
 
-    registerFinish(credential: PublicKeyCredentialJSON): Promise<ApiResult<null>> {
+    registerFinish(credential: PublicKeyCredential): Promise<ApiResult<null>> {
         return request("/auth/register/finish", {
             method: "POST",
             body: JSON.stringify(credential),

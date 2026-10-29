@@ -82,7 +82,7 @@ export default function Login() {
             return;
         }
 
-        let lf = await client.loginFinish(credential.data.toJSON());
+        let lf = await client.loginFinish(credential.data);
         if (lf.error) {
             if (lf.error.type == "network") {
                 setNea(addSingleAlert(nea(), NETWORK, 60));

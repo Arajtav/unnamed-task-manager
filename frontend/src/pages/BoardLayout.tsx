@@ -5,7 +5,6 @@ import BoardNavbar from "../components/BoardNavbar";
 import { createStore } from "solid-js/store";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
-import TaskForm from "../components/TaskForm";
 import { BoardContext } from "../contexts/boardContext";
 import { useAlert } from "../contexts/alertContext";
 import { BoardNavContext, BoardNavSettings } from "../contexts/boardNavContext";
@@ -133,13 +132,6 @@ export default function BoardLayout(props: RouteSectionProps) {
                     <BoardNavContext.Provider value={boardNavStore}>
                         <BoardNavbar />
                         <div class="flex-1 overflow-auto">{props.children}</div>
-                        <Show when={boardNavStore[0].createTask}>
-                            {_ => (
-                                <div class="fixed inset-0 h-screen w-screen flex items-center justify-center">
-                                    <TaskForm />
-                                </div>
-                            )}
-                        </Show>
                     </BoardNavContext.Provider>
                 </BoardContext.Provider>
             </Show>

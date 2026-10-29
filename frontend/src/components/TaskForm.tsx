@@ -3,7 +3,6 @@ import { A } from "@solidjs/router";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
 import { useBoard } from "../contexts/boardContext";
-import { useBoardNav } from "../contexts/boardNavContext";
 import { useAppData } from "../contexts/appDataContext";
 import { useAlert } from "../contexts/alertContext";
 import Badge from "../newComponents/Badge";
@@ -11,17 +10,21 @@ import BadgeButton from "../newComponents/BadgeButton";
 import { CircleXIcon, PlusIcon } from "lucide-solid";
 import { PreviewTaskRaw, PRIORITIES, processPreviewTask } from "../gqlTypes";
 
-export default function TaskForm() {
+export default function TaskForm(props: {
+    onClose: () => void;
+    onCreate: (id: number) => void;
+    status: string;
+}) {
     const { addAlert } = useAlert();
     const [appData] = useAppData();
     const [board, setBoard] = useBoard();
-    const [boardNav, setBoardNav] = useBoardNav();
 
     const [title, setTitle] = createSignal("");
     const [description, setDescription] = createSignal("");
     const [author, setAuthor] = createSignal(appData.me.emails[0] ?? "");
     const [labels, setLabels] = createSignal(new Set<string>());
     const [priority, setPriority] = createSignal(0);
+    const [status, setStatus] = createSignal(props.status);
 
     function addLabel() {
         const name = prompt("Label")?.trim().toLowerCase();
@@ -106,7 +109,7 @@ export default function TaskForm() {
                 title: title(),
                 description: description() || null,
                 author: author(),
-                status: boardNav.createTask,
+                status: status(),
                 labels: [...labels()],
                 priority: priority(),
             }
@@ -124,8 +127,8 @@ export default function TaskForm() {
         setAuthor("");
         setLabels(new Set<string>());
         setBoard("tasks", tasks => [...tasks, processPreviewTask(task)]);
-        setBoardNav("createTask", "");
         setPriority(0);
+        props.onCreate(task.id);
     }
 
     return (
@@ -177,17 +180,14 @@ export default function TaskForm() {
                             <label class="label">Status</label>
                             <select
                                 class="select w-full"
-                                onChange={e => setBoardNav("createTask", e.currentTarget.value)}
+                                onChange={e => setStatus(e.currentTarget.value)}
                                 disabled={board.taskStatus.length == 1}
                                 required
                             >
                                 <For each={board.taskStatus}>
-                                    {status => (
-                                        <option
-                                            value={status.name}
-                                            selected={status.name == boardNav.createTask}
-                                        >
-                                            {status.name}
+                                    {ts => (
+                                        <option value={ts.name} selected={ts.name == status()}>
+                                            {ts.name}
                                         </option>
                                     )}
                                 </For>
@@ -229,10 +229,7 @@ export default function TaskForm() {
                     </form>
                 </Show>
                 <div class="card-actions">
-                    <button
-                        class="btn btn-warning mt-4"
-                        onClick={() => setBoardNav("createTask", "")}
-                    >
+                    <button class="btn btn-warning mt-4" onClick={props.onClose}>
                         Cancel
                     </button>
                     <Show when={appData.me.emails.length}>

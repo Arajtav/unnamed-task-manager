@@ -1,7 +1,6 @@
 import {
     CircleXIcon,
     GlobeOffIcon,
-    RotateCwIcon,
     SearchXIcon,
     ServerCrashIcon,
     ShieldXIcon,
@@ -62,4 +61,11 @@ export const INVITE_EXPIRED = {
     title: "Code expired",
     content: "This code has expired or has been used while you were creating the passkey.",
     icon: ShieldXIcon,
+} as const;
+
+export const SOMETHING = {
+    type: "error",
+    title: "Something went wrong",
+    content: "Yeah so this is a temporary message, error handling is not done yet nor is i18n.",
+    icon: CircleXIcon,
 } as const;
