@@ -162,6 +162,17 @@ export default function TaskDetails(props: {
                     <div class="mt-1">{priorityLabel(props.task.priority)}</div>
                 </div>
 
+                <Show when={props.task.estimatedTime}>
+                    {estimatedTime => (
+                        <div>
+                            <div class="text-sm font-semibold text-base-content/70">
+                                Estimated time
+                            </div>
+                            <div class="mt-1">{formatDuration(estimatedTime())}</div>
+                        </div>
+                    )}
+                </Show>
+
                 <div>
                     <div class="text-sm font-semibold text-base-content/70">Created</div>
                     <div class="mt-1">

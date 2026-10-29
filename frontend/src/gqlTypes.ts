@@ -100,6 +100,7 @@ export type CompleteTask = {
     blockedBy: MinimalTask[];
     labels: string[];
     priority: number;
+    estimatedTime: number | null;
 };
 
 export type CompleteTaskRaw = Replace<

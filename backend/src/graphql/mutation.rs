@@ -149,9 +149,9 @@ pub struct UpdateTaskInput {
     pub add_assignees: Vec<String>,
     #[graphql(default)]
     pub remove_assignees: Vec<String>,
-
     #[graphql(default)]
     pub priority: Option<i32>,
+    pub estimated_time: MaybeUndefined<u32>,
 }
 
 #[derive(InputObject)]
@@ -366,6 +366,7 @@ impl MutationRoot {
         #[graphql(default)] assignees: Vec<String>,
         #[graphql(default)] labels: Vec<String>,
         #[graphql(default)] priority: i32,
+        #[graphql(default)] estimated_time: Option<u32>,
     ) -> Result<Task> {
         let db = get_db(ctx);
         let user = get_user(ctx);
@@ -403,6 +404,7 @@ impl MutationRoot {
             author: Set(author),
             status: Set(status),
             priority: Set(priority),
+            estimated_time: estimated_time.map_or(NotSet, |est| Set(Some(est))),
             ..Default::default()
         };
 
@@ -493,6 +495,12 @@ impl MutationRoot {
 
             task.priority = Set(priority);
         }
+
+        task.estimated_time = match input.estimated_time {
+            MaybeUndefined::Value(est) => Set(Some(est)),
+            MaybeUndefined::Null => Set(None),
+            MaybeUndefined::Undefined => NotSet,
+        };
 
         if let Some(is_archived) = input.is_archived {
             if !is_archived {

@@ -72,6 +72,7 @@ export default function FullTask(props: { id: number; setId: (id: number | null)
                             }
                             labels
                             priority
+                            estimatedTime
                         }
                         timeEntries(userId: $userId, taskId: $taskId) {
                             id

@@ -25,6 +25,8 @@ pub struct Model {
     pub archived_at: Option<DateTime<Utc>>,
 
     pub priority: i32,
+
+    pub estimated_time: Option<u32>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}

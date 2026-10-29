@@ -19,6 +19,7 @@ mod m20261020_170905_add_task_label;
 mod m20261021_125355_replace_is_archived_with_archived_at;
 mod m20261021_170400_add_task_priority;
 mod m20261022_162645_multiple_assignees;
+mod m20261029_195032_add_task_time_estimate;
 
 pub struct Migrator;
 
@@ -43,6 +44,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20261021_125355_replace_is_archived_with_archived_at::Migration),
             Box::new(m20261021_170400_add_task_priority::Migration),
             Box::new(m20261022_162645_multiple_assignees::Migration),
+            Box::new(m20261029_195032_add_task_time_estimate::Migration),
         ]
     }
 }

@@ -43,6 +43,14 @@ export default function TaskEditForm(props: {
     const originalLabels = new Set(task.labels.map(l => l.trim().toLowerCase()));
     const [labels, setLabels] = createSignal(new Set(originalLabels));
     const [priority, setPriority] = createSignal(task.priority);
+    const [estimatedTime, setEstimatedTime] = createSignal(task.estimatedTime);
+
+    const hours = () => Math.floor((estimatedTime() ?? 0) / 3600);
+    const minutes = () => Math.floor(((estimatedTime() ?? 0) % 3600) / 60);
+    const seconds = () => (estimatedTime() ?? 0) % 60;
+
+    const updateEstimate = (h: number, m: number, s: number) =>
+        setEstimatedTime(Math.max(h * 3600 + m * 60 + s, 0));
 
     const labelDiff = createMemo(() => ({
         add: [...labels()].filter(l => !originalLabels.has(l)),
@@ -136,6 +144,7 @@ export default function TaskEditForm(props: {
             description() != (task.description ?? "") ||
             status() != task.status ||
             priority() != task.priority ||
+            estimatedTime() != task.estimatedTime ||
             hasLabelChanges() ||
             hasAssigneeChanges()
     );
@@ -144,7 +153,7 @@ export default function TaskEditForm(props: {
 
     createEffect(
         on(
-            [title, description, status, assigneeDiff, priority, labelDiff],
+            [title, description, status, assigneeDiff, priority, estimatedTime, labelDiff],
             () => {
                 if (!canKeepArchived()) setIsArchived(false);
             },
@@ -168,6 +177,7 @@ export default function TaskEditForm(props: {
             removeLabels: labelRemove.length > 0 ? labelRemove : undefined,
             addAssignees: assigneeAdd.length > 0 ? assigneeAdd : undefined,
             removeAssignees: assigneeRemove.length > 0 ? assigneeRemove : undefined,
+            estimatedTime: newValueOrUndefined(estimatedTime(), task.estimatedTime),
         };
 
         if (Object.values(fields).every(value => value === undefined)) {
@@ -211,6 +221,7 @@ export default function TaskEditForm(props: {
                         }
                         labels
                         priority
+                        estimatedTime
                     }
                 }
             `,
@@ -368,6 +379,53 @@ export default function TaskEditForm(props: {
                             </For>
                         </select>
 
+                        <label class="label">Estimated Time</label>
+                        <div class="flex items-center justify-between">
+                            <input
+                                type="number"
+                                min="0"
+                                class="input w-20"
+                                value={hours()}
+                                onInput={e =>
+                                    updateEstimate(
+                                        e.currentTarget.valueAsNumber || 0,
+                                        minutes(),
+                                        seconds()
+                                    )
+                                }
+                            />
+                            h
+                            <input
+                                type="number"
+                                min="0"
+                                max="59"
+                                class="input w-20"
+                                value={minutes()}
+                                onInput={e =>
+                                    updateEstimate(
+                                        hours(),
+                                        e.currentTarget.valueAsNumber || 0,
+                                        seconds()
+                                    )
+                                }
+                            />
+                            m
+                            <input
+                                type="number"
+                                min="0"
+                                max="59"
+                                class="input w-20"
+                                value={seconds()}
+                                onInput={e =>
+                                    updateEstimate(
+                                        hours(),
+                                        minutes(),
+                                        e.currentTarget.valueAsNumber || 0
+                                    )
+                                }
+                            />
+                            s
+                        </div>
                         <label class="label">Labels</label>
                         <div class="flex flex-wrap gap-2">
                             <For each={[...labels()]}>
