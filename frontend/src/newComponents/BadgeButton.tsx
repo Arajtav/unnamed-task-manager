@@ -8,7 +8,7 @@ export default function BadgeButton(props: {
     return (
         <div
             class={`cursor-pointer rounded-full p-0.5 border-2 ${props.class ?? ""}`}
-            onClick={props.onClick}
+            onClick={() => props.onClick()}
         >
             {props.icon}
         </div>

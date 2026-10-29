@@ -170,7 +170,7 @@ export default function TimeGraph() {
         const ids = boardIds();
 
         return values.map(({ start, values }) => {
-            const item: Record<string, any> = {
+            const item: Record<string, unknown> = {
                 xAxis: format.format(start),
                 label: (resolution == "MONTH" ? monthLongFormat : dayLongFormat).format(start),
             };
@@ -261,7 +261,7 @@ export default function TimeGraph() {
                                                 v > 0
                                         )
                                         .map(([k, v]) => {
-                                            let b = k.replace("board_", "");
+                                            const b = k.replace("board_", "");
 
                                             return {
                                                 boardId: b == "none" ? null : parseInt(b),

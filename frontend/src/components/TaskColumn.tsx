@@ -2,7 +2,6 @@ import { For, Setter } from "solid-js";
 import Task from "./Task";
 import Badge from "../newComponents/Badge";
 import { PlusIcon } from "lucide-solid";
-import { useBoardNav } from "../contexts/boardNavContext";
 import { textColor } from "../../colors";
 import { PreviewTask, TaskStatus } from "../gqlTypes";
 
@@ -13,8 +12,6 @@ export default function TaskColumn(props: {
     createTask: (status: string) => void;
     onMoveTask: (id: number, status: string) => void;
 }) {
-    const [_, setBoardNav] = useBoardNav();
-
     const handleDragOver = (e: DragEvent) => {
         e.preventDefault();
         e.dataTransfer!.dropEffect = "move";

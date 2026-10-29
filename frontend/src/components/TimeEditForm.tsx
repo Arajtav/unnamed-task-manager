@@ -10,7 +10,13 @@ import { useModal } from "../contexts/modalContext";
 import { newValueOrUndefined } from "./TaskEditForm";
 import DateTime from "./DateTime";
 import { useTimeTracking } from "../contexts/clientAppDataContext";
-import { CompleteTask, processTimeTrackingEntry, TimeTrackingEntry, TimeTrackingEntryRaw, TimeLogged } from "../gqlTypes";
+import {
+    CompleteTask,
+    processTimeTrackingEntry,
+    TimeTrackingEntry,
+    TimeTrackingEntryRaw,
+    TimeLogged,
+} from "../gqlTypes";
 import { CircleCheckIcon, CircleXIcon } from "lucide-solid";
 
 export default function TimeEditForm(props: {
@@ -92,7 +98,8 @@ export default function TimeEditForm(props: {
 
         props.save("time", e => e.filter(item => item.id != entryId));
         props.save("task", "timeLogged", timeLogged);
-        setBoard("tasks", task => task.id == props.taskId, "timeLogged", timeLogged);
+        const taskId = props.taskId;
+        setBoard("tasks", task => task.id == taskId, "timeLogged", timeLogged);
 
         if (edited.id == entryId) {
             cancelEdit();
@@ -167,7 +174,8 @@ export default function TimeEditForm(props: {
         props.save("time", e => [...e, processTimeTrackingEntry(entry)]);
 
         props.save("task", "timeLogged", entry.task.timeLogged);
-        setBoard("tasks", task => task.id == props.taskId, "timeLogged", entry.task.timeLogged);
+        const taskId = props.taskId;
+        setBoard("tasks", task => task.id == taskId, "timeLogged", entry.task.timeLogged);
 
         addAlert({
             type: "normal",
@@ -267,7 +275,8 @@ export default function TimeEditForm(props: {
 
             props.save("time", e => e.id == entry.id, processTimeTrackingEntry(entry));
             props.save("task", "timeLogged", entry.task.timeLogged);
-            setBoard("tasks", task => task.id == props.taskId, "timeLogged", entry.task.timeLogged);
+            const taskId = props.taskId;
+            setBoard("tasks", task => task.id == taskId, "timeLogged", entry.task.timeLogged);
 
             addAlert({
                 type: "normal",
@@ -385,7 +394,7 @@ export default function TimeEditForm(props: {
                             <button
                                 class="btn btn-primary flex-1"
                                 onClick={async () => {
-                                    let descr = prompt("Description");
+                                    const descr = prompt("Description");
                                     if (descr === null) return;
 
                                     const startedAt = timeTracking.startedAt(props.taskId)!;

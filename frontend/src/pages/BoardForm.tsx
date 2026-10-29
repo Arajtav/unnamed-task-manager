@@ -40,7 +40,7 @@ export default function BoardForm() {
             return;
         }
 
-        let board = result.data!.createBoard;
+        const board = result.data!.createBoard;
 
         setAppData("boards", boards => boards.set(board.id, board.name));
 

@@ -1,4 +1,4 @@
-import { createEffect, createSignal, Show } from "solid-js";
+import { createEffect, createSignal, on, Show } from "solid-js";
 import { RouteSectionProps, useParams } from "@solidjs/router";
 import { handleAuthError } from "../auth";
 import BoardNavbar from "../components/BoardNavbar";
@@ -10,27 +10,32 @@ import { useAlert } from "../contexts/alertContext";
 import { BoardNavContext, BoardNavSettings } from "../contexts/boardNavContext";
 import { Title } from "@solidjs/meta";
 import { FullBoard, FullBoardRaw, processFullBoard } from "../gqlTypes";
-import { CircleXIcon, SearchX, SearchXIcon } from "lucide-solid";
+import { CircleXIcon, SearchXIcon } from "lucide-solid";
 
 export default function BoardLayout(props: RouteSectionProps) {
     const params = useParams<{ id: string }>();
     const { addAlert } = useAlert();
 
-    const store = createStore({} as FullBoard);
+    const [fullBoard, setFullBoard] = createStore({} as FullBoard);
     const [loading, setLoading] = createSignal<"yes" | "no" | "error">("yes");
 
     const bnDefault = { createTask: "", search: "archived:false" };
-    const boardNavStore = createStore<BoardNavSettings>({ ...bnDefault });
+    const [boardNav, setBoardNav] = createStore<BoardNavSettings>({ ...bnDefault });
 
     // Actually when going to settings createTask should close to false TODO.
-    createEffect(async () => {
-        const id = Number(params.id);
+    createEffect(
+        on(
+            () => params.id,
+            rawId => {
+                const id = Number(rawId);
 
-        boardNavStore[1]({ ...bnDefault });
-        setLoading("yes");
+                setBoardNav({ ...bnDefault });
+                setLoading("yes");
 
-        await fetchBoard(id);
-    });
+                fetchBoard(id).catch(console.error);
+            }
+        )
+    );
 
     async function fetchBoard(id: number) {
         const result = await gqlClient.query<{
@@ -111,7 +116,7 @@ export default function BoardLayout(props: RouteSectionProps) {
             return;
         }
 
-        store[1](processFullBoard(board));
+        setFullBoard(processFullBoard(board));
         setLoading("no");
     }
 
@@ -128,8 +133,8 @@ export default function BoardLayout(props: RouteSectionProps) {
             </Show>
 
             <Show when={loading() == "no"}>
-                <BoardContext.Provider value={store}>
-                    <BoardNavContext.Provider value={boardNavStore}>
+                <BoardContext.Provider value={[fullBoard, setFullBoard]}>
+                    <BoardNavContext.Provider value={[boardNav, setBoardNav]}>
                         <BoardNavbar />
                         <div class="flex-1 overflow-auto">{props.children}</div>
                     </BoardNavContext.Provider>

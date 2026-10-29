@@ -7,12 +7,14 @@ import { makePersisted, storageSync } from "@solid-primitives/storage";
 type Entries = Record<string, unknown>;
 
 function createEntries(name: string) {
-    const [store, setStore] = createRoot(() =>
-        makePersisted(createStore<Entries>({}) as [unknown, SetStoreFunction<unknown>], {
+    const [store, setStore] = createRoot(() => {
+        const [store, setStore] = createStore<Entries>({});
+
+        return makePersisted([store, setStore] as [unknown, SetStoreFunction<unknown>], {
             name,
             sync: storageSync,
-        })
-    ) as ReturnType<typeof createStore<Entries>>;
+        }) as [Entries, SetStoreFunction<Entries>];
+    });
 
     return {
         get: <T>(key: string) => store[key] as T | undefined,

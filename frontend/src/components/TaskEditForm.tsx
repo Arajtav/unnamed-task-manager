@@ -1,5 +1,5 @@
 import { gql } from "@urql/core";
-import { createEffect, createMemo, createSignal, For, on, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, Show, untrack } from "solid-js";
 import { handleAuthError } from "../auth";
 import { useAlert } from "../contexts/alertContext";
 import { useAppData } from "../contexts/appDataContext";
@@ -31,7 +31,7 @@ export default function TaskEditForm(props: {
     const [appData] = useAppData();
     const [board, setBoard] = useBoard();
 
-    const task = props.task;
+    const task = untrack(() => props.task);
     const [title, setTitle] = createSignal(task.title);
     const [description, setDescription] = createSignal(task.description ?? "");
     const [status, setStatus] = createSignal(task.status);
@@ -400,7 +400,7 @@ export default function TaskEditForm(props: {
                 </form>
 
                 <div class="card-actions mt-4">
-                    <button class="btn btn-warning" onClick={props.onCancel}>
+                    <button class="btn btn-warning" onClick={() => props.onCancel()}>
                         Cancel
                     </button>
                     <button

@@ -17,7 +17,7 @@ function ActiveButton(props: ActiveButtonProps) {
     return (
         <button
             class="bg-base-200 border-base-300 text-base-content px-6 py-4 rounded-xl border drop-shadow-sm cursor-pointer group relative inline-flex items-center justify-center overflow-hidden enabled:hover:brightness-110 data-[loading=true]:brightness-110 data-[loading=true]:cursor-wait data-[loading=false]:disabled:cursor-not-allowed data-[loading=false]:disabled:opacity-50"
-            onClick={props.onClick}
+            onClick={e => props.onClick(e)}
             disabled={props.disabled || props.isLoading}
             data-loading={props.isLoading}
         >

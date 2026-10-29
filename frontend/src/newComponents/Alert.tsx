@@ -18,7 +18,7 @@ export type AlertButton = {
 };
 
 export type AlertProps = {
-    onClose: () => any;
+    onClose: () => void;
     buttons?: AlertButton[];
     title: string;
     content: string;
@@ -80,7 +80,7 @@ function Alert(props: AlertProps) {
             </div>
             <div
                 class="opacity-60 cursor-pointer w-min h-min p-3 -m-3 shrink-0"
-                onClick={props.onClose}
+                onClick={() => props.onClose()}
             >
                 <XIcon />
             </div>

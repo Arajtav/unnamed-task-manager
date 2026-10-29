@@ -22,7 +22,7 @@ export default function BoardNavbar() {
                     value={boardNav.search}
                     placeholder="Search..."
                     onInput={e => setBoardNav("search", e.currentTarget.value)}
-                ></input>
+                 />
             </div>
 
             <A

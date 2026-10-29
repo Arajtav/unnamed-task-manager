@@ -1,3 +1,4 @@
+import { For } from "solid-js";
 import { fn } from "storybook/test";
 import { InfoIcon, OctagonXIcon, TriangleAlertIcon, BellIcon, SaveCheckIcon } from "lucide-solid";
 import Alert from "./Alert";
@@ -103,15 +104,13 @@ export const LongContent: Story = {
 export const AllTypes: Story = {
     render: args => (
         <div class="flex flex-col flex-wrap gap-4">
-            {(
-                [
+            <For each={[
                     ["normal", InfoIcon],
                     ["warning", TriangleAlertIcon],
                     ["error", OctagonXIcon],
-                ] as const
-            ).map(([type, icon]) => (
+                ] as const}>{([type, icon]) => (
                 <Alert {...args} type={type} icon={icon} title={type} />
-            ))}
+            )}</For>
         </div>
     ),
 };

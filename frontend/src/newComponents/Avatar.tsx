@@ -43,8 +43,8 @@ function Avatar(props: {
 
     const color = () => userColor(user()?.id);
 
-    let title = () => {
-        let u = user();
+    const title = () => {
+        const u = user();
         if (props.title?.option == "custom") {
             return props.title.value;
         } else if (props.title?.option == "auto" && u) {
@@ -64,7 +64,7 @@ function Avatar(props: {
                     "background-color": color(),
                     color: textColor(color()),
                 }}
-                onClick={props.onClick}
+                onClick={e => props.onClick?.(e)}
             >
                 <Show
                     when={character()}

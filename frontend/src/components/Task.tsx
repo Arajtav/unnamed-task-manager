@@ -7,20 +7,20 @@ import { useTimeTracking } from "../contexts/clientAppDataContext";
 import { useBoardNav } from "../contexts/boardNavContext";
 import { PreviewTask, priorityLabel } from "../gqlTypes";
 
-export default function Task({ task }: { task: PreviewTask }) {
-    const timeTracked = createMemo(() => task.timeLogged.reduce((acc, e) => acc + e.time, 0));
+export default function Task(props: { task: PreviewTask }) {
+    const timeTracked = createMemo(() => props.task.timeLogged.reduce((acc, e) => acc + e.time, 0));
     const timeTracking = useTimeTracking();
 
     const [_, setBoardNav] = useBoardNav();
 
     return (
         <div class="indicator w-full">
-            <Show when={timeTracking.isTracking(task.id)}>
-                <span class="indicator-item status status-xl status-success"></span>
+            <Show when={timeTracking.isTracking(props.task.id)}>
+                <span class="indicator-item status status-xl status-success" />
             </Show>
-            <div class={task.archivedAt ? "opacity-50" : ""}>
-                <p class="font-bold">{task.title}</p>
-                <For each={task.labels}>
+            <div class={props.task.archivedAt ? "opacity-50" : ""}>
+                <p class="font-bold">{props.task.title}</p>
+                <For each={props.task.labels}>
                     {label => (
                         <Badge
                             text={label}
@@ -35,18 +35,16 @@ export default function Task({ task }: { task: PreviewTask }) {
                 <p>
                     Author:{" "}
                     <Avatar
-                        user={task.author}
+                        user={props.task.author}
                         title={{ option: "auto" }}
                         onClick={e => {
                             e.stopPropagation();
-                            setBoardNav(
-                                "search",
-                                search => `${search} author:${task.author.email}`
-                            );
+                            const email = props.task.author.email;
+                            setBoardNav("search", search => `${search} author:${email}`);
                         }}
                     />
                 </p>
-                <For each={task.assignees}>
+                <For each={props.task.assignees}>
                     {assignee => (
                         <p>
                             Assignee:{" "}
@@ -64,12 +62,12 @@ export default function Task({ task }: { task: PreviewTask }) {
                         </p>
                     )}
                 </For>
-                <p>Priority: {priorityLabel(task.priority)}</p>
+                <p>Priority: {priorityLabel(props.task.priority)}</p>
                 <div class="flex flex-row gap-[1ch]">
                     <span>Created:</span>
-                    <DateTime datetime={task.createdAt} imprecise={true} />
+                    <DateTime datetime={props.task.createdAt} imprecise={true} />
                 </div>
-                <Show when={task.archivedAt}>
+                <Show when={props.task.archivedAt}>
                     {archivedAt => (
                         <div class="flex flex-row gap-[1ch]">
                             <span>Archived:</span>

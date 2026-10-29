@@ -39,7 +39,7 @@ export default function MeIcon() {
 
     return (
         <div>
-            <button popovertarget="avatar-settings" style="anchor-name: --avatar-anchor">
+            <button popovertarget="avatar-settings" style={{"anchor-name":"--avatar-anchor"}}>
                 <Avatar user={appData.me} title={{ option: "custom", value: "You" }} />
             </button>
 
@@ -47,7 +47,7 @@ export default function MeIcon() {
                 id="avatar-settings"
                 popover
                 class="dropdown menu w-52 rounded-box bg-base-200"
-                style="position-anchor: --avatar-anchor"
+                style={{"position-anchor":"--avatar-anchor"}}
             >
                 <li>
                     <A href="/settings">Settings</A>

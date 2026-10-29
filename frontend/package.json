@@ -9,18 +9,23 @@
         "build": "vite build",
         "serve": "vite preview",
         "typecheck": "tsc --noEmit",
+        "lint": "eslint src",
         "storybook": "storybook dev -p 6006",
         "build-storybook": "storybook build"
     },
     "license": "MIT",
     "devDependencies": {
+        "@eslint/js": "^10.0.1",
         "@tailwindcss/vite": "^4.1.13",
         "@types/d3-array": "^3.2.2",
+        "eslint": "^10.13.0",
+        "eslint-plugin-solid": "^0.18.1",
         "solid-devtools": "^0.34.3",
         "storybook": "^10.6.3",
         "storybook-solidjs-vite": "^10.7.4",
         "tailwindcss": "^4.1.13",
         "typescript": "^5.9.2",
+        "typescript-eslint": "^8.72.1",
         "vite": "^7.1.4",
         "vite-plugin-checker": "^0.14.5",
         "vite-plugin-solid": "^2.11.8"
@@ -44,7 +49,9 @@
         "solid-charts": "^0.0.2",
         "solid-js": "^1.9.9",
         "temporal-polyfill": "^1.0.5",
-        "vite-plugin-lucide-preprocess": "^1.8.0",
-        "zod": "^3.25.76"
+        "vite-plugin-lucide-preprocess": "^1.8.0"
+    },
+    "overrides": {
+        "known-css-properties": "latest"
     }
 }

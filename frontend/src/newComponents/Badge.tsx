@@ -12,7 +12,7 @@ export default function Badge(props: {
                 props.class ?? ""
             } ${props.onClick ? "cursor-pointer" : ""}`}
             style={props.style}
-            onClick={props.onClick}
+            onClick={e => props.onClick?.(e)}
         >
             {props.text}
         </div>

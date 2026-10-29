@@ -188,7 +188,7 @@ export default function TaskDetails(props: {
                                 <li class="list-row">
                                     <div class="list-col-grow">{taskBlock.title}</div>
 
-                                    <div></div>
+                                    <div />
 
                                     <button
                                         class="btn btn-square btn-ghost"
@@ -242,7 +242,7 @@ export default function TaskDetails(props: {
                             {e => (
                                 <div class="flex flex-row w-full">
                                     <div class="flex-1">
-                                        <User user={e.user}></User>
+                                        <User user={e.user} />
                                     </div>
                                     <div class="self-center">{formatDuration(e.time)}</div>
                                 </div>
@@ -254,10 +254,10 @@ export default function TaskDetails(props: {
 
             <div class="flex flex-row gap-2">
                 <div class="modal-action">
-                    <button class="btn btn-primary" onClick={props.onEdit}>
+                    <button class="btn btn-primary" onClick={() => props.onEdit()}>
                         Edit
                     </button>
-                    <button class="btn btn-primary" onClick={props.onLogTime}>
+                    <button class="btn btn-primary" onClick={() => props.onLogTime()}>
                         Log time
                     </button>
                 </div>

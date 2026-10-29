@@ -1,4 +1,4 @@
-import { createEffect, createSignal, For, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, Show } from "solid-js";
 import { createStore } from "solid-js/store";
 import { RouteSectionProps, useLocation } from "@solidjs/router";
 import { handleAuthError } from "../auth";
@@ -17,14 +17,13 @@ export default function Layout(props: RouteSectionProps) {
     const location = useLocation();
     const [loading, setLoading] = createSignal(true);
 
-    const isAuthPage = () => location.pathname == "/login" || location.pathname == "/join";
+    const isAuthPage = createMemo(
+        () => location.pathname == "/login" || location.pathname == "/join"
+    );
 
-    const appData = createStore({} as AppData);
+    const [appData, setAppData] = createStore({} as AppData);
 
-    createEffect(async () => {
-        if (isAuthPage()) return;
-        if (appData[0].me) return;
-
+    async function loadAppData() {
         const result = await gqlClient.query<{
             me: Me;
             boards: BaseBoard[];
@@ -84,7 +83,7 @@ export default function Layout(props: RouteSectionProps) {
         const boards = result.data!.boards;
         const users = result.data!.users;
 
-        appData[1](
+        setAppData(
             dbg({
                 me,
                 boards: new Map(boards.map(board => [board.id, board.name])),
@@ -95,9 +94,16 @@ export default function Layout(props: RouteSectionProps) {
         );
 
         setLoading(false);
-    });
+    }
 
-    let [alerts, setAlerts] = createSignal<
+    createEffect(
+        on(isAuthPage, authPage => {
+            if (authPage || appData.me) return;
+            void loadAppData();
+        })
+    );
+
+    const [alerts, setAlerts] = createSignal<
         { id: symbol; alert: AlertConfig; timeout: number | undefined }[]
     >([]);
 
@@ -145,6 +151,7 @@ export default function Layout(props: RouteSectionProps) {
 
     const [modal, setModal] = createSignal<ModalOptions | null>(null);
 
+    // eslint-disable-next-line no-unassigned-vars
     let modalDialog!: HTMLDialogElement;
 
     function openModal(options: ModalOptions) {
@@ -183,15 +190,19 @@ export default function Layout(props: RouteSectionProps) {
                                 <div class="flex-1 h-full overflow-auto">{props.children}</div>
                             }
                         >
-                            <AppDataContext.Provider value={appData}>
-                                <ClientAppDataContext.Provider
-                                    value={createClientAppData(appData[0].me.id)}
-                                >
-                                    <Navbar></Navbar>
-                                    <div class="flex-1 overflow-scroll h-full">
-                                        {props.children}
-                                    </div>
-                                </ClientAppDataContext.Provider>
+                            <AppDataContext.Provider value={[appData, setAppData]}>
+                                <Show when={appData.me} keyed>
+                                    {me => (
+                                        <ClientAppDataContext.Provider
+                                            value={createClientAppData(me.id)}
+                                        >
+                                            <Navbar />
+                                            <div class="flex-1 overflow-scroll h-full">
+                                                {props.children}
+                                            </div>
+                                        </ClientAppDataContext.Provider>
+                                    )}
+                                </Show>
                             </AppDataContext.Provider>
                         </Show>
                     </Show>

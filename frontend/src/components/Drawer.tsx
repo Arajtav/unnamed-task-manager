@@ -6,11 +6,12 @@ import { useAppData } from "../contexts/appDataContext";
 export default function Drawer() {
     const [appData] = useAppData();
 
-    let boardsSorted = createMemo(() => {
+    const boardsSorted = createMemo(() => {
         return [...appData.boards].sort((a, b) => a[1].localeCompare(b[1]));
     });
 
-    let drawerToggle: HTMLInputElement | undefined;
+    // eslint-disable-next-line no-unassigned-vars
+    let drawerToggle!: HTMLInputElement;
 
     function closeDrawer() {
         if (drawerToggle) drawerToggle.checked = false;

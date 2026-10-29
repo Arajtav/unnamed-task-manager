@@ -30,7 +30,7 @@ export default function Login() {
     const [nea, setNea] = createSignal<symbol | undefined>(undefined);
     const { addAlert, addSingleAlert } = useAlert();
 
-    let [isLoading, setIsLoading] = createSignal(false);
+    const [isLoading, setIsLoading] = createSignal(false);
     let isLoadingTimeout: number | undefined;
 
     const finishLoading = () => {
@@ -82,7 +82,7 @@ export default function Login() {
             return;
         }
 
-        let lf = await client.loginFinish(credential.data);
+        const lf = await client.loginFinish(credential.data);
         if (lf.error) {
             if (lf.error.type == "network") {
                 setNea(addSingleAlert(nea(), NETWORK, 60));
@@ -112,7 +112,7 @@ export default function Login() {
     return (
         <div class="h-full flex flex-col bg-base-100">
             <Title>Login</Title>
-            <div class="flex-1"></div>
+            <div class="flex-1" />
             <div class="flex items-center justify-center">
                 <ActiveButton
                     text="Login with a passkey"

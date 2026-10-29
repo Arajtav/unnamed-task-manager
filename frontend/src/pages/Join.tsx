@@ -36,7 +36,7 @@ export default function Join() {
     const [nea, setNea] = createSignal<symbol | undefined>(undefined);
     const { addAlert, addSingleAlert } = useAlert();
 
-    let [isLoading, setIsLoading] = createSignal(false);
+    const [isLoading, setIsLoading] = createSignal(false);
     let isLoadingTimeout: number | undefined;
 
     const finishLoading = () => {
@@ -119,7 +119,7 @@ export default function Join() {
     return (
         <div class="h-full flex flex-col bg-base-100">
             <Title>Join</Title>
-            <div class="flex-1"></div>
+            <div class="flex-1" />
             <div class="flex items-center justify-center">
                 <fieldset
                     class="flex flex-col border p-8 rounded-2xl border-base-300 drop-shadow-sm"

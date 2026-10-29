@@ -1,7 +1,7 @@
 import { createMemo } from "solid-js";
 
 export default function Email(props: { email: string }) {
-    let email = createMemo(() => {
+    const email = createMemo(() => {
         const at = props.email.lastIndexOf("@");
         return [props.email.slice(0, at), props.email.slice(at + 1)];
     });

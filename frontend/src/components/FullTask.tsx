@@ -1,5 +1,5 @@
-import { createStore } from "solid-js/store";
-import { createEffect, createSignal, Show } from "solid-js";
+import { createStore, reconcile } from "solid-js/store";
+import { createComputed, createResource, createSignal, Show } from "solid-js";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
 import { handleAuthError } from "../auth";
@@ -18,97 +18,99 @@ import {
 } from "../gqlTypes";
 import { CircleXIcon } from "lucide-solid";
 
-export default function FullTask(props: { id: number; setId: (id: number | null) => any }) {
+export default function FullTask(props: { id: number; setId: (id: number | null) => void }) {
     const { addAlert } = useAlert();
     const [appData] = useAppData();
 
     const [task, setTask] = createStore({} as { task: CompleteTask; time: TimeTrackingEntry[] });
-    const [loading, setLoading] = createSignal(true);
     const [editing, setEditing] = createSignal(false);
     const [timeLogging, setTimeLogging] = createSignal(false);
 
-    createEffect(async () => {
-        const result = await gqlClient.query<{
-            task: CompleteTaskRaw;
-            timeEntries: TimeTrackingEntryRaw[];
-        }>(
-            gql`
-                query TaskAndTimeEntries($userId: UUID!, $taskId: Int!) {
-                    task(id: $taskId) {
-                        id
-                        title
-                        createdAt
-                        description
-                        author {
-                            email
-                            user {
-                                id
-                                handle
-                            }
-                        }
-                        status
-                        assignees {
-                            email
-                            user {
-                                id
-                                handle
-                            }
-                        }
-                        timeLogged {
-                            time
-                            user {
-                                id
-                                handle
-                                emails
-                            }
-                        }
-                        archivedAt
-                        blockedBy {
+    const [data] = createResource(
+        () => [props.id, appData.me.id] as const,
+        async ([taskId, userId]) => {
+            const result = await gqlClient.query<{
+                task: CompleteTaskRaw;
+                timeEntries: TimeTrackingEntryRaw[];
+            }>(
+                gql`
+                    query TaskAndTimeEntries($userId: UUID!, $taskId: Int!) {
+                        task(id: $taskId) {
                             id
                             title
+                            createdAt
+                            description
+                            author {
+                                email
+                                user {
+                                    id
+                                    handle
+                                }
+                            }
                             status
+                            assignees {
+                                email
+                                user {
+                                    id
+                                    handle
+                                }
+                            }
+                            timeLogged {
+                                time
+                                user {
+                                    id
+                                    handle
+                                    emails
+                                }
+                            }
                             archivedAt
+                            blockedBy {
+                                id
+                                title
+                                status
+                                archivedAt
+                            }
+                            labels
+                            priority
                         }
-                        labels
-                        priority
+                        timeEntries(userId: $userId, taskId: $taskId) {
+                            id
+                            startedAt
+                            finishedAt
+                            description
+                        }
                     }
-                    timeEntries(userId: $userId, taskId: $taskId) {
-                        id
-                        startedAt
-                        finishedAt
-                        description
-                    }
-                }
-            `,
-            { taskId: props.id, userId: appData.me.id },
-            // I guess if cache is available it should be used while this loads in the background.
-            { requestPolicy: "network-only" }
-        );
+                `,
+                { taskId, userId },
+                { requestPolicy: "network-only" }
+            );
 
-        if (handleAuthError(result.error)) {
-            addAlert({
-                type: "error",
-                title: "Could not load task",
-                content: "Try again later.",
-                icon: CircleXIcon,
-            });
-            return;
+            if (handleAuthError(result.error) || !result.data) {
+                addAlert({
+                    type: "error",
+                    title: "Could not load task",
+                    content: "Try again later.",
+                    icon: CircleXIcon,
+                });
+                return undefined;
+            }
+
+            return {
+                task: processCompleteTask(result.data.task),
+                time: result.data.timeEntries.map(time => processTimeTrackingEntry(time)),
+            };
         }
+    );
 
-        const task = result.data!.task;
-        const time = result.data!.timeEntries.map(time => processTimeTrackingEntry(time));
-
-        setTask({
-            task: processCompleteTask(task),
-            time,
-        });
-        setLoading(false);
+    createComputed(() => {
+        const d = data();
+        if (d) setTask(reconcile(d));
     });
 
     return (
         <dialog open class="modal">
             <Show
-                when={!loading()}
+                when={!data.loading && data()}
                 fallback={
                     <span class="loading loading-spinner loading-lg row-start-1 col-start-1" />
                 }

@@ -25,7 +25,7 @@ export default function Users() {
         isDisabled?: boolean;
     };
 
-    async function updateUser(userId: string, input: UpdateUserInput, fallbackErrorMsg: string) {
+    async function updateUser(userId: string, input: UpdateUserInput) {
         const result = await gqlClient.mutation<{
             updateUser: FullUserRaw;
         }>(
@@ -110,7 +110,7 @@ export default function Users() {
             return;
         }
 
-        let user = result.data!.addInvite;
+        const user = result.data!.addInvite;
 
         setAppData("users", user => user.id == userId, processFullUser(user));
     }
@@ -140,7 +140,7 @@ export default function Users() {
             return;
         }
 
-        let user = result.data!.removeInvite;
+        const user = result.data!.removeInvite;
 
         setAppData("users", user => user.id == userId, processFullUser(user));
     }
@@ -161,7 +161,7 @@ export default function Users() {
                         <th>Emails</th>
                         <th>Info</th>
                         <th class="text-center">Created</th>
-                        <th></th>
+                        <th />
                     </tr>
                 </thead>
 
@@ -217,15 +217,9 @@ export default function Users() {
                                                                     label: "Yes",
                                                                     class: "btn-error",
                                                                     onClick: async () =>
-                                                                        await updateUser(
-                                                                            user.id,
-                                                                            {
-                                                                                deleteEmails: [
-                                                                                    email,
-                                                                                ],
-                                                                            },
-                                                                            "Failed to delete email."
-                                                                        ),
+                                                                        await updateUser(user.id, {
+                                                                            deleteEmails: [email],
+                                                                        }),
                                                                 },
                                                             ],
                                                         })
@@ -236,14 +230,12 @@ export default function Users() {
                                         <BadgeButton
                                             icon={<PlusIcon strokeWidth={1.5} />}
                                             class="border-base-300/50 w-min invisible group-hover:visible"
-                                            onClick={async () => {
+                                            onClick={() => {
                                                 const email = prompt("Email")?.trim();
                                                 if (email) {
-                                                    await updateUser(
-                                                        user.id,
-                                                        { addEmails: [email] },
-                                                        "Failed to add email."
-                                                    );
+                                                    updateUser(user.id, {
+                                                        addEmails: [email],
+                                                    });
                                                 }
                                             }}
                                         />
@@ -304,11 +296,9 @@ export default function Users() {
                                                             const handle =
                                                                 prompt("new handle")?.trim();
                                                             if (handle !== undefined) {
-                                                                await updateUser(
-                                                                    user.id,
-                                                                    { handle: handle || null },
-                                                                    "Failed to update handle."
-                                                                );
+                                                                await updateUser(user.id, {
+                                                                    handle: handle || null,
+                                                                });
                                                             }
                                                         }}
                                                     >
@@ -341,12 +331,10 @@ export default function Users() {
                                             <Show when={!user.isAdmin && appData.me.isAdmin}>
                                                 <li>
                                                     <button
-                                                        onClick={async () =>
-                                                            await updateUser(
-                                                                user.id,
-                                                                { isDisabled: !user.isDisabled },
-                                                                "Failed to update user."
-                                                            )
+                                                        onClick={() =>
+                                                            updateUser(user.id, {
+                                                                isDisabled: !user.isDisabled,
+                                                            })
                                                         }
                                                     >
                                                         {user.isDisabled

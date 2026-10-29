@@ -5,8 +5,8 @@ export function dbg<T>(value: T): T {
 
     const seen = new WeakSet<object>();
 
-    function unwrap(value: any): Object {
-        // Why is null an object what.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    function unwrap(value: any): unknown {
         if (typeof value != "object" || value === null) {
             return value;
         }
@@ -41,6 +41,7 @@ export function dbg<T>(value: T): T {
     return value;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function todo(s?: string): any {
     console.error(`not yet implemented${s ? ": " + s : ""}`);
 }

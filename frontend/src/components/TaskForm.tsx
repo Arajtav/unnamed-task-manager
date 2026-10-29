@@ -1,4 +1,4 @@
-import { createSignal, For, Show } from "solid-js";
+import { createSignal, For, Show, untrack } from "solid-js";
 import { A } from "@solidjs/router";
 import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
@@ -24,7 +24,7 @@ export default function TaskForm(props: {
     const [author, setAuthor] = createSignal(appData.me.emails[0] ?? "");
     const [labels, setLabels] = createSignal(new Set<string>());
     const [priority, setPriority] = createSignal(0);
-    const [status, setStatus] = createSignal(props.status);
+    const [status, setStatus] = createSignal(untrack(() => props.status));
 
     function addLabel() {
         const name = prompt("Label")?.trim().toLowerCase();
@@ -120,7 +120,7 @@ export default function TaskForm(props: {
             return;
         }
 
-        let task = result.data!.createTask;
+        const task = result.data!.createTask;
 
         setTitle("");
         setDescription("");
@@ -229,7 +229,7 @@ export default function TaskForm(props: {
                     </form>
                 </Show>
                 <div class="card-actions">
-                    <button class="btn btn-warning mt-4" onClick={props.onClose}>
+                    <button class="btn btn-warning mt-4" onClick={() => props.onClose()}>
                         Cancel
                     </button>
                     <Show when={appData.me.emails.length}>

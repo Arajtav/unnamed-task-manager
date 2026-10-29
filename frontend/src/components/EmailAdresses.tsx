@@ -8,7 +8,7 @@ import Email from "./Email";
 import { parseOneAddress } from "email-addresses";
 import { TrashIcon } from "lucide-solid";
 import { Me } from "../gqlTypes";
-import { SERVER_WRONG, SOMETHING } from "../alerts";
+import { SOMETHING } from "../alerts";
 
 export default function EmailAddresses() {
     const [appData, setAppData] = useAppData();
@@ -82,7 +82,7 @@ export default function EmailAddresses() {
                     <For each={appData.me.emails}>
                         {email => (
                             <li class="list-row">
-                                <div></div>
+                                <div />
 
                                 <Email email={email} />
 

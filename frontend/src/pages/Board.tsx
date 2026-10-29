@@ -103,7 +103,7 @@ export default function Board() {
 
     const filteredTasks = createMemo(() => {
         let filtered = board.tasks;
-        let f = dbg(filters());
+        const f = dbg(filters());
 
         if (f.archived !== undefined) {
             filtered = filtered.filter(t => (t.archivedAt != null) == f.archived);
@@ -166,7 +166,7 @@ export default function Board() {
     }
 
     async function moveTask(taskId: number, status: string) {
-        let task = board.tasks.find(task => task.id == taskId);
+        const task = board.tasks.find(task => task.id == taskId);
 
         if (!task || task.status == status || task.archivedAt != null) {
             return;
