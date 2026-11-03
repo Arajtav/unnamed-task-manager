@@ -1,3 +1,5 @@
+// TODO: i18n
+
 import { createEffect, createSignal, For, onMount, Show } from "solid-js";
 import TimeGraphController, { Period } from "./TimeGraphController";
 import { processTimeSeries, TimeResolution, TimeSeries, TimeSeriesRaw } from "../gqlTypes";
@@ -17,8 +19,9 @@ import {
     Chart,
 } from "solid-charts";
 import { ticks } from "d3-array";
-import { boardColor, formatDuration } from "../format";
+import { boardColor } from "../format";
 import { useAppData } from "../contexts/appDataContext";
+import { formatDuration } from "../i18n/debug";
 
 const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 

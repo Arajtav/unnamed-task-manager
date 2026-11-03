@@ -11,6 +11,7 @@ import { BoardNavContext, BoardNavSettings } from "../contexts/boardNavContext";
 import { Title } from "@solidjs/meta";
 import { FullBoard, FullBoardRaw, processFullBoard } from "../gqlTypes";
 import { CircleXIcon, SearchXIcon } from "lucide-solid";
+import { t } from "../i18n";
 
 export default function BoardLayout(props: RouteSectionProps) {
     const params = useParams<{ id: string }>();
@@ -123,7 +124,7 @@ export default function BoardLayout(props: RouteSectionProps) {
     return (
         <div class="flex flex-col h-full">
             <Show when={loading() == "error"}>
-                <Title>Something went wrong</Title>
+                <Title>{t("genericError")}</Title>
             </Show>
 
             <Show when={loading() == "yes"}>

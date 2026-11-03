@@ -1,3 +1,5 @@
+// TODO: replace it all for i18n
+
 import { format, subWeeks, isBefore } from "date-fns";
 
 export default function DateTime(props: {

@@ -1,3 +1,5 @@
+// TODO: i18n
+
 import { UserRoundIcon } from "lucide-solid";
 import { Show } from "solid-js";
 import { userColor } from "../format";

@@ -1,11 +1,11 @@
 import { createMemo, For, Show } from "solid-js";
-import { formatDuration } from "../format";
 import Avatar from "../newComponents/Avatar";
 import DateTime from "./DateTime";
 import Badge from "../newComponents/Badge";
 import { useTimeTracking } from "../contexts/clientAppDataContext";
 import { useBoardNav } from "../contexts/boardNavContext";
-import { PreviewTask, priorityLabel } from "../gqlTypes";
+import { PreviewTask } from "../gqlTypes";
+import { t } from "../i18n";
 
 export default function Task(props: { task: PreviewTask }) {
     const timeTracked = createMemo(() => props.task.timeLogged.reduce((acc, e) => acc + e.time, 0));
@@ -33,7 +33,7 @@ export default function Task(props: { task: PreviewTask }) {
                     )}
                 </For>
                 <p>
-                    Author:{" "}
+                    {t("task.author")}:{" "}
                     <Avatar
                         user={props.task.author}
                         title={{ option: "auto" }}
@@ -47,7 +47,7 @@ export default function Task(props: { task: PreviewTask }) {
                 <For each={props.task.assignees}>
                     {assignee => (
                         <p>
-                            Assignee:{" "}
+                            {t("task.assignee")}:{" "}
                             <Avatar
                                 user={assignee}
                                 title={{ option: "auto" }}
@@ -62,20 +62,20 @@ export default function Task(props: { task: PreviewTask }) {
                         </p>
                     )}
                 </For>
-                <p>Priority: {priorityLabel(props.task.priority)}</p>
+                <p>{t("task.priority", props.task.priority)}</p>
                 <div class="flex flex-row gap-[1ch]">
-                    <span>Created:</span>
+                    <span>{t("task.created")}:</span>
                     <DateTime datetime={props.task.createdAt} imprecise={true} />
                 </div>
                 <Show when={props.task.archivedAt}>
                     {archivedAt => (
                         <div class="flex flex-row gap-[1ch]">
-                            <span>Archived:</span>
+                            <span>{t("task.archived")}:</span>
                             <DateTime datetime={archivedAt()} imprecise={true} />
                         </div>
                     )}
                 </Show>
-                <p>Time logged: {formatDuration(timeTracked())}</p>
+                <p>{t("task.timeLogged", timeTracked())}</p>
             </div>
         </div>
     );

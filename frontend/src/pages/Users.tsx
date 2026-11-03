@@ -12,6 +12,7 @@ import DateTime from "../components/DateTime";
 import { Title } from "@solidjs/meta";
 import { FullUserRaw, processFullUser } from "../gqlTypes";
 import { SOMETHING } from "../alerts";
+import { t } from "../i18n";
 
 export default function Users() {
     const [appData, setAppData] = useAppData();
@@ -147,20 +148,20 @@ export default function Users() {
 
     return (
         <>
-            <Title>Users</Title>
+            <Title>{t("users.title")}</Title>
             <div class="navbar flex flex-row justify-end bg-base-200">
                 <button class="btn btn-accent" onClick={() => addUser()}>
-                    Create account
+                    {t("users.createAccount")}
                 </button>
             </div>
             <table class="table w-full">
                 <thead>
                     <tr>
-                        <th class="text-center">Invite</th>
-                        <th>User</th>
-                        <th>Emails</th>
-                        <th>Info</th>
-                        <th class="text-center">Created</th>
+                        <th class="text-center">{t("users.table.invite")}</th>
+                        <th>{t("users.table.user")}</th>
+                        <th>{t("users.table.emails")}</th>
+                        <th>{t("users.table.badges")}</th>
+                        <th class="text-center">{t("users.table.createdAt")}</th>
                         <th />
                     </tr>
                 </thead>
@@ -171,22 +172,14 @@ export default function Users() {
                             <tr class="group *:whitespace-nowrap hover:bg-base-200">
                                 <td class="w-px font-mono">
                                     <span class="inline-flex w-[16ch] items-center justify-center">
-                                        {user.invite.type == "present"
-                                            ? user.invite.invite
-                                            : user.invite.type == "not-present"
-                                              ? "None"
-                                              : ""}
+                                        {t("users.invite", user.invite)}
                                     </span>
                                 </td>
 
                                 <td class="w-px">
                                     <div class="flex flex-row items-center gap-2 font-mono">
                                         <Avatar user={user} />
-                                        <div>
-                                            {user.handle
-                                                ? `@${user.handle}`
-                                                : "This user has no name"}
-                                        </div>
+                                        <div>{t("users.user", user.handle)}</div>
                                     </div>
                                 </td>
 
@@ -281,7 +274,7 @@ export default function Users() {
                                                         });
                                                     }}
                                                 >
-                                                    Copy id
+                                                    {t("users.copyId")}
                                                 </button>
                                             </li>
 
@@ -302,7 +295,7 @@ export default function Users() {
                                                             }
                                                         }}
                                                     >
-                                                        Set handle
+                                                        {t("users.setHandle")}
                                                     </button>
                                                 </li>
                                             </Show>
@@ -314,7 +307,7 @@ export default function Users() {
                                                             when={user.invite.type == "not-present"}
                                                             fallback="Regenerate invite"
                                                         >
-                                                            Generate invite
+                                                            {t("users.generateInvite")}
                                                         </Show>
                                                     </button>
                                                 </li>
@@ -323,7 +316,7 @@ export default function Users() {
                                             <Show when={user.invite.type == "present"}>
                                                 <li>
                                                     <button onClick={() => removeInvite(user.id)}>
-                                                        Remove invite
+                                                        {t("users.removeInvite")}
                                                     </button>
                                                 </li>
                                             </Show>
@@ -337,9 +330,11 @@ export default function Users() {
                                                             })
                                                         }
                                                     >
-                                                        {user.isDisabled
-                                                            ? "Enable account back"
-                                                            : "Disable account"}
+                                                        {t(
+                                                            user.isDisabled
+                                                                ? "users.reenable"
+                                                                : "users.disable"
+                                                        )}
                                                     </button>
                                                 </li>
                                             </Show>

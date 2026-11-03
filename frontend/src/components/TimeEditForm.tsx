@@ -18,6 +18,7 @@ import {
     TimeLogged,
 } from "../gqlTypes";
 import { CircleCheckIcon, CircleXIcon } from "lucide-solid";
+import { t } from "../i18n";
 
 export default function TimeEditForm(props: {
     time: TimeTrackingEntry[];
@@ -291,22 +292,22 @@ export default function TimeEditForm(props: {
     return (
         <div class="card bg-base-100 border border-base-200 w-full max-w-sm shrink-0 row-start-1 col-start-1">
             <div class="card-body">
-                <h2 class="card-title">Time entries</h2>
+                <h2 class="card-title">{t("timeEditForm.title")}</h2>
 
                 <div class="max-h-[50vh] overflow-y-auto flex flex-col gap-2 pr-1">
                     <For each={props.time}>
                         {e => (
                             <div class="flex flex-col border-b border-base-200 pb-2 mb-2 gap-2">
                                 <div class="flex flex-row">
-                                    <div class="flex-1">Start time</div>
+                                    <div class="flex-1">{t("timeEditForm.startTime")}</div>
                                     <DateTime datetime={e.startedAt} />
                                 </div>
                                 <div class="flex flex-row">
-                                    <div class="flex-1">End time</div>
+                                    <div class="flex-1">{t("timeEditForm.endTime")}</div>
                                     <DateTime datetime={e.finishedAt} />
                                 </div>
                                 <div class="flex flex-col">
-                                    <div>Description:</div>
+                                    <div>{t("timeEditForm.description")}</div>
                                     <div>{e.description}</div>
                                 </div>
                                 <div class="flex flex-row gap-2 justify-end">
@@ -314,7 +315,7 @@ export default function TimeEditForm(props: {
                                         class="btn btn-warning btn-sm"
                                         onClick={() => startEdit(e)}
                                     >
-                                        Edit
+                                        {t("timeEditForm.edit")}
                                     </div>
                                     <div
                                         class="btn btn-error btn-sm"
@@ -341,7 +342,7 @@ export default function TimeEditForm(props: {
                                             })
                                         }
                                     >
-                                        Delete
+                                        {t("timeEditForm.delete")}
                                     </div>
                                 </div>
                             </div>
@@ -351,15 +352,21 @@ export default function TimeEditForm(props: {
 
                 <form class="flex flex-col mt-4 gap-2" onSubmit={submit}>
                     <div class="flex items-center justify-between">
-                        <h3>{edited.id != null ? "Edit Time Entry" : "Add Time Entry"}</h3>
+                        <h3>
+                            {t(
+                                edited.id != null
+                                    ? "timeEditForm.editEntry"
+                                    : "timeEditForm.addEntry"
+                            )}
+                        </h3>
                         <Show when={edited.id != null}>
                             <button type="button" class="btn btn-ghost btn-xs" onClick={cancelEdit}>
-                                Cancel
+                                {t("timeEditForm.cancel")}
                             </button>
                         </Show>
                     </div>
                     <div class="flex flex-row">
-                        <label class="flex-1">Start Time</label>
+                        <label class="flex-1">{t("timeEditForm.startTime")}</label>
                         <input
                             type="datetime-local"
                             value={format(edited.startedAt, "yyyy-MM-dd'T'HH:mm")}
@@ -367,7 +374,7 @@ export default function TimeEditForm(props: {
                         />
                     </div>
                     <div class="flex flex-row">
-                        <label class="flex-1">End Time</label>
+                        <label class="flex-1">{t("timeEditForm.endTime")}</label>
                         <input
                             type="datetime-local"
                             value={format(edited.finishedAt, "yyyy-MM-dd'T'HH:mm")}
@@ -375,15 +382,19 @@ export default function TimeEditForm(props: {
                         />
                     </div>
                     <div class="flex flex-col">
-                        <label>Description:</label>
+                        <label>{t("timeEditForm.description")}</label>
                         <textarea
-                            placeholder="What did you work on?"
+                            placeholder={t("timeEditForm.descriptionPlaceholder")}
                             value={edited.description}
                             onInput={e => setEdited("description", e.target.value)}
                         />
                     </div>
                     <button type="submit" class="btn btn-primary mt-2">
-                        {edited.id != null ? "Save Changes" : "Add Entry"}
+                        {t(
+                            edited.id != null
+                                ? "timeEditForm.saveChanges"
+                                : "timeEditForm.submitNew"
+                        )}
                     </button>
                 </form>
                 <div class="divider" />
@@ -404,7 +415,7 @@ export default function TimeEditForm(props: {
                                     }
                                 }}
                             >
-                                Stop tracking
+                                {t("timeEditForm.stopTracking")}
                             </button>
                             <button
                                 class="btn btn-warning"
@@ -428,7 +439,7 @@ export default function TimeEditForm(props: {
                                     })
                                 }
                             >
-                                Cancel
+                                {t("timeEditForm.cancel")}
                             </button>
                         </div>
                     }
@@ -437,7 +448,7 @@ export default function TimeEditForm(props: {
                         class="btn btn-primary"
                         onClick={() => timeTracking.start(props.taskId)}
                     >
-                        Start tracking
+                        {t("timeEditForm.startTracking")}
                     </button>
                 </Show>
             </div>

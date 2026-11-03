@@ -5,6 +5,7 @@ import { gql } from "@urql/core";
 import { useAppData } from "../contexts/appDataContext";
 import { Title } from "@solidjs/meta";
 import { BaseBoard } from "../gqlTypes";
+import { t } from "../i18n";
 
 async function createBoard(name: string) {
     const result = await gqlClient.mutation<{
@@ -49,17 +50,17 @@ export default function BoardForm() {
 
     return (
         <div class="flex w-full h-full items-center justify-center">
-            <Title>New Board</Title>
+            <Title>{t("boardForm.title")}</Title>
             <div class="card card-border bg-base-100 border border-base-200">
                 <div class="card-body">
-                    <h2 class="card-title">Create Board</h2>
+                    <h2 class="card-title">{t("boardForm.createBoard")}</h2>
                     <form onSubmit={submit}>
                         <fieldset class="fieldset">
-                            <label class="label">Name</label>
+                            <label class="label">{t("boardForm.name")}</label>
                             <input
                                 class="input"
                                 type="text"
-                                placeholder="Name"
+                                placeholder={t("boardForm.placeholder")}
                                 value={name()}
                                 onInput={e => setName(e.currentTarget.value)}
                                 required
@@ -67,7 +68,7 @@ export default function BoardForm() {
                         </fieldset>
                         <div class="card-actions">
                             <button class="btn btn-accent mt-4" type="submit">
-                                Create
+                                {t("boardForm.create")}
                             </button>
                         </div>
                     </form>

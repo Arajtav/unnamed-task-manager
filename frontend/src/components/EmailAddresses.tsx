@@ -9,6 +9,7 @@ import { parseOneAddress } from "email-addresses";
 import { TrashIcon } from "lucide-solid";
 import { Me } from "../gqlTypes";
 import { SOMETHING } from "../alerts";
+import { t } from "../i18n";
 
 export default function EmailAddresses() {
     const [appData, setAppData] = useAppData();
@@ -69,11 +70,11 @@ export default function EmailAddresses() {
 
     return (
         <fieldset class="fieldset bg-base-200 border-base-300 w-xs border p-4">
-            <legend class="fieldset-legend">Email addresses</legend>
+            <legend class="fieldset-legend">{t("emailAddresses.title")}</legend>
 
             <Show when={appData.me.emails.length == 0}>
                 <div class="alert">
-                    <span>You have no emails linked yet.</span>
+                    <span>{t("emailAddresses.noEmails")}</span>
                 </div>
             </Show>
 
@@ -125,7 +126,7 @@ export default function EmailAddresses() {
                     type="text"
                     inputMode="email"
                     class="input join-item validator"
-                    placeholder="me@example.org"
+                    placeholder={t("emailAddresses.emailPlaceholder")}
                     required
                     value={email()}
                     onInput={e => {
@@ -143,7 +144,7 @@ export default function EmailAddresses() {
                     onClick={addEmail}
                     disabled={adding() || !emailValid()}
                 >
-                    {adding() ? "Adding..." : "Add"}
+                    {t(adding() ? "emailAddresses.adding" : "emailAddresses.add")}
                 </button>
             </div>
         </fieldset>

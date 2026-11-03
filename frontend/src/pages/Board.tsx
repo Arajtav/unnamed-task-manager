@@ -229,6 +229,7 @@ export default function Board() {
         setBoard("tasks", task => task.id == updated.id, processPreviewTask(updated));
     }
 
+    // TODO: i18n
     const title = () => {
         const taskId = viewTask();
 

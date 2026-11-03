@@ -1,3 +1,5 @@
+// TODO: replace it all for i18n
+
 import { createContext, useContext } from "solid-js";
 import { AlertProps } from "../newComponents/Alert";
 

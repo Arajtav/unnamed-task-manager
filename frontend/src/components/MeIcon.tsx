@@ -4,6 +4,7 @@ import { useAppData } from "../contexts/appDataContext";
 import Avatar from "../newComponents/Avatar";
 import { useAlert } from "../contexts/alertContext";
 import { CircleXIcon, GlobeOffIcon } from "lucide-solid";
+import { t } from "../i18n";
 
 const NETWORK = {
     type: "error",
@@ -33,13 +34,14 @@ export default function MeIcon() {
                 );
             }
         } else {
+            // TODO: useNavigate
             window.location.assign("/login");
         }
     }
 
     return (
         <div>
-            <button popovertarget="avatar-settings" style={{"anchor-name":"--avatar-anchor"}}>
+            <button popovertarget="avatar-settings" style={{ "anchor-name": "--avatar-anchor" }}>
                 <Avatar user={appData.me} title={{ option: "custom", value: "You" }} />
             </button>
 
@@ -47,13 +49,13 @@ export default function MeIcon() {
                 id="avatar-settings"
                 popover
                 class="dropdown menu w-52 rounded-box bg-base-200"
-                style={{"position-anchor":"--avatar-anchor"}}
+                style={{ "position-anchor": "--avatar-anchor" }}
             >
                 <li>
-                    <A href="/settings">Settings</A>
+                    <A href="/settings">{t("navbar.settings")}</A>
                 </li>
                 <li>
-                    <button onClick={logout}>Log out</button>
+                    <button onClick={logout}>{t("navbar.logOut")}</button>
                 </li>
             </ul>
         </div>

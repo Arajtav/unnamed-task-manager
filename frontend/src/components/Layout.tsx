@@ -12,6 +12,7 @@ import { AppData, AppDataContext } from "../contexts/appDataContext";
 import { ClientAppDataContext, createClientAppData } from "../contexts/clientAppDataContext";
 import { BaseBoard, FullUserRaw, Me, processFullUser } from "../gqlTypes";
 import Alert, { LogAlert } from "../newComponents/Alert";
+import LocaleSync from "../i18n/localeSync";
 
 export default function Layout(props: RouteSectionProps) {
     const location = useLocation();
@@ -196,6 +197,7 @@ export default function Layout(props: RouteSectionProps) {
                                         <ClientAppDataContext.Provider
                                             value={createClientAppData(me.id)}
                                         >
+                                            <LocaleSync />
                                             <Navbar />
                                             <div class="flex-1 overflow-scroll h-full">
                                                 {props.children}
@@ -253,7 +255,7 @@ export default function Layout(props: RouteSectionProps) {
                 </Show>
 
                 <form method="dialog" class="modal-backdrop">
-                    <button>close</button>
+                    <button />
                 </form>
             </dialog>
         </div>

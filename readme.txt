@@ -12,3 +12,10 @@ Then you can register and do all the stuff from the UI.
 IMPORTANT: This project is in a fast development stage, the philosophy basically is add features with terrible code
 and as long as they are usable it's fine. I am going to refactor and clean up later when all the basic features are done.
 This will happen in stages, UI cleanup and well a real UI not a development one, backend structure cleanup and finally a frontend code update.
+
+i18n progress, to translate:
+- alerts
+- modals
+- prompts
+- errors
+- avatar

@@ -1,6 +1,5 @@
 import { createSignal, For, Show } from "solid-js";
 import User from "../newComponents/User";
-import { formatDuration } from "../format";
 import { CircleXIcon, XIcon } from "lucide-solid";
 import { useBoard } from "../contexts/boardContext";
 import { gqlClient } from "../graphql";
@@ -9,13 +8,8 @@ import { handleAuthError } from "../auth";
 import { useAlert } from "../contexts/alertContext";
 import { SetStoreFunction } from "solid-js/store";
 import DateTime from "./DateTime";
-import {
-    CompleteTask,
-    MinimalTaskRaw,
-    priorityLabel,
-    processMinimalTask,
-    TimeTrackingEntry,
-} from "../gqlTypes";
+import { CompleteTask, MinimalTaskRaw, processMinimalTask, TimeTrackingEntry } from "../gqlTypes";
+import { t } from "../i18n";
 
 export default function TaskDetails(props: {
     task: CompleteTask;
@@ -116,14 +110,18 @@ export default function TaskDetails(props: {
 
             <div class="space-y-4">
                 <div>
-                    <div class="text-sm font-semibold text-base-content/70">Description</div>
+                    <div class="text-sm font-semibold text-base-content/70">
+                        {t("taskDetails.descriptionLabel")}
+                    </div>
                     <p class="mt-1 whitespace-pre-wrap">
-                        {props.task.description || "No description provided."}
+                        {t("taskDetails.description", props.task.description)}
                     </p>
                 </div>
 
                 <div>
-                    <div class="text-sm font-semibold text-base-content/70">Author</div>
+                    <div class="text-sm font-semibold text-base-content/70">
+                        {t("taskDetails.author")}
+                    </div>
                     <User
                         user={{
                             id: props.task.author.user?.id,
@@ -134,9 +132,14 @@ export default function TaskDetails(props: {
                 </div>
 
                 <div>
-                    <div class="text-sm font-semibold text-base-content/70">Assigned to</div>
+                    <div class="text-sm font-semibold text-base-content/70">
+                        {t("taskDetails.assignedTo")}
+                    </div>
                     <div>
-                        <For each={props.task.assignees} fallback={<p class="mt-2">No one</p>}>
+                        <For
+                            each={props.task.assignees}
+                            fallback={<p class="mt-2">{t("taskDetails.noOne")}</p>}
+                        >
                             {assignee => (
                                 <>
                                     <User
@@ -153,28 +156,36 @@ export default function TaskDetails(props: {
                 </div>
 
                 <div>
-                    <div class="text-sm font-semibold text-base-content/70">Status</div>
+                    <div class="text-sm font-semibold text-base-content/70">
+                        {t("taskDetails.status")}
+                    </div>
                     <div class="mt-1">{props.task.status}</div>
                 </div>
 
                 <div>
-                    <div class="text-sm font-semibold text-base-content/70">Priority</div>
-                    <div class="mt-1">{priorityLabel(props.task.priority)}</div>
+                    <div class="text-sm font-semibold text-base-content/70">
+                        {t("taskDetails.priorityLabel")}
+                    </div>
+                    <div class="mt-1"> {t("taskDetails.priority", props.task.priority)}</div>
                 </div>
 
                 <Show when={props.task.estimatedTime}>
                     {estimatedTime => (
                         <div>
                             <div class="text-sm font-semibold text-base-content/70">
-                                Estimated time
+                                {t("taskDetails.estimatedTimeLabel")}
                             </div>
-                            <div class="mt-1">{formatDuration(estimatedTime())}</div>
+                            <div class="mt-1">
+                                {t("taskDetails.estimatedTime", estimatedTime())}
+                            </div>
                         </div>
                     )}
                 </Show>
 
                 <div>
-                    <div class="text-sm font-semibold text-base-content/70">Created</div>
+                    <div class="text-sm font-semibold text-base-content/70">
+                        {t("taskDetails.created")}
+                    </div>
                     <div class="mt-1">
                         <DateTime datetime={props.task.createdAt} />
                     </div>
@@ -183,7 +194,9 @@ export default function TaskDetails(props: {
                 <Show when={props.task.archivedAt}>
                     {archivedAt => (
                         <div>
-                            <div class="text-sm font-semibold text-base-content/70">Archived</div>
+                            <div class="text-sm font-semibold text-base-content/70">
+                                {t("taskDetails.archived")}
+                            </div>
                             <div class="mt-1">
                                 <DateTime datetime={archivedAt()} />
                             </div>
@@ -192,7 +205,9 @@ export default function TaskDetails(props: {
                 </Show>
 
                 <div>
-                    <div class="text-sm font-semibold text-base-content/70">Blocked by</div>
+                    <div class="text-sm font-semibold text-base-content/70">
+                        {t("taskDetails.blockedBy")}
+                    </div>
                     <ul class="mt-1 list bg-base-100 rounded-box mb-4">
                         <For each={props.task.blockedBy}>
                             {taskBlock => (
@@ -218,19 +233,19 @@ export default function TaskDetails(props: {
                             onInput={e => setSelectedTaskId(e.currentTarget.value)}
                         >
                             <option disabled selected value="">
-                                Select a task...
+                                {t("taskDetails.selectTask")}
                             </option>
                             <For
                                 each={board.tasks
                                     .filter(
-                                        t =>
-                                            !t.archivedAt &&
-                                            t.id != props.task.id &&
-                                            !props.task.blockedBy.some(b => b.id == t.id)
+                                        task =>
+                                            !task.archivedAt &&
+                                            task.id != props.task.id &&
+                                            !props.task.blockedBy.some(b => b.id == task.id)
                                     )
                                     .toSorted((a, b) => a.title.localeCompare(b.title))}
                             >
-                                {t => <option value={t.id}>{t.title}</option>}
+                                {task => <option value={task.id}>{task.title}</option>}
                             </For>
                         </select>
                         <button
@@ -241,13 +256,15 @@ export default function TaskDetails(props: {
                             }}
                             disabled={selectedTaskId() == ""}
                         >
-                            Add
+                            {t("taskDetails.add")}
                         </button>
                     </div>
                 </div>
 
                 <div>
-                    <div class="text-sm font-semibold text-base-content/70">Time logged</div>
+                    <div class="text-sm font-semibold text-base-content/70">
+                        {t("taskDetails.timeLoggedLabel")}
+                    </div>
                     <div class="flex flex-col w-full mt-2">
                         <For each={props.task.timeLogged}>
                             {e => (
@@ -255,7 +272,9 @@ export default function TaskDetails(props: {
                                     <div class="flex-1">
                                         <User user={e.user} />
                                     </div>
-                                    <div class="self-center">{formatDuration(e.time)}</div>
+                                    <div class="self-center">
+                                        {t("taskDetails.timeLogged", e.time)}
+                                    </div>
                                 </div>
                             )}
                         </For>
@@ -266,10 +285,10 @@ export default function TaskDetails(props: {
             <div class="flex flex-row gap-2">
                 <div class="modal-action">
                     <button class="btn btn-primary" onClick={() => props.onEdit()}>
-                        Edit
+                        {t("taskDetails.edit")}
                     </button>
                     <button class="btn btn-primary" onClick={() => props.onLogTime()}>
-                        Log time
+                        {t("taskDetails.logTime")}
                     </button>
                 </div>
             </div>

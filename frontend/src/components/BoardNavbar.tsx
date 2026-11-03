@@ -4,6 +4,7 @@ import { SettingsIcon } from "lucide-solid";
 import { useBoardNav } from "../contexts/boardNavContext";
 import { createMemo } from "solid-js";
 import { useAppData } from "../contexts/appDataContext";
+import { t } from "../i18n";
 
 export default function BoardNavbar() {
     const [board] = useBoard();
@@ -20,9 +21,9 @@ export default function BoardNavbar() {
                 <input
                     class="w-full input"
                     value={boardNav.search}
-                    placeholder="Search..."
+                    placeholder={t("boardNavbar.search")}
                     onInput={e => setBoardNav("search", e.currentTarget.value)}
-                 />
+                />
             </div>
 
             <A
@@ -34,5 +35,3 @@ export default function BoardNavbar() {
         </div>
     );
 }
-
-// TODO: Move add task to columns. That will also remove one nesting layer for invalid board config from TaskForm.

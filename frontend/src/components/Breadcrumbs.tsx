@@ -1,3 +1,5 @@
+// TODO: replace it all for i18n
+
 import { A, useMatch } from "@solidjs/router";
 import { createMemo, For } from "solid-js";
 import { useAppData } from "../contexts/appDataContext";

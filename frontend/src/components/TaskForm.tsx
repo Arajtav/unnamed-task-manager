@@ -9,6 +9,7 @@ import Badge from "../newComponents/Badge";
 import BadgeButton from "../newComponents/BadgeButton";
 import { CircleXIcon, PlusIcon } from "lucide-solid";
 import { PreviewTaskRaw, PRIORITIES, processPreviewTask } from "../gqlTypes";
+import { t } from "../i18n";
 
 export default function TaskForm(props: {
     onClose: () => void;
@@ -134,37 +135,37 @@ export default function TaskForm(props: {
     return (
         <div class="card bg-base-100 border border-base-200 w-full max-w-sm shrink-0">
             <div class="card-body">
-                <h2 class="card-title">Create Task</h2>
+                <h2 class="card-title">{t("taskForm.title")}</h2>
 
                 <Show
                     when={appData.me.emails.length}
                     fallback={
                         <A href="/settings" class="text-warning text-sm">
-                            You need to link an email first.
+                            {t("taskForm.linkEmailFirst")}
                         </A>
                     }
                 >
                     <form onSubmit={submit} id="create-task-form">
                         <fieldset class="fieldset">
-                            <label class="label">Title</label>
+                            <label class="label">{t("taskForm.titleLabel")}</label>
                             <input
                                 class="input"
                                 type="text"
-                                placeholder="Title"
+                                placeholder={t("taskForm.titlePlaceholder")}
                                 value={title()}
                                 onInput={e => setTitle(e.currentTarget.value)}
                                 required
                             />
 
-                            <label class="label">Description</label>
+                            <label class="label">{t("taskForm.descriptionLabel")}</label>
                             <textarea
                                 class="textarea"
-                                placeholder="Description"
+                                placeholder={t("taskForm.descriptionPlaceholder")}
                                 value={description()}
                                 onInput={e => setDescription(e.currentTarget.value)}
                             />
 
-                            <label class="label">Author email</label>
+                            <label class="label">{t("taskForm.authorEmail")}</label>
                             <select
                                 class="select w-full"
                                 value={author()}
@@ -177,7 +178,7 @@ export default function TaskForm(props: {
                                 </For>
                             </select>
 
-                            <label class="label">Status</label>
+                            <label class="label">{t("taskForm.status")}</label>
                             <select
                                 class="select w-full"
                                 onChange={e => setStatus(e.currentTarget.value)}
@@ -193,7 +194,7 @@ export default function TaskForm(props: {
                                 </For>
                             </select>
 
-                            <label class="label">Priority</label>
+                            <label class="label">{t("taskForm.priority")}</label>
                             <select
                                 class="select w-full"
                                 value={priority()}
@@ -208,7 +209,7 @@ export default function TaskForm(props: {
                                 </For>
                             </select>
 
-                            <label class="label">Labels</label>
+                            <label class="label">{t("taskForm.labels")}</label>
                             <div class="flex flex-wrap gap-2">
                                 <For each={[...labels()]}>
                                     {label => (
@@ -230,11 +231,11 @@ export default function TaskForm(props: {
                 </Show>
                 <div class="card-actions">
                     <button class="btn btn-warning mt-4" onClick={() => props.onClose()}>
-                        Cancel
+                        {t("taskForm.cancel")}
                     </button>
                     <Show when={appData.me.emails.length}>
                         <button class="btn btn-primary mt-4" type="submit" form="create-task-form">
-                            Create
+                            {t("taskForm.create")}
                         </button>
                     </Show>
                 </div>

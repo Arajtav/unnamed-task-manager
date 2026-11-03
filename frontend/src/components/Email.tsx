@@ -1,3 +1,5 @@
+// TODO: replace it all for i18n
+
 import { createMemo } from "solid-js";
 
 export default function Email(props: { email: string }) {

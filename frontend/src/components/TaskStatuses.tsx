@@ -5,6 +5,7 @@ import { gqlClient } from "../graphql";
 import { createSignal, For, Show } from "solid-js";
 import { CircleXIcon, GripVerticalIcon, PencilIcon } from "lucide-solid";
 import { TaskStatus } from "../gqlTypes";
+import { t } from "../i18n";
 
 // TODO: Block everything with a spinner while stuff saves.
 export default function TaskStatuses() {
@@ -167,13 +168,13 @@ export default function TaskStatuses() {
 
     return (
         <fieldset class="fieldset bg-base-200 border-base-300 w-xs border p-4">
-            <legend class="fieldset-legend">Task statuses</legend>
+            <legend class="fieldset-legend">{t("taskStatuses.title")}</legend>
 
             <Show
                 when={board.taskStatus.length > 0}
                 fallback={
                     <div class="alert alert-error">
-                        <span>No task statuses configured.</span>
+                        <span>{t("taskStatuses.noStatuses")}</span>
                     </div>
                 }
             >
@@ -261,7 +262,7 @@ export default function TaskStatuses() {
                 <input
                     type="text"
                     class="input join-item"
-                    placeholder="New status"
+                    placeholder={t("taskStatuses.newStatusPlaceholder")}
                     required
                     value={newStatusName()}
                     onInput={e => setNewStatusName(e.currentTarget.value)}
@@ -273,7 +274,7 @@ export default function TaskStatuses() {
                     onClick={addTaskStatus}
                     disabled={addingStatus() || !newStatusName().trim()}
                 >
-                    {addingStatus() ? "Adding..." : "Add"}
+                    {t(addingStatus() ? "taskStatuses.adding" : "taskStatuses.add")}
                 </button>
             </div>
         </fieldset>

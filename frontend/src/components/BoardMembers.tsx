@@ -9,6 +9,7 @@ import { CircleXIcon, EllipsisVerticalIcon, PlusIcon } from "lucide-solid";
 import Badge from "../newComponents/Badge";
 import { useAppData } from "../contexts/appDataContext";
 import { Access } from "../gqlTypes";
+import { t } from "../i18n";
 
 export default function BoardMembers() {
     const [board, setBoard] = useBoard();
@@ -219,13 +220,13 @@ export default function BoardMembers() {
 
     return (
         <fieldset class="fieldset bg-base-200 border-base-300 w-min min-w-xl border p-4">
-            <legend class="fieldset-legend">Board members</legend>
+            <legend class="fieldset-legend">{t("boardMembers.title")}</legend>
 
             <Show
                 when={board.access.length > 0}
                 fallback={
                     <div class="alert alert-warning">
-                        <span>This board has no members.</span>
+                        <span>{t("boardMembers.empty")}</span>
                     </div>
                 }
             >
@@ -238,12 +239,12 @@ export default function BoardMembers() {
                                 </div>
 
                                 <div class="self-center">
-                                    <Show when={access.permissions}>
-                                        {permissions => (
+                                    <Show when={access.permissions || undefined}>
+                                        {role => (
                                             <Badge
-                                                text={permissions()}
+                                                text={t(`permissions.${role()}`)}
                                                 class={
-                                                    permissions() == "admin"
+                                                    role() == "admin"
                                                         ? "capitalize bg-primary-content border-primary/50"
                                                         : "capitalize bg-accent-content border-accent/50"
                                                 }
@@ -295,7 +296,7 @@ export default function BoardMembers() {
                                                     });
                                                 }}
                                             >
-                                                Kick
+                                                {t("boardMembers.kick")}
                                             </button>
                                         </li>
 
@@ -309,9 +310,11 @@ export default function BoardMembers() {
                                                         )
                                                     }
                                                 >
-                                                    {access.permissions == "moderator"
-                                                        ? "Remove Moderator"
-                                                        : "Make Moderator"}
+                                                    {t(
+                                                        access.permissions == "moderator"
+                                                            ? "boardMembers.removeModerator"
+                                                            : "boardMembers.makeModerator"
+                                                    )}
                                                 </button>
                                             </li>
                                         </Show>
@@ -340,7 +343,9 @@ export default function BoardMembers() {
                     <For
                         each={searchResults()}
                         fallback={
-                            <li class="h-12 flex items-center justify-center">No results.</li>
+                            <li class="h-12 flex items-center justify-center">
+                                {t("boardMembers.searchNoResults")}
+                            </li>
                         }
                     >
                         {user => (

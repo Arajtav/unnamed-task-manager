@@ -17,6 +17,7 @@ import {
     processCompleteTask,
 } from "../gqlTypes";
 import { parseOneAddress } from "email-addresses";
+import { t } from "../i18n";
 
 export function newValueOrUndefined<T>(value: T, original: T) {
     return value !== original ? value : undefined;
@@ -254,11 +255,11 @@ export default function TaskEditForm(props: {
     return (
         <div class="card bg-base-100 border border-base-200 w-full max-w-sm shrink-0 row-start-1 col-start-1">
             <div class="card-body">
-                <h2 class="card-title">Edit Task</h2>
+                <h2 class="card-title">{t("taskEditForm.title")}</h2>
 
                 <form onSubmit={submit} id="edit-task-form">
                     <fieldset class="fieldset">
-                        <label class="label">Title</label>
+                        <label class="label">{t("taskEditForm.titleLabel")}</label>
                         <input
                             class="input w-full"
                             type="text"
@@ -267,14 +268,14 @@ export default function TaskEditForm(props: {
                             required
                         />
 
-                        <label class="label">Description</label>
+                        <label class="label">{t("taskEditForm.descriptionLabel")}</label>
                         <textarea
                             class="textarea w-full max-h-50"
                             value={description()}
                             onInput={e => setDescription(e.currentTarget.value)}
                         />
 
-                        <label class="label">Assigned to</label>
+                        <label class="label">{t("taskEditForm.assignedTo")}</label>
                         <Show when={assignees().size > 0}>
                             <ul class="list bg-base-100 rounded-box mb-2">
                                 <For each={[...assignees()]}>
@@ -302,7 +303,7 @@ export default function TaskEditForm(props: {
                                 type="text"
                                 inputMode="email"
                                 class="input w-full"
-                                placeholder="Add assignee..."
+                                placeholder={t("taskEditForm.addAssigneePlaceholder")}
                                 value={assigneeSearch()}
                                 onInput={e => setAssigneeSearch(e.currentTarget.value)}
                                 onKeyDown={e => {
@@ -345,7 +346,7 @@ export default function TaskEditForm(props: {
                                                     onClick={() => addAssignee(email())}
                                                 >
                                                     <PlusIcon strokeWidth={1.5} />
-                                                    Add {email()}
+                                                    {t("taskEditForm.addAssignee", email())}
                                                 </button>
                                             </li>
                                         )}
@@ -353,7 +354,7 @@ export default function TaskEditForm(props: {
                                 </ul>
                             </Show>
                         </div>
-                        <label class="label">Status</label>
+                        <label class="label">{t("taskEditForm.status")}</label>
                         <select
                             class="select w-full"
                             value={status()}
@@ -364,7 +365,7 @@ export default function TaskEditForm(props: {
                             </For>
                         </select>
 
-                        <label class="label">Priority</label>
+                        <label class="label">{t("taskEditForm.priority")}</label>
                         <select
                             class="select w-full"
                             value={priority()}
@@ -379,7 +380,7 @@ export default function TaskEditForm(props: {
                             </For>
                         </select>
 
-                        <label class="label">Estimated Time</label>
+                        <label class="label">{t("taskEditForm.estimatedTime")}</label>
                         <div class="flex items-center justify-between">
                             <input
                                 type="number"
@@ -426,7 +427,7 @@ export default function TaskEditForm(props: {
                             />
                             s
                         </div>
-                        <label class="label">Labels</label>
+                        <label class="label">{t("taskEditForm.labels")}</label>
                         <div class="flex flex-wrap gap-2">
                             <For each={[...labels()]}>
                                 {label => (
@@ -452,14 +453,14 @@ export default function TaskEditForm(props: {
                                 onChange={e => setIsArchived(e.currentTarget.checked)}
                                 disabled={!canKeepArchived()}
                             />
-                            Archived
+                            {t("taskEditForm.archived")}
                         </label>
                     </fieldset>
                 </form>
 
                 <div class="card-actions mt-4">
                     <button class="btn btn-warning" onClick={() => props.onCancel()}>
-                        Cancel
+                        {t("taskEditForm.cancel")}
                     </button>
                     <button
                         class="btn btn-primary"
@@ -467,7 +468,7 @@ export default function TaskEditForm(props: {
                         form="edit-task-form"
                         disabled={saving()}
                     >
-                        Save
+                        {t("taskEditForm.save")}
                     </button>
                 </div>
             </div>

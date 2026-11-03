@@ -170,6 +170,7 @@ export type Me = UserWithEmails & {
     invite: string | null;
 };
 
+// TODO: i18n
 export const PRIORITIES = [
     { value: 3, label: "Critical" },
     { value: 2, label: "Higher" },

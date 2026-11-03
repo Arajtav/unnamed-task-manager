@@ -1,3 +1,5 @@
+// TODO: i18n
+
 import { LucideProps, XIcon } from "lucide-solid";
 import { Component, For, Show } from "solid-js";
 

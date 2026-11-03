@@ -14,6 +14,7 @@ import {
 import { PreservingA } from "../newComponents/PreservingA";
 import ActiveButton from "../newComponents/ActiveButton";
 import { KeyRoundIcon } from "lucide-solid";
+import { t } from "../i18n";
 
 // Actually it's an used import.
 void masked;
@@ -118,7 +119,7 @@ export default function Join() {
 
     return (
         <div class="h-full flex flex-col bg-base-100">
-            <Title>Join</Title>
+            <Title>{t("join.title")}</Title>
             <div class="flex-1" />
             <div class="flex items-center justify-center">
                 <fieldset
@@ -126,11 +127,11 @@ export default function Join() {
                     disabled={isLoading()}
                 >
                     <div class="flex flex-col">
-                        <label class="my-2">Invite code</label>
+                        <label class="my-2">{t("join.inviteCode")}</label>
                         <input
                             class="font-mono uppercase bg-base-200 border-base-300 text-base-content px-6 py-4 rounded-xl border drop-shadow-sm user-invalid:ring-1 user-invalid:ring-inset user-invalid:ring-error disabled:cursor-not-allowed"
                             type="text"
-                            placeholder="XXXX-XXXX-XXXX"
+                            placeholder={t("join.invitePlaceholder")}
                             pattern="[A-Za-z]{4}(-[A-Za-z]{4}){2}"
                             use:masked={{
                                 mask: "aaaa-aaaa-aaaa",
@@ -141,11 +142,11 @@ export default function Join() {
                     </div>
 
                     <div class="flex flex-col mt-3 mb-6">
-                        <label class="my-2">Display name</label>
+                        <label class="my-2">{t("join.displayName")}</label>
                         <input
                             class="bg-base-200 border-base-300 text-base-content px-6 py-4 rounded-xl border drop-shadow-sm user-invalid:ring-1 user-invalid:ring-inset user-invalid:ring-error disabled:cursor-not-allowed"
                             type="text"
-                            placeholder="Me"
+                            placeholder={t("join.displayNamePlaceholder")}
                             maxLength={NAME_MAX_LENGTH}
                             value={name()}
                             onInput={e => setName(e.currentTarget.value)}
@@ -154,7 +155,7 @@ export default function Join() {
                     </div>
 
                     <ActiveButton
-                        text="Create a passkey"
+                        text={t("join.createAPasskey")}
                         icon={KeyRoundIcon}
                         isLoading={isLoading()}
                         disabled={!canSubmit()}
@@ -164,12 +165,12 @@ export default function Join() {
             </div>
             <div class="flex-1 flex items-end justify-center">
                 <div class="mb-4 opacity-60">
-                    or{" "}
+                    {t("join.or")}{" "}
                     <PreservingA
                         href="/login"
                         class="cursor-pointer hover:underline focus:underline drop-shadow-sm"
                     >
-                        Login
+                        {t("join.login")}
                     </PreservingA>
                 </div>
             </div>

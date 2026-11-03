@@ -1,3 +1,5 @@
+// TODO: replace it all for i18n
+
 import { createContext, JSXElement, useContext } from "solid-js";
 
 export type ModalButton = {

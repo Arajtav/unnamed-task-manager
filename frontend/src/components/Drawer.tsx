@@ -1,3 +1,5 @@
+// TODO: replace it all for i18n
+
 import { createMemo, For } from "solid-js";
 import { A, useMatch } from "@solidjs/router";
 import { PanelLeftIcon } from "lucide-solid";

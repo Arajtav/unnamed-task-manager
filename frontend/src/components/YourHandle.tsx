@@ -5,6 +5,7 @@ import { gqlClient } from "../graphql";
 import { gql } from "@urql/core";
 import { Me } from "../gqlTypes";
 import { SOMETHING } from "../alerts";
+import { t } from "../i18n";
 
 export default function YourHandle() {
     const [appData, setAppData] = useAppData();
@@ -58,7 +59,7 @@ export default function YourHandle() {
 
     return (
         <fieldset class="fieldset bg-base-200 border-base-300 w-xs border p-4">
-            <legend class="fieldset-legend">Your handle</legend>
+            <legend class="fieldset-legend">{t("yourHandle.title")}</legend>
 
             <div class="join">
                 <input
@@ -73,9 +74,7 @@ export default function YourHandle() {
 
                         setHandle(value);
                         e.currentTarget.setCustomValidity(
-                            handleValid()
-                                ? ""
-                                : 'Invalid handle (must be at least 3 characters long, start with a letter and contain only lowercase letters and numbers (and "-"))'
+                            handleValid() ? "" : t("yourHandle.invalid")
                         );
                     }}
                     disabled={saving()}
@@ -86,7 +85,7 @@ export default function YourHandle() {
                     onClick={saveHandle}
                     disabled={saving() || !handleValid()}
                 >
-                    {saving() ? "Saving..." : "Save"}
+                    {saving() ? t("yourHandle.saving") : t("yourHandle.save")}
                 </button>
             </div>
         </fieldset>

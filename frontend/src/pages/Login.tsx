@@ -14,6 +14,7 @@ import {
     UNABLE_TO_GET_PASSKEYS,
 } from "../alerts";
 import { PreservingA } from "../newComponents/PreservingA";
+import { t } from "../i18n";
 
 export default function Login() {
     const navigate = useNavigate();
@@ -111,11 +112,11 @@ export default function Login() {
 
     return (
         <div class="h-full flex flex-col bg-base-100">
-            <Title>Login</Title>
+            <Title>{t("login.title")}</Title>
             <div class="flex-1" />
             <div class="flex items-center justify-center">
                 <ActiveButton
-                    text="Login with a passkey"
+                    text={t("login.loginWithAPasskey")}
                     icon={KeyRoundIcon}
                     isLoading={isLoading()}
                     onClick={login}
@@ -123,12 +124,12 @@ export default function Login() {
             </div>
             <div class="flex-1 flex items-end justify-center">
                 <div class="mb-4 opacity-60">
-                    or{" "}
+                    {t("login.or")}{" "}
                     <PreservingA
                         href="/join"
                         class="cursor-pointer hover:underline focus:underline drop-shadow-sm"
                     >
-                        Join
+                        {t("login.join")}
                     </PreservingA>
                 </div>
             </div>
