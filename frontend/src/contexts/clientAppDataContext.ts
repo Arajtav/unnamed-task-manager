@@ -71,5 +71,12 @@ export function useTimeTracking() {
                 taskId: Number(k.slice(TT_PREFIX.length)),
                 startedAt: new Date(user.get<string>(k)!),
             })),
+        duration: (taskId: number, now: number = Date.now()) => {
+            const value = user.get<string>(key(taskId));
+            if (value === undefined) return undefined;
+
+            const elapsed = now - new Date(value).getTime();
+            return elapsed < 0 ? undefined : Math.floor(elapsed / 1000);
+        },
     };
 }

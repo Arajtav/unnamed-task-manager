@@ -132,6 +132,10 @@ export const dict = {
         priority: (priority: number) => `PRIORITY ${priorityLabel(priority)}`,
         assignee: "ASSIGNEE",
         author: "AUTHOR",
+        menu: {
+            startTracking: "START_TRACKING",
+            stopTracking: (current: number) => `STOP_TRACKING ${formatDuration(current)}`,
+        },
     },
     boardForm: {
         title: "NEW BOARD",

@@ -127,6 +127,10 @@ export const dict: RawDictionary = {
         priority: (priority: number) => `Priority: ${priorityLabel(priority)}`,
         assignee: "Assignee",
         author: "Author",
+        menu: {
+            startTracking: "Start time tracking",
+            stopTracking: (current: number) => `Stop time tracking (${formatDuration(current)})`,
+        },
     },
     boardForm: {
         title: "New board",
