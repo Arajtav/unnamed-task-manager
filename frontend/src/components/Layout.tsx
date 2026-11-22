@@ -31,7 +31,7 @@ export default function Layout(props: RouteSectionProps) {
             users: FullUserRaw[];
         }>(
             gql`
-                query Me {
+                query State {
                     me {
                         id
                         isAdmin
@@ -42,6 +42,7 @@ export default function Layout(props: RouteSectionProps) {
                     boards {
                         id
                         name
+                        archivedAt
                     }
                     users {
                         id

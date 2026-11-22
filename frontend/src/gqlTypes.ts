@@ -55,6 +55,8 @@ export type TaskStatus = {
 export type BaseBoard = {
     id: number;
     name: string;
+    // This should be `Date | null` but it isn't displayed anywhere really.
+    archivedAt: string | null;
 };
 
 export type FullBoard = BaseBoard & {

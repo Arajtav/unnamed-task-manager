@@ -19,6 +19,7 @@ pub struct Board {
     id: i32,
     name: String,
     created_at: DateTime<Utc>,
+    archived_at: Option<DateTime<Utc>>,
 }
 
 impl From<models::board::Model> for Board {
@@ -27,6 +28,7 @@ impl From<models::board::Model> for Board {
             id: board.id,
             name: board.name,
             created_at: board.created_at,
+            archived_at: board.archived_at,
         }
     }
 }

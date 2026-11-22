@@ -13,6 +13,8 @@ pub struct Model {
 
     pub created_at: DateTime<Utc>,
 
+    pub archived_at: Option<DateTime<Utc>>,
+
     #[sea_orm(has_many)]
     pub tasks: HasMany<super::task::Entity>,
 }

@@ -16,6 +16,7 @@ async function createBoard(name: string) {
                 createBoard(name: $name) {
                     id
                     name
+                    archivedAt
                 }
             }
         `,

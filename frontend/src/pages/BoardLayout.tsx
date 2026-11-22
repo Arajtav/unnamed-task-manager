@@ -46,6 +46,7 @@ export default function BoardLayout(props: RouteSectionProps) {
                 query Board($id: Int!) {
                     board(id: $id) {
                         id
+                        archivedAt
                         name
                         tasks {
                             id

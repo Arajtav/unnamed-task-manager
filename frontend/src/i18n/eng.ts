@@ -18,6 +18,11 @@ export const dict: RawDictionary = {
     boardNavbar: {
         search: "Search...",
     },
+    boardArchived: {
+        title: "Archive the board",
+        archive: "Archive",
+        unarchive: "Unarchive",
+    },
     emailAddresses: {
         title: "Email addresses",
         noEmails: "No email addresses linked",

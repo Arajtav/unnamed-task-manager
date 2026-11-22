@@ -3,6 +3,7 @@ import TaskStatuses from "../components/TaskStatuses";
 import { Title } from "@solidjs/meta";
 import { useBoard } from "../contexts/boardContext";
 import { t } from "../i18n";
+import BoardArchived from "../components/BoardArchived";
 
 export default function BoardSettings() {
     const [{ name }] = useBoard();
@@ -19,6 +20,7 @@ export default function BoardSettings() {
             <div class="flex-1 p-6 gap-6 flex flex-col overflow-y-scroll h-full">
                 <BoardMembers />
                 <TaskStatuses />
+                <BoardArchived />
             </div>
         </div>
     );

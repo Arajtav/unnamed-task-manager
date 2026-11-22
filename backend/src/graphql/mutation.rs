@@ -37,6 +37,24 @@ fn normalize_assignees(raw: Vec<String>) -> Vec<String> {
         .collect()
 }
 
+fn ensure_not_archived(board: &models::board::Model) -> Result<()> {
+    if board.archived_at.is_some() {
+        return Err(coded("Board archived", "BOARD_ARCHIVED"));
+    }
+
+    Ok(())
+}
+
+async fn ensure_board_writable(db: &impl ConnectionTrait, board_id: i32) -> Result<()> {
+    let board = models::board::Entity::find_by_id(board_id)
+        .one(db)
+        .await
+        .map_err(db_err)?
+        .ok_or_else(|| coded("Board not found", "BOARD_NOT_FOUND"))?;
+
+    ensure_not_archived(&board)
+}
+
 async fn insert_labels(tx: &impl ConnectionTrait, task_id: i32, labels: Vec<String>) -> Result<()> {
     if labels.is_empty() {
         return Ok(());
@@ -316,6 +334,7 @@ impl MutationRoot {
         ctx: &Context<'_>,
         id: i32,
         name: Option<String>,
+        is_archived: Option<bool>,
     ) -> Result<Board> {
         let db = get_db(ctx);
         let user = get_user(ctx);
@@ -329,6 +348,10 @@ impl MutationRoot {
             if access.is_none_or(|access| !access.is_moderator) {
                 return Err(forbidden());
             }
+
+            if is_archived.is_some() {
+                return Err(forbidden());
+            }
         }
 
         let board = models::board::Entity::find_by_id(id)
@@ -337,10 +360,18 @@ impl MutationRoot {
             .map_err(db_err)?
             .ok_or_else(|| coded("Board not found", "BOARD_NOT_FOUND"))?;
 
+        if !(board.archived_at.is_none() || user.is_admin) {
+            return Err(forbidden());
+        }
+
         let mut board = board.into_active_model();
 
         if let Some(name) = name {
             board.name = Set(name);
+        }
+
+        if let Some(is_archived) = is_archived {
+            board.archived_at = Set(if is_archived { Some(Utc::now()) } else { None });
         }
 
         let board = board.update(db).await.map_err(|err| {
@@ -389,6 +420,8 @@ impl MutationRoot {
                 .map_err(db_err)?
                 .ok_or_else(forbidden)?;
         }
+
+        ensure_board_writable(&tx, board_id).await?;
 
         models::email::Entity::find_by_id(&author)
             .filter(models::email::Column::UserId.eq(user.id))
@@ -472,6 +505,8 @@ impl MutationRoot {
                 return Err(coded("Task archived", "TASK_ARCHIVED"));
             }
         }
+
+        ensure_board_writable(&tx, task.board_id).await?;
 
         let was_archived = task.archived_at.is_some();
         let mut task = task.into_active_model();
@@ -572,6 +607,10 @@ impl MutationRoot {
             .map_err(db_err)?
             .ok_or_else(|| coded("Board not found", "BOARD_NOT_FOUND"))?;
 
+        if board.archived_at.is_some() && !user.is_admin {
+            return Err(forbidden());
+        }
+
         let access = models::board_access::ActiveModel {
             board_id: Set(board_id),
             user_id: Set(user_id),
@@ -621,7 +660,8 @@ impl MutationRoot {
                 .await
                 .map_err(db_err)?;
 
-            if !access.is_some_and(|access| access.is_moderator)
+            if board.archived_at.is_some()
+                || !access.is_some_and(|access| access.is_moderator)
                 || target.as_ref().is_some_and(|t| t.is_moderator)
             {
                 return Err(forbidden());
@@ -712,6 +752,8 @@ impl MutationRoot {
             .map_err(db_err)?
             .ok_or_else(|| coded("Board not found", "BOARD_NOT_FOUND"))?;
 
+        ensure_not_archived(&board)?;
+
         let task_status = models::board_task_status::ActiveModel {
             board_id: Set(board_id),
             name: Set(name),
@@ -762,6 +804,8 @@ impl MutationRoot {
             .await
             .map_err(db_err)?
             .ok_or_else(|| coded("Board not found", "BOARD_NOT_FOUND"))?;
+
+        ensure_not_archived(&board)?;
 
         // Primary key can change so update() doesn't work.
         let mut update = models::board_task_status::Entity::update_many()
@@ -834,6 +878,8 @@ impl MutationRoot {
             }
         }
 
+        ensure_board_writable(db, task.board_id).await?;
+
         let entry = models::time_tracking::ActiveModel {
             started_at: Set(started_at),
             finished_at: Set(finished_at),
@@ -870,6 +916,15 @@ impl MutationRoot {
 
         if entry.user_id != Some(user.id) {
             return Err(forbidden());
+        }
+
+        if let Some(task_id) = entry.task_id
+            && let Some(task) = models::task::Entity::find_by_id(task_id)
+                .one(db)
+                .await
+                .map_err(db_err)?
+        {
+            ensure_board_writable(db, task.board_id).await?;
         }
 
         let final_started_at = started_at.unwrap_or(entry.started_at);
@@ -923,6 +978,8 @@ impl MutationRoot {
                 .map_err(db_err)?
                 .ok_or_else(forbidden)?;
         }
+
+        ensure_board_writable(db, task.board_id).await?;
 
         let Some(entry) = models::time_tracking::Entity::find_by_id(id)
             .filter(models::time_tracking::Column::TaskId.eq(task_id))
@@ -996,6 +1053,8 @@ impl MutationRoot {
             }
         }
 
+        ensure_board_writable(db, task.board_id).await?;
+
         // TODO: Why do we even use sea orm it was a terrible decision.
         let stmt = Statement::from_sql_and_values(
             DbBackend::Sqlite,
@@ -1062,6 +1121,8 @@ impl MutationRoot {
                 return Err(coded("Task archived", "TASK_ARCHIVED"));
             }
         }
+
+        ensure_board_writable(db, task.board_id).await?;
 
         if let Some(block) = models::task_block::Entity::find_by_id((blocked_by, task_id))
             .one(db)

@@ -20,6 +20,11 @@ export const dict = {
     boardNavbar: {
         search: "SEARCH",
     },
+    boardArchived: {
+        title: "BOARD ARCHIVED",
+        archive: "ARCHIVE",
+        unarchive: "UNARCHIVE",
+    },
     emailAddresses: {
         title: "EMAIL ADDRESSES",
         noEmails: "NO EMAILS",
